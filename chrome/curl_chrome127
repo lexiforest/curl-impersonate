@@ -25,7 +25,7 @@ dir=${0%/*}
     -H 'Sec-Fetch-User: ?1' \
     -H 'Sec-Fetch-Dest: document' \
     -H 'Accept-Encoding: gzip, deflate, br, zstd' \
-    -H 'Accept-Language: ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7' \
+    -H 'Accept-Language: en-US,en;q=0.9' \
     -H 'Priority: u=0, i' \
     --http2 \
     --http2-settings '1:65536;2:0;4:6291456;6:262144' \
