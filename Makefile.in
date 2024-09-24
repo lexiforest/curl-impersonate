@@ -13,8 +13,8 @@ BROTLI_VERSION := 1.1.0
  # In case this is changed, update build-and-test-make.yml as well
  # In case this is changed, update build-and-test-make.yml as well
 BORING_SSL_COMMIT := d24a38200fef19150eef00cad35b138936c08767
-NGHTTP2_VERSION := nghttp2-1.61.0
-NGHTTP2_URL := https://github.com/nghttp2/nghttp2/releases/download/v1.61.0/nghttp2-1.61.0.tar.bz2
+NGHTTP2_VERSION := nghttp2-1.64.0
+NGHTTP2_URL := https://github.com/nghttp2/nghttp2/releases/download/v1.64.0/nghttp2-1.64.0.tar.bz2
 CURL_VERSION := curl-8_7_1
 
 # https://github.com/google/brotli/commit/641bec0e30bea648b3da1cd90fc6b44deb429f71
