@@ -1,7 +1,7 @@
 browser:
   name: safari
   os: macOS
-  version: 17.0
+  version: 18.0
 signature:
   http2:
     frames:
