@@ -27,7 +27,7 @@ signature:
     - frame_type: HEADERS
       headers:
         - "sec-fetch-dest: document" 
-        - "user_agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15"
+        - "user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15"
         - "accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
         - "sec-fetch-site: none"
         - "sec-fetch-mode: navigate"
@@ -93,7 +93,7 @@ signature:
     - length: 5
       status_request_type: 1
       type: status_request
-    - length: 20
+    - length: 22
       sig_hash_algs:
       - 1027
       - 2052
