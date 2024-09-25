@@ -1522,10 +1522,10 @@ index 80e183480..8ee390b7e 100644
   * Store nghttp2 version info in this buffer.
 diff --git a/lib/impersonate.c b/lib/impersonate.c
 new file mode 100644
-index 000000000..36d6df836
+index 000000000..3054870de
 --- /dev/null
 +++ b/lib/impersonate.c
-@@ -0,0 +1,1129 @@
+@@ -0,0 +1,1127 @@
 +#include "curl_setup.h"
 +
 +#include <curl/curl.h>
@@ -2399,7 +2399,6 @@ index 000000000..36d6df836
 +      "rsa_pss_rsae_sha256,"
 +      "rsa_pkcs1_sha256,"
 +      "ecdsa_secp384r1_sha384,"
-+      "ecdsa_sha1,"
 +      "rsa_pss_rsae_sha384,"
 +      "rsa_pss_rsae_sha384,"
 +      "rsa_pkcs1_sha384,"
@@ -2520,7 +2519,6 @@ index 000000000..36d6df836
 +      "rsa_pss_rsae_sha256,"
 +      "rsa_pkcs1_sha256,"
 +      "ecdsa_secp384r1_sha384,"
-+      "ecdsa_sha1,"
 +      "rsa_pss_rsae_sha384,"
 +      "rsa_pss_rsae_sha384,"
 +      "rsa_pkcs1_sha384,"
