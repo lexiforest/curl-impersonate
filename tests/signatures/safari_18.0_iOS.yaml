@@ -90,7 +90,7 @@ signature:
     - length: 5
       status_request_type: 1
       type: status_request
-    - length: 24
+    - length: 22
       sig_hash_algs:
       - 1027
       - 2052
