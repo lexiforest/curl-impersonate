@@ -1522,10 +1522,10 @@ index 80e183480..8ee390b7e 100644
   * Store nghttp2 version info in this buffer.
 diff --git a/lib/impersonate.c b/lib/impersonate.c
 new file mode 100644
-index 000000000..eb4e48dc9
+index 000000000..36d6df836
 --- /dev/null
 +++ b/lib/impersonate.c
-@@ -0,0 +1,1128 @@
+@@ -0,0 +1,1129 @@
 +#include "curl_setup.h"
 +
 +#include <curl/curl.h>
@@ -2412,18 +2412,19 @@ index 000000000..eb4e48dc9
 +    .tls_session_ticket = false,
 +    .cert_compression = "zlib",
 +    .http_headers = {
-+      "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-+      "Sec-Fetch-Site: none",
-+      "Accept-Encoding: gzip, deflate, br",
-+      "Sec-Fetch-Mode: navigate",
-+      "User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1",
-+      "Accept-Language: en-US,en;q=0.9",
-+      "Sec-Fetch-Dest: document"
++      "sec-fetch-dest: document",
++      "user-agent: Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1",
++      "accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
++      "sec-fetch-site: none",
++      "sec-fetch-mode: navigate",
++      "accept-language: en-US,en;q=0.9",
++      "priority: u=0, i",
++      "accept-encoding: gzip, deflate, br"
 +    },
-+    .http2_settings = "2:0;4:2097152;3:100",
-+    .http2_window_update = 10485760,
-+    .http2_pseudo_headers_order = "mspa",
-+    .http2_stream_weight = 255,
++    .http2_settings = "2:0;3:100;4:2097152;8:1;9:1",
++    .http2_window_update = 10420225,
++    .http2_pseudo_headers_order = "msap",
++    .http2_stream_weight = 256,
 +    .http2_stream_exclusive = 0,
 +    .tls_extension_order = NULL,
 +    .tls_grease = true
@@ -2532,14 +2533,14 @@ index 000000000..eb4e48dc9
 +    .tls_session_ticket = false,
 +    .cert_compression = "zlib",
 +    .http_headers = {
-+      "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-+      "Sec-Fetch-Site: none",
-+      "Accept-Encoding: gzip, deflate, br",
-+      "Sec-Fetch-Mode: navigate",
++      "sec-fetch-dest: document",
 +      "user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15",
-+      "Accept-Language: en-US,en;q=0.9",
-+      "priority: u=0, i"
-+      "Sec-Fetch-Dest: document"
++      "accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
++      "sec-fetch-site: none",
++      "sec-fetch-mode: navigate",
++      "accept-language: en-US,en;q=0.9",
++      "priority: u=0, i",
++      "accept-encoding: gzip, deflate, br"
 +    },
 +    .http2_settings = "2:0;3:100;4:2097152;8:1;9:1",
 +    .http2_window_update = 10420225,
