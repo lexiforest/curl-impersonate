@@ -50,7 +50,7 @@ jobs:
           - arch: s390x
             host: s390x-linux-gnu
             capture_interface: eth0
-            zigflags: -target s390x-linux-gnu.2.17
+            zigflags: -target s390x-linux-gnu.2.19
           - arch: i386
             host: i386-linux-gnu
             capture_interface: eth0
@@ -66,7 +66,7 @@ jobs:
       - name: Set up zig
         uses: goto-bus-stop/setup-zig@v2
         with:
-          version: 0.11.0
+          version: 0.14.0-dev.1917+ecd5878b7
 
       - name: Install Ubuntu dependencies
         run: |
