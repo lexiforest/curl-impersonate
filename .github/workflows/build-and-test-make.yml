@@ -27,6 +27,7 @@ jobs:
       CXX: ${{ github.workspace }}/zigshim/cxx
       AR: ${{ github.workspace }}/zigshim/ar
       ZIG_FLAGS: ${{ matrix.zigflags }}
+      STRIP: ${{ matrix.arch }}-linux-gnu-strip
     strategy:
       fail-fast: false
       matrix:
