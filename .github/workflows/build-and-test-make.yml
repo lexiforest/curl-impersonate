@@ -59,6 +59,10 @@ jobs:
             host: arm-linux-gnueabihf
             capture_interface: eth0
             zigflags: -target arm-linux-gnueabihf.2.17 -mcpu=arm1176jzf_s
+          - arch: riscv64
+            host: riscv64-linux-gnu
+            capture_interface: eth0
+            zigflags: -target riscv64-linux-gnu.2.27
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
@@ -66,7 +70,7 @@ jobs:
       - name: Set up zig
         uses: goto-bus-stop/setup-zig@v2
         with:
-          version: 0.11.0
+          version: 0.14.0-dev.1917+ecd5878b7
 
       - name: Install Ubuntu dependencies
         run: |
