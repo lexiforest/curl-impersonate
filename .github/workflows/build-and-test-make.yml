@@ -27,7 +27,6 @@ jobs:
       CXX: ${{ github.workspace }}/zigshim/cxx
       AR: ${{ github.workspace }}/zigshim/ar
       ZIG_FLAGS: ${{ matrix.zigflags }}
-      STRIP: ${{ matrix.arch }}-linux-gnu-strip
     strategy:
       fail-fast: false
       matrix:
@@ -77,7 +76,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install build-essential pkg-config cmake ninja-build curl autoconf automake libtool
-          sudo apt-get install gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf
+          sudo apt-get install gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf gcc-riscv64-linux-gnu
           # Chrome version dependencies
           sudo apt-get install golang-go
           # Needed to compile 'minicurl'
