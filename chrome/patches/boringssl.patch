@@ -1,6 +1,6 @@
 diff --git a/export.sh b/export.sh
 new file mode 100755
-index 000000000..678d1ca41
+index 0000000..678d1ca
 --- /dev/null
 +++ b/export.sh
 @@ -0,0 +1,4 @@
@@ -9,27 +9,14 @@ index 000000000..678d1ca41
 +git diff d24a382 > boringssl.patch
 +mv boringssl.patch ../curl-impersonate/chrome/patches/boringssl.patch
 diff --git a/include/openssl/ssl.h b/include/openssl/ssl.h
-index e500dd76e..e75bca26b 100644
+index e500dd7..f5f072c 100644
 --- a/include/openssl/ssl.h
 +++ b/include/openssl/ssl.h
-@@ -1560,6 +1560,12 @@ OPENSSL_EXPORT int SSL_CTX_set_strict_cipher_list(SSL_CTX *ctx,
- // garbage inputs, unless an empty cipher list results.
- OPENSSL_EXPORT int SSL_CTX_set_cipher_list(SSL_CTX *ctx, const char *str);
- 
-+// curl-impersonate: set the extension order by given string
-+OPENSSL_EXPORT int SSL_CTX_set_extension_order(SSL_CTX *ctx, char *order);
-+
-+// curl-impersonate
-+OPENSSL_EXPORT int SSL_CTX_set_key_usage_check_enabled(SSL_CTX *ctx, int enabled);
-+
- // SSL_set_strict_cipher_list configures the cipher list for |ssl|, evaluating
- // |str| as a cipher string and returning error if |str| contains anything
- // meaningless. It returns one on success and zero on failure.
-@@ -4583,6 +4589,12 @@ OPENSSL_EXPORT void SSL_CTX_set_grease_enabled(SSL_CTX *ctx, int enabled);
+@@ -4583,6 +4583,12 @@ OPENSSL_EXPORT void SSL_CTX_set_grease_enabled(SSL_CTX *ctx, int enabled);
  // permute extensions. For now, this is only implemented for the ClientHello.
  OPENSSL_EXPORT void SSL_CTX_set_permute_extensions(SSL_CTX *ctx, int enabled);
  
-+// curl-impersonate
++// curl-impersonate: set the extension order by given string
 +OPENSSL_EXPORT int SSL_CTX_set_extension_order(SSL_CTX *ctx, char *order);
 +
 +// curl-impersonate
@@ -39,7 +26,7 @@ index e500dd76e..e75bca26b 100644
  // permute extensions. For now, this is only implemented for the ClientHello.
  OPENSSL_EXPORT void SSL_set_permute_extensions(SSL *ssl, int enabled);
 diff --git a/ssl/extensions.cc b/ssl/extensions.cc
-index b13400097..8b457b873 100644
+index b134000..4315c1b 100644
 --- a/ssl/extensions.cc
 +++ b/ssl/extensions.cc
 @@ -3313,6 +3313,7 @@ bool ssl_setup_extension_permutation(SSL_HANDSHAKE *hs) {
@@ -91,7 +78,7 @@ index b13400097..8b457b873 100644
 +  char *ext = strtok(tmp, delimiter);
 +  size_t idx = 0;
 +  while (ext != nullptr) {
-+    unsigned ext_index;
++    unsigned ext_index = 0; // bugfix gcc https://github.com/lexiforest/curl-impersonate/issues/81
 +    tls_extension_find(&ext_index, atoi(ext));
 +    // fprintf(stderr, "found %d -> %d, ", atoi(ext), ext_index);
 +    order[idx] = ext_index;
@@ -132,7 +119,7 @@ index b13400097..8b457b873 100644
      if (!kExtensions[i].add_clienthello(hs, &extensions, &extensions, type)) {
        OPENSSL_PUT_ERROR(SSL, SSL_R_ERROR_ADDING_EXTENSION);
 diff --git a/ssl/handshake_client.cc b/ssl/handshake_client.cc
-index 971ebd0b1..effe5c920 100644
+index 971ebd0..effe5c9 100644
 --- a/ssl/handshake_client.cc
 +++ b/ssl/handshake_client.cc
 @@ -215,14 +215,6 @@ static void ssl_get_client_disabled(const SSL_HANDSHAKE *hs,
@@ -199,7 +186,7 @@ index 971ebd0b1..effe5c920 100644
            EVP_PKEY_id(hs->peer_pubkey.get()) != EVP_PKEY_RSA) {
          return ssl_hs_error;
 diff --git a/ssl/internal.h b/ssl/internal.h
-index c9facb699..a32e9b4ba 100644
+index c9facb6..a32e9b4 100644
 --- a/ssl/internal.h
 +++ b/ssl/internal.h
 @@ -574,9 +574,14 @@ BSSL_NAMESPACE_BEGIN
@@ -258,7 +245,7 @@ index c9facb699..a32e9b4ba 100644
    LHASH_OF(SSL_SESSION) *sessions = nullptr;
    // Most session-ids that will be cached, default is
 diff --git a/ssl/ssl_cipher.cc b/ssl/ssl_cipher.cc
-index fd8cef95d..3d2c8ff6d 100644
+index fd8cef9..3d2c8ff 100644
 --- a/ssl/ssl_cipher.cc
 +++ b/ssl/ssl_cipher.cc
 @@ -197,6 +197,37 @@ static constexpr SSL_CIPHER kCiphers[] = {
@@ -488,7 +475,7 @@ index fd8cef95d..3d2c8ff6d 100644
                  "Not all ciphers are included in the cipher order");
  
 diff --git a/ssl/ssl_lib.cc b/ssl/ssl_lib.cc
-index 58b68e675..455ee4dd0 100644
+index 58b68e6..455ee4d 100644
 --- a/ssl/ssl_lib.cc
 +++ b/ssl/ssl_lib.cc
 @@ -657,6 +657,8 @@ SSL *SSL_new(SSL_CTX *ctx) {
@@ -519,7 +506,7 @@ index 58b68e675..455ee4dd0 100644
    if (!ssl->config) {
      return;
 diff --git a/ssl/ssl_privkey.cc b/ssl/ssl_privkey.cc
-index 57116cd6c..fa1652832 100644
+index 57116cd..fa16528 100644
 --- a/ssl/ssl_privkey.cc
 +++ b/ssl/ssl_privkey.cc
 @@ -594,7 +594,7 @@ static bool sigalgs_unique(Span<const uint16_t> in_sigalgs) {

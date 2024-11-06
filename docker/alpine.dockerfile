@@ -10,16 +10,13 @@ FROM alpine:3.18 as builder
 WORKDIR /build
 
 # Common dependencies
-RUN apk add git bash build-base make cmake ninja curl zlib-dev patch linux-headers python3 python3-dev
-
-# The following are needed because we are going to change some autoconf scripts,
-# both for libnghttp2 and curl.
-RUN apk add autoconf automake pkgconfig libtool
-
-
-
-# Dependencies for downloading and building BoringSSL
-RUN apk add g++ go unzip
+RUN apk add --update \
+      git bash build-base make cmake ninja curl zlib-dev patch linux-headers python3 python3-dev zstd zstd-dev \
+      # The following are needed because we are going to change some autoconf scripts,
+      # both for libnghttp2 and curl.
+      autoconf automake pkgconfig libtool \
+      # Dependencies for downloading and building BoringSSL
+      g++ go unzip
 
 # Download and compile libbrotli
 ARG BROTLI_VERSION=1.1.0
@@ -55,37 +52,37 @@ RUN mkdir boringssl/build/lib && \
     ln -s ../ssl/libssl.a boringssl/build/lib/libssl.a && \
     cp -R boringssl/include boringssl/build
 
-ARG NGHTTP2_VERSION=nghttp2-1.63.0
-ARG NGHTTP2_URL=https://github.com/nghttp2/nghttp2/releases/download/v1.63.0/nghttp2-1.63.0.tar.bz2
+ARG NGHTTP2_VERSION=1.63.0
+ARG NGHTTP2_URL=https://github.com/nghttp2/nghttp2/releases/download/v${NGHTTP2_VERSION}/nghttp2-${NGHTTP2_VERSION}.tar.bz2
 
 # Download nghttp2 for HTTP/2.0 support.
-RUN curl -o ${NGHTTP2_VERSION}.tar.bz2 -L ${NGHTTP2_URL}
-RUN tar xf ${NGHTTP2_VERSION}.tar.bz2
+RUN curl -o nghttp2-${NGHTTP2_VERSION}.tar.bz2 -L ${NGHTTP2_URL}
+RUN tar xf nghttp2-${NGHTTP2_VERSION}.tar.bz2
 
 # Compile nghttp2
-RUN cd ${NGHTTP2_VERSION} && \
-    ./configure --prefix=/build/${NGHTTP2_VERSION}/installed --with-pic --disable-shared && \
+RUN cd nghttp2-${NGHTTP2_VERSION} && \
+    ./configure --prefix=/build/nghttp2-${NGHTTP2_VERSION}/installed --with-pic --disable-shared && \
     make && make install
 
 # Download curl.
-ARG CURL_VERSION=curl-8.7.1
-RUN curl -o ${CURL_VERSION}.tar.xz https://curl.se/download/${CURL_VERSION}.tar.xz
-RUN tar xf ${CURL_VERSION}.tar.xz
+ARG CURL_VERSION=8.7.1
+RUN curl -o curl-${CURL_VERSION}.tar.xz https://curl.se/download/curl-${CURL_VERSION}.tar.xz
+RUN tar xf curl-${CURL_VERSION}.tar.xz
 
 # Patch curl and re-generate the configure script
-COPY patches/curl-*.patch ${CURL_VERSION}/
-RUN cd ${CURL_VERSION} && \
+COPY patches/curl-*.patch curl-${CURL_VERSION}/
+RUN cd curl-${CURL_VERSION} && \
     for p in $(ls curl-*.patch); do patch -p1 < $p; done && \
     autoreconf -fi
 
-# Compile curl with nghttp2, libbrotli and boringssl (chrome).
+# Compile curl with nghttp2, libbrotli and boringssl.
 # Enable keylogfile for debugging of TLS traffic.
-RUN cd ${CURL_VERSION} && \
+RUN cd curl-${CURL_VERSION} && \
     ./configure --prefix=/build/install \
                 --enable-static \
                 --disable-shared \
                 --enable-websockets \
-                --with-nghttp2=/build/${NGHTTP2_VERSION}/installed \
+                --with-nghttp2=/build/nghttp2-${NGHTTP2_VERSION}/installed \
                 --with-brotli=/build/brotli-${BROTLI_VERSION}/build/installed \
                 --with-zstd \
                 --enable-ech \
@@ -112,9 +109,9 @@ RUN ! (ldd ./out/curl-impersonate | grep -q -e libcurl -e nghttp2 -e brotli -e s
 RUN rm -Rf /build/install
 
 # Re-compile libcurl dynamically
-RUN cd ${CURL_VERSION} && \
+RUN cd curl-${CURL_VERSION} && \
     ./configure --prefix=/build/install \
-                --with-nghttp2=/build/${NGHTTP2_VERSION}/installed \
+                --with-nghttp2=/build/nghttp2-${NGHTTP2_VERSION}/installed \
                 --with-brotli=/build/brotli-${BROTLI_VERSION}/build/installed \
                 --with-zstd \
                 --enable-ech \
@@ -127,7 +124,7 @@ RUN cd ${CURL_VERSION} && \
 # Copy libcurl-impersonate and symbolic links
 RUN cp -d /build/install/lib/libcurl-impersonate* /build/out
 
-RUN ver=$(readlink -f ${CURL_VERSION}/lib/.libs/libcurl-impersonate-chrome.so | sed 's/.*so\.//') && \
+RUN ver=$(readlink -f curl-${CURL_VERSION}/lib/.libs/libcurl-impersonate-chrome.so | sed 's/.*so\.//') && \
     major=$(echo -n $ver | cut -d'.' -f1) && \
     ln -s "libcurl-impersonate-chrome.so.$ver" "out/libcurl-impersonate.so.$ver" && \
     ln -s "libcurl-impersonate.so.$ver" "out/libcurl-impersonate.so" && \
@@ -143,8 +140,7 @@ COPY curl_chrome* curl_edge* curl_safari* out/
 RUN sed -i 's@/usr/bin/env bash@/usr/bin/env ash@' out/curl_*
 RUN chmod +x out/curl_*
 
-# Create a final, minimal image with the compiled binaries
-# only.
+# Create a final, minimal image with the compiled binaries only.
 FROM alpine:3.18
 # Copy curl-impersonate from the builder image
 COPY --from=builder /build/install /usr/local

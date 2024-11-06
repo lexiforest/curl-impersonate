@@ -12,20 +12,17 @@ WORKDIR /build
 
 # Common dependencies
 RUN apt-get update && \
-    apt-get install -y git ninja-build cmake curl zlib1g-dev
-
-# The following are needed because we are going to change some autoconf scripts,
-# both for libnghttp2 and curl.
-RUN apt-get install -y autoconf automake autotools-dev pkg-config libtool git
-
-# Dependencies for downloading and building nghttp2
-RUN apt-get install -y bzip2
-
-# Dependencies for downloading and building curl
-RUN apt-get install -y xz-utils
-
-# Dependencies for downloading and building BoringSSL
-RUN apt-get install -y g++ golang-go unzip
+    apt-get install -y \
+      git ninja-build cmake curl zlib1g-dev zstd libzstd-dev \
+      # The following are needed because we are going to change some autoconf scripts,
+      # both for libnghttp2 and curl.
+      autoconf automake autotools-dev pkg-config libtool git \
+      # Dependencies for downloading and building nghttp2
+      bzip2 \
+      # Dependencies for downloading and building curl
+      xz-utils \
+      # Dependencies for downloading and building BoringSSL
+      g++ golang-go unzip
 
 # Download and compile libbrotli
 ARG BROTLI_VERSION=1.1.0
@@ -47,7 +44,7 @@ RUN curl -L https://github.com/google/boringssl/archive/${BORING_SSL_COMMIT}.zip
 # See https://boringssl.googlesource.com/boringssl/+/HEAD/BUILDING.md
 COPY patches/boringssl.patch boringssl/
 RUN cd boringssl && \
-    for p in $(ls boringssl-*.patch); do patch -p1 < $p; done && \
+    for p in $(ls boringssl.patch); do patch -p1 < $p; done && \
     mkdir build && cd build && \
     cmake \
         -DCMAKE_C_FLAGS="-Wno-error=array-bounds -Wno-error=stringop-overflow" \
@@ -61,37 +58,37 @@ RUN mkdir boringssl/build/lib && \
     ln -s ../ssl/libssl.a boringssl/build/lib/libssl.a && \
     cp -R boringssl/include boringssl/build
 
-ARG NGHTTP2_VERSION=nghttp2-1.63.0
-ARG NGHTTP2_URL=https://github.com/nghttp2/nghttp2/releases/download/v1.63.0/nghttp2-1.63.0.tar.bz2
+ARG NGHTTP2_VERSION=1.63.0
+ARG NGHTTP2_URL=https://github.com/nghttp2/nghttp2/releases/download/v${NGHTTP2_VERSION}/nghttp2-${NGHTTP2_VERSION}.tar.bz2
 
 # Download nghttp2 for HTTP/2.0 support.
-RUN curl -o ${NGHTTP2_VERSION}.tar.bz2 -L ${NGHTTP2_URL}
-RUN tar xf ${NGHTTP2_VERSION}.tar.bz2
+RUN curl -o nghttp2-${NGHTTP2_VERSION}.tar.bz2 -L ${NGHTTP2_URL}
+RUN tar xf nghttp2-${NGHTTP2_VERSION}.tar.bz2
 
 # Compile nghttp2
-RUN cd ${NGHTTP2_VERSION} && \
-    ./configure --prefix=/build/${NGHTTP2_VERSION}/installed --with-pic --disable-shared && \
+RUN cd nghttp2-${NGHTTP2_VERSION} && \
+    ./configure --prefix=/build/nghttp2-${NGHTTP2_VERSION}/installed --with-pic --disable-shared && \
     make && make install
 
 # Download curl.
-ARG CURL_VERSION=curl-8.7.1
-RUN curl -o ${CURL_VERSION}.tar.xz https://curl.se/download/${CURL_VERSION}.tar.xz
-RUN tar xf ${CURL_VERSION}.tar.xz
+ARG CURL_VERSION=8.7.1
+RUN curl -o curl-${CURL_VERSION}.tar.xz https://curl.se/download/curl-${CURL_VERSION}.tar.xz
+RUN tar xf curl-${CURL_VERSION}.tar.xz
 
 # Patch curl and re-generate the configure script
-COPY patches/curl-*.patch ${CURL_VERSION}/
-RUN cd ${CURL_VERSION} && \
+COPY patches/curl-*.patch curl-${CURL_VERSION}/
+RUN cd curl-${CURL_VERSION} && \
     for p in $(ls curl-*.patch); do patch -p1 < $p; done && \
     autoreconf -fi
 
-# Compile curl with nghttp2, libbrotli and boringssl (chrome).
+# Compile curl with nghttp2, libbrotli and boringssl.
 # Enable keylogfile for debugging of TLS traffic.
-RUN cd ${CURL_VERSION} && \
+RUN cd curl-${CURL_VERSION} && \
     ./configure --prefix=/build/install \
                 --enable-static \
                 --disable-shared \
                 --enable-websockets \
-                --with-nghttp2=/build/${NGHTTP2_VERSION}/installed \
+                --with-nghttp2=/build/nghttp2-${NGHTTP2_VERSION}/installed \
                 --with-brotli=/build/brotli-${BROTLI_VERSION}/build/installed \
                 --with-zstd \
                 --enable-ech \
@@ -118,9 +115,9 @@ RUN ! (ldd ./out/curl-impersonate | grep -q -e libcurl -e nghttp2 -e brotli -e s
 RUN rm -Rf /build/install
 
 # Re-compile libcurl dynamically
-RUN cd ${CURL_VERSION} && \
+RUN cd curl-${CURL_VERSION} && \
     ./configure --prefix=/build/install \
-                --with-nghttp2=/build/${NGHTTP2_VERSION}/installed \
+                --with-nghttp2=/build/nghttp2-${NGHTTP2_VERSION}/installed \
                 --with-brotli=/build/brotli-${BROTLI_VERSION}/build/installed \
                 --with-zstd \
                 --enable-ech \
@@ -133,7 +130,7 @@ RUN cd ${CURL_VERSION} && \
 # Copy libcurl-impersonate and symbolic links
 RUN cp -d /build/install/lib/libcurl-impersonate* /build/out
 
-RUN ver=$(readlink -f ${CURL_VERSION}/lib/.libs/libcurl-impersonate-chrome.so | sed 's/.*so\.//') && \
+RUN ver=$(readlink -f curl-${CURL_VERSION}/lib/.libs/libcurl-impersonate-chrome.so | sed 's/.*so\.//') && \
     major=$(echo -n $ver | cut -d'.' -f1) && \
     ln -s "libcurl-impersonate-chrome.so.$ver" "out/libcurl-impersonate.so.$ver" && \
     ln -s "libcurl-impersonate.so.$ver" "out/libcurl-impersonate.so" && \
@@ -147,8 +144,7 @@ RUN ! (ldd ./out/curl-impersonate | grep -q -e nghttp2 -e brotli -e ssl -e crypt
 COPY curl_chrome* curl_edge* curl_safari* out/
 RUN chmod +x out/curl_*
 
-# Create a final, minimal image with the compiled binaries
-# only.
+# Create a final, minimal image with the compiled binaries only.
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y ca-certificates \
     && rm -rf /var/lib/apt/lists/*
