@@ -20,7 +20,7 @@ CURL_VERSION := curl-8_7_1
 brotli_install_dir := $(abspath brotli-$(BROTLI_VERSION)/out/installed)
 brotli_static_libs := $(brotli_install_dir)/lib/libbrotlicommon.a $(brotli_install_dir)/lib/libbrotlidec.a
 boringssl_dir := $(abspath boringssl-$(BORING_SSL_COMMIT))
-boringssl_install_dir := $(abspath boringssl-$(BORING_SSL_COMMIT)/build)
+boringssl_install_dir := $(boringssl_dir)/build
 boringssl_static_libs := $(boringssl_dir)/lib/libssl.a $(boringssl_dir)/lib/libcrypto.a
 nghttp2_install_dir := $(abspath $(NGHTTP2_VERSION)/installed)
 nghttp2_static_libs := $(nghttp2_install_dir)/lib/libnghttp2.a
@@ -197,11 +197,9 @@ $(boringssl_static_libs): boringssl-$(BORING_SSL_COMMIT).zip boringssl-$(BORING_
 
 	# Fix the directory structure so that curl can compile against it.
 	# See: https://everything.curl.dev/build/boringssl.html
-	cd $(boringssl_dir)
-	mkdir -p lib
-	cd lib
-	ln -s ../build/ssl/libssl.a
-	ln -s ../build/crypto/libcrypto.a
+	mkdir -p $(boringssl_dir)/lib
+	cp ssl/libssl.a $(boringssl_dir)/lib
+	cp crypto/libcrypto.a $(boringssl_dir)/lib
 
 
 $(NGHTTP2_VERSION).tar.bz2:
@@ -280,12 +278,12 @@ $(CURL_VERSION)/.chrome: $(chrome_libs)	$(CURL_VERSION).tar.gz $(CURL_VERSION)/.
 	  if test -n "$(with_ca_path)"; then \
 		config_flags="$$config_flags --with-ca-path=$(with_ca_path)"; \
 	  fi; \
-	  add_libs="-pthread"; \
+	  add_libs="-pthread -lc++"; \
 	}
 
 	echo "Configuring curl with: $$config_flags"
 
-	./configure $$config_flags LIBS="$$add_libs"
+	CXXFLAGS="-stdlib=libc++" LDFLAGS="-lc++" ./configure $$config_flags LIBS="$$add_libs"
 
 	# Remove possible leftovers from a previous compilation
 	$(MAKE) clean MAKEFLAGS=
