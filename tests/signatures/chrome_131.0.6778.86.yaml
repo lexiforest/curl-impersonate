@@ -81,7 +81,7 @@ signature:
     - key_shares:
       - group: GREASE
         length: 1
-      - group: 25497
+      - group: 4588
         length: 1216
       - group: 29
         length: 32
