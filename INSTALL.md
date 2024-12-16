@@ -87,7 +87,7 @@ Install dependencies for building all the components:
 
 ```sh
 brew install pkg-config make cmake ninja autoconf automake libtool
-brwe install zstd
+brew install zstd
 brew install go
 ```
 
