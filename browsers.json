@@ -7,7 +7,7 @@
                 "version": "99.0.4844.51",
                 "os": "win10"
             },
-            "binary": "curl-impersonate-chrome",
+            "binary": "curl-impersonate",
             "wrapper_script": "curl_chrome99"
         },
         {
@@ -17,7 +17,7 @@
                 "version": "100.0.4896.127",
                 "os": "win10"
             },
-            "binary": "curl-impersonate-chrome",
+            "binary": "curl-impersonate",
             "wrapper_script": "curl_chrome100"
         },
         {
@@ -27,7 +27,7 @@
                 "version": "101.0.4951.67",
                 "os": "win10"
             },
-            "binary": "curl-impersonate-chrome",
+            "binary": "curl-impersonate",
             "wrapper_script": "curl_chrome101"
         },
         {
@@ -37,7 +37,7 @@
                 "version": "104.0.5112.81",
                 "os": "win10"
             },
-            "binary": "curl-impersonate-chrome",
+            "binary": "curl-impersonate",
             "wrapper_script": "curl_chrome104"
         },
         {
@@ -47,7 +47,7 @@
                 "version": "107.0.5304.107",
                 "os": "win10"
             },
-            "binary": "curl-impersonate-chrome",
+            "binary": "curl-impersonate",
             "wrapper_script": "curl_chrome107"
         },
         {
@@ -57,7 +57,7 @@
                 "version": "110.0.5481.177",
                 "os": "win10"
             },
-            "binary": "curl-impersonate-chrome",
+            "binary": "curl-impersonate",
             "wrapper_script": "curl_chrome110"
         },
         {
@@ -67,7 +67,7 @@
                 "version": "116.0.5845.180",
                 "os": "win10"
             },
-            "binary": "curl-impersonate-chrome",
+            "binary": "curl-impersonate",
             "wrapper_script": "curl_chrome116"
         },
         {
@@ -78,7 +78,7 @@
                 "os": "android12",
                 "device": "pixel6"
             },
-            "binary": "curl-impersonate-chrome",
+            "binary": "curl-impersonate",
             "wrapper_script": "curl_chrome99_android"
         },
         {
@@ -88,7 +88,7 @@
                 "version": "99.0.1150.30",
                 "os": "win10"
             },
-            "binary": "curl-impersonate-chrome",
+            "binary": "curl-impersonate",
             "wrapper_script": "curl_edge99"
         },
         {
@@ -98,7 +98,7 @@
                 "version": "101.0.1210.47",
                 "os": "win10"
             },
-            "binary": "curl-impersonate-chrome",
+            "binary": "curl-impersonate",
             "wrapper_script": "curl_edge101"
         },
         {
@@ -178,7 +178,7 @@
                 "version": "15.3",
                 "os": "macos11.6.4"
             },
-            "binary": "curl-impersonate-chrome",
+            "binary": "curl-impersonate",
             "wrapper_script": "curl_safari15_3"
         },
         {
@@ -188,7 +188,7 @@
                 "version": "15.5",
                 "os": "macos12.4"
             },
-            "binary": "curl-impersonate-chrome",
+            "binary": "curl-impersonate",
             "wrapper_script": "curl_safari15_5"
         }
     ]

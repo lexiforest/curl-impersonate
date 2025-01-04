@@ -255,7 +255,7 @@ jobs:
       matrix:
         os: [macos-13, macos-14]
         include:
-          - os: macos-12
+          - os: macos-13
             arch: x86_64
             host: x86_64-macos
             capture_interface: en0

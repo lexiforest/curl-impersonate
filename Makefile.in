@@ -69,10 +69,10 @@ chrome-checkbuild: ## Run basic checks on the built binary
 ifeq ($(host),$(build))
 	cd $(CURL_VERSION)
 	# Make sure all needed features were compiled in
-	./src/curl-impersonate-chrome -V | grep -q zlib
-	./src/curl-impersonate-chrome -V | grep -q brotli
-	./src/curl-impersonate-chrome -V | grep -q nghttp2
-	./src/curl-impersonate-chrome -V | grep -q BoringSSL
+	./src/curl-impersonate -V | grep -q zlib
+	./src/curl-impersonate -V | grep -q brotli
+	./src/curl-impersonate -V | grep -q nghttp2
+	./src/curl-impersonate -V | grep -q BoringSSL
 	$(info Build OK)
 else
 	$(info Cross compiling, skipping checkbuild)
@@ -91,7 +91,7 @@ chrome-install-strip: ## Like 'chrome-install', but strip binaries for smaller s
 	$(MAKE) install-exec MAKEFLAGS=
 	# We could have used 'install-strip' but then the docs would be installed as well.
 	# Instead strip manually.
-	$(STRIP) @bindir@/curl-impersonate-chrome
+	$(STRIP) @bindir@/curl-impersonate
 	# Wrapper scripts for the Chrome version (e.g. 'curl_chrome99')
 	install $(srcdir)/chrome/curl_chrome* $(srcdir)/chrome/curl_edge* $(srcdir)/chrome/curl_safari* @bindir@
 .PHONY: chrome-install-strip
