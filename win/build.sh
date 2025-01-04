@@ -14,7 +14,7 @@ mv boringssl-${BORING_SSL_COMMIT} boringssl
 
 cd boringssl
 
-patchfile=../../chrome/patches/boringssl.patch
+patchfile=../../patches/boringssl.patch
 patch -p1 < $patchfile
 sed -i 's/-ggdb//g' CMakeLists.txt
 sed -i 's/-Werror//g' CMakeLists.txt
@@ -41,7 +41,7 @@ mv curl-${CURL_VERSION} curl
 
 cd curl
 
-patchfile=../../chrome/patches/curl-impersonate.patch
+patchfile=../../patches/curl.patch
 patch -p1 < $patchfile
 
 export CMAKE_PREFIX_PATH=../boringssl
