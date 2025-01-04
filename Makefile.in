@@ -14,7 +14,7 @@ BROTLI_VERSION := 1.1.0
 BORING_SSL_COMMIT := cd95210465496ac2337b313cf49f607762abe286
 NGHTTP2_VERSION := nghttp2-1.63.0
 NGHTTP2_URL := https://github.com/nghttp2/nghttp2/releases/download/v1.63.0/nghttp2-1.63.0.tar.bz2
-CURL_VERSION := curl-8_7_1
+CURL_VERSION := curl-8_11_0
 
 # https://github.com/google/brotli/commit/641bec0e30bea648b3da1cd90fc6b44deb429f71
 brotli_install_dir := $(abspath brotli-$(BROTLI_VERSION)/out/installed)
@@ -83,7 +83,7 @@ chrome-install: ## Install the Chrome version of curl-impersonate after build
 	cd $(CURL_VERSION)
 	$(MAKE) install-exec MAKEFLAGS=
 	# Wrapper scripts for the Chrome version (e.g. 'curl_chrome99')
-	install $(srcdir)/chrome/curl_* @bindir@
+	install $(srcdir)/bin/chrome/curl_* @bindir@
 .PHONY: chrome-install
 
 chrome-install-strip: ## Like 'chrome-install', but strip binaries for smaller size
@@ -156,7 +156,7 @@ boringssl-$(BORING_SSL_COMMIT).zip:
 		-o boringssl-$(BORING_SSL_COMMIT).zip
 
 # Patch boringssl and use a dummy '.patched' file to mark it patched
-boringssl-$(BORING_SSL_COMMIT)/.patched: $(srcdir)/chrome/patches/boringssl.patch
+boringssl-$(BORING_SSL_COMMIT)/.patched: $(srcdir)/patches/boringssl.patch
 	unzip -q -o boringssl-$(BORING_SSL_COMMIT).zip
 	# mv boringssl boringssl-$(BORING_SSL_COMMIT)
 	cd boringssl-$(BORING_SSL_COMMIT)/
@@ -230,7 +230,7 @@ $(CURL_VERSION).tar.gz:
 		-o "$(CURL_VERSION).tar.gz"
 
 # Apply the "Chorme version" patches and mark using a dummy file
-$(CURL_VERSION)/.patched-chrome: $(srcdir)/chrome/patches/curl-*.patch
+$(CURL_VERSION)/.patched-chrome: $(srcdir)/patches/curl.patch
 	rm -Rf $(CURL_VERSION)
 	tar -xf $(CURL_VERSION).tar.gz
 	mv curl-$(CURL_VERSION) $(CURL_VERSION)  # fix directory name
@@ -283,7 +283,7 @@ $(CURL_VERSION)/.chrome: $(chrome_libs)	$(CURL_VERSION).tar.gz $(CURL_VERSION)/.
 
 	echo "Configuring curl with: $$config_flags"
 
-	CXXFLAGS="-stdlib=libc++" LDFLAGS="-lc++" ./configure $$config_flags LIBS="$$add_libs"
+	CXXFLAGS="-stdlib=libc++" LDFLAGS="-lc++" ./configure --without-libpsl $$config_flags LIBS="$$add_libs"
 
 	# Remove possible leftovers from a previous compilation
 	$(MAKE) clean MAKEFLAGS=

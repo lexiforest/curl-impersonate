@@ -3,14 +3,14 @@
 [![Docker images](https://github.com/yifekong/curl-impersonate/actions/workflows/build-and-test-docker.yml/badge.svg)](https://github.com/yifeikong/curl-impersonate/actions/workflows/build-and-test-docker.yml)
 
 > [!NOTE]
-> This is a (slightly) more active fork of [curl-impersonate](https://github.com/lwthiker/curl-impersonate).
+> This is a (slightly) more active fork of lwthiker's [curl-impersonate](https://github.com/lwthiker/curl-impersonate).
 > Differences include:
 >
 > 1. Encrypted Client Hello(ECH) support introduced in Chrome 119.
 > 2. ZSTD compression support introduced in Chrome 123.
-> 3. X25519Kyber768 curve introduced in Chrome 124.
+> 3. X25519Kyber768 curve introduced in Chrome 124 and ML-KEM for Chrome 131.
 > 4. More options for impersonation Akamai http/2 fingerprints, especially for Safari.
-> 5. Upgrade to more recent version of curl, 8.7.1 as of April, 2024.
+> 5. Upgrade to more recent version of curl, 8.11.0 as of Jan, 2025.
 > 6. Ability to change extension orders and enable/disable TLS grease.
 > 7. (In progress) Single binary to support both Webkit-based and Gecko-based browsers, i.e. Chrome and Firefox.
 
@@ -220,11 +220,4 @@ You may also need the [forked and patched](https://github.com/yifeikong/boringss
 
 ## Sponsors
 
-Original sponsor info:
-> Sponsors help keep this project open and maintained. If you wish to become a sponsor, please contact me directly at: lwt at lwthiker dot com.
 
-> <a href="https://serpapi.com/">
->   <img src="https://i.imgur.com/CBOSxrm.png" alt="Logo"  width="165px" height="65px">
-> </a>
-
-No one has sponsored this fork.

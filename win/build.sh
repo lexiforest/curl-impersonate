@@ -30,7 +30,7 @@ export BROTLI_LIBS='-lbrotlidec -lbrotlicommon'
 export OPENSSL_PATH=$PWD/boringssl
 export OPENSSL_LIBPATH=$PWD/boringssl/lib
 
-CURL_VERSION=curl-8_7_1
+CURL_VERSION=curl-8_11_0
 
 curl -L https://github.com/curl/curl/archive/${CURL_VERSION}.zip -o curl.zip
 unzip -q -o curl.zip
