@@ -354,7 +354,7 @@ index fb162a30d..43b2264bc 100644
  /**
   * Return the n-th header entry or NULL if it does not exist.
 diff --git a/lib/easy.c b/lib/easy.c
-index d16fa8c07..f2f566252 100644
+index d16fa8c07..234caf72f 100644
 --- a/lib/easy.c
 +++ b/lib/easy.c
 @@ -74,6 +74,8 @@
@@ -566,6 +566,7 @@ index d16fa8c07..f2f566252 100644
 +{
 +  int ret;
 +  const struct impersonate_opts *opts = NULL;
++  struct Curl_easy *_data = (struct Curl_easy *)data;
 +
 +  for(opts = impersonations; opts->target != NULL; opts++) {
 +    if (strcasecompare(target, opts->target)) {
@@ -574,12 +575,11 @@ index d16fa8c07..f2f566252 100644
 +  }
 +
 +  if(opts->target == NULL) {
-+    DEBUGF(fprintf(stderr, "Error: unknown impersonation target '%s'\n",
-+                   target));
++    DEBUGF(fprintf(stderr, "Error: unknown impersonation target '%s'\n", target));
 +    return CURLE_BAD_FUNCTION_ARGUMENT;
 +  }
 +
-+  ret = _do_impersonate(data, opts, default_headers);
++  ret = _do_impersonate(_data, opts, default_headers);
 +  if(ret)
 +    return ret;
 +
@@ -599,7 +599,7 @@ index d16fa8c07..f2f566252 100644
  
    /* Make sure we inited the global SSL stuff */
    global_init_lock();
-@@ -373,6 +594,30 @@ CURL *curl_easy_init(void)
+@@ -373,6 +594,29 @@ CURL *curl_easy_init(void)
      return NULL;
    }
  
@@ -626,11 +626,10 @@ index d16fa8c07..f2f566252 100644
 +    }
 +  }
 +
-+
    return data;
  }
  
-@@ -981,6 +1226,13 @@ CURL *curl_easy_duphandle(CURL *d)
+@@ -981,6 +1225,13 @@ CURL *curl_easy_duphandle(CURL *d)
      outcurl->state.referer_alloc = TRUE;
    }
  
@@ -644,7 +643,7 @@ index d16fa8c07..f2f566252 100644
    /* Reinitialize an SSL engine for the new handle
     * note: the engine name has already been copied by dupset */
    if(outcurl->set.str[STRING_SSL_ENGINE]) {
-@@ -1071,6 +1323,9 @@ fail:
+@@ -1071,6 +1322,9 @@ fail:
   */
  void curl_easy_reset(CURL *d)
  {
@@ -654,7 +653,7 @@ index d16fa8c07..f2f566252 100644
    struct Curl_easy *data = d;
    Curl_req_hard_reset(&data->req, data);
  
-@@ -1096,6 +1351,23 @@ void curl_easy_reset(CURL *d)
+@@ -1096,6 +1350,23 @@ void curl_easy_reset(CURL *d)
  #if !defined(CURL_DISABLE_HTTP) && !defined(CURL_DISABLE_DIGEST_AUTH)
    Curl_http_auth_cleanup_digest(data);
  #endif

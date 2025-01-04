@@ -59,13 +59,13 @@ help: ## Show this help message
 .PHONY: help
 .DEFAULT_GOAL := help
 
-chrome-build: $(CURL_VERSION)/.chrome ## Build the Chrome version of curl-impersonate
+build: $(CURL_VERSION)/.chrome ## Build the Chrome version of curl-impersonate
 	cd $(CURL_VERSION)
 	# Don't pass this Makefile's MAKEFLAGS
 	$(MAKE) MAKEFLAGS=-j$(SUBJOBS)
-.PHONY: chrome-build
+.PHONY: build
 
-chrome-checkbuild: ## Run basic checks on the built binary
+checkbuild: ## Run basic checks on the built binary
 ifeq ($(host),$(build))
 	cd $(CURL_VERSION)
 	# Make sure all needed features were compiled in
@@ -77,36 +77,30 @@ ifeq ($(host),$(build))
 else
 	$(info Cross compiling, skipping checkbuild)
 endif
-.PHONY: chrome-checkbuild
+.PHONY: checkbuild
 
-chrome-install: ## Install the Chrome version of curl-impersonate after build
+install: ## Install the Chrome version of curl-impersonate after build
 	cd $(CURL_VERSION)
 	$(MAKE) install-exec MAKEFLAGS=
 	# Wrapper scripts for the Chrome version (e.g. 'curl_chrome99')
-	install $(srcdir)/bin/chrome/curl_* @bindir@
-.PHONY: chrome-install
+	install $(srcdir)/bin/*/curl_* @bindir@
+.PHONY: install
 
-chrome-install-strip: ## Like 'chrome-install', but strip binaries for smaller size
+install-strip: ## Like 'install', but strip binaries for smaller size
 	cd $(CURL_VERSION)
 	$(MAKE) install-exec MAKEFLAGS=
 	# We could have used 'install-strip' but then the docs would be installed as well.
 	# Instead strip manually.
 	$(STRIP) @bindir@/curl-impersonate
 	# Wrapper scripts for the Chrome version (e.g. 'curl_chrome99')
-	install $(srcdir)/bin/chrome/curl_chrome* $(srcdir)/bin/edge/curl_edge* $(srcdir)/bin/safari/curl_safari* @bindir@
-.PHONY: chrome-install-strip
+	install $(srcdir)/bin/*/curl_* @bindir@
+.PHONY: install-strip
 
-chrome-uninstall: ## Uninstall the Chrome version of curl-impersonate after 'make install'
+uninstall: ## Uninstall the Chrome version of curl-impersonate after 'make install'
 	cd $(CURL_VERSION)
 	$(MAKE) uninstall MAKEFLAGS=
 	rm -Rf @bindir@/curl_chrome* @bindir@/curl_edge* @bindir@/curl_safari*
-.PHONY: chrome-uninstall
-
-chrome-clean: ## Clean build artifacts of the Chrome version. Use after re-running './configure'
-	cd $(CURL_VERSION)
-	$(MAKE) clean MAKEFLAGS=
-	rm -f .chrome
-.PHONY: chrome-clean
+.PHONY: uninstall
 
 clean: ## Remove all build artifacts, including dependencies
 	rm -Rf brotli-$(BROTLI_VERSION).tar.gz brotli-$(BROTLI_VERSION)

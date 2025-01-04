@@ -92,7 +92,9 @@ The following browsers can be impersonated.
 <small>
 Notes:
 
-1. Chromium-based browsers all share the same fingerprints, except for the `User-Agent` header and `sec-ch-ua-platform` header. They will not be updated unless this assumption changed. Use your own header if you need to impersonate `Edge`, `Chrome Android` etc.
+1. Chromium-based browsers all share the same fingerprints, except for the `User-Agent`
+    header and `sec-ch-ua-platform` header. They will not be updated unless this assumption
+    changed. Use your own header if you need to impersonate `Edge`, `Chrome Android` etc.
 2. The original Safari fingerprints in the upstream fork are [not correct](https://github.com/lwthiker/curl-impersonate/issues/215).
 </small>
 
@@ -100,13 +102,16 @@ Notes:
 
 ## Basic usage
 
-For each supported browser there is a wrapper script that launches `curl-impersonate` with all the needed headers and flags. For example:
+For each supported browser there is a wrapper script that launches `curl-impersonate`
+with all the needed headers and flags. For example:
 
-    curl_chrome123 https://www.wikipedia.org
+    curl_chrome131 https://www.wikipedia.org
 
-You can add command line flags and they will be passed on to curl. However, some flags change curl's TLS signature which may cause it to be detected.
+You can add command line flags and they will be passed on to curl. However, some flags
+change curl's TLS signature which may cause it to be detected.
 
-Please note that the wrapper scripts use a default set of HTTP headers. If you want to change these headers, you may want to modify the wrapper scripts to fit your own purpose.
+Please note that the wrapper scripts use a default set of HTTP headers. If you want to
+change these headers, you may want to modify the wrapper scripts to fit your own purpose.
 
 See [Advanced usage](#Advanced-usage) for more options, including using `libcurl-impersonate` as a library.
 
@@ -115,19 +120,25 @@ See [Advanced usage](#Advanced-usage) for more options, including using `libcurl
 More documentation is available in the [docs/](docs/README.md) directory.
 
 ## Installation
-There are two versions of `curl-impersonate` for technical reasons. The **chrome** version is used to impersonate Chrome, Edge and Safari.
+Unlike the original repo, there is only one version of `curl-impersonate` to impersonate
+Chrome, Edge, Safari and Firefox.
 
 ### Pre-compiled binaries
-Pre-compiled binaries for Windows, Linux and macOS are available at the [GitHub releases](https://github.com/yifeikong/curl-impersonate/releases) page. Before you use them you may need to install zstd and CA certificates:
+
+Pre-compiled binaries for Windows, Linux and macOS are available at the [GitHub releases](https://github.com/lexiforest/curl-impersonate/releases)
+page. Before you use them you may need to install zstd and CA certificates:
 
 * Ubuntu - `sudo apt install ca-certificates zstd libzstd-dev`
 * Red Hat/Fedora/CentOS - `yum install ca-certificates zstd libzstd-devel`
 * Archlinux - `pacman -S ca-certificates zstd`
 * macOS - `brew install ca-certificates zstd`
 
-The pre-compiled binaries contain libcurl-impersonate and a statically compiled curl-impersonate for ease of use.
+The pre-compiled binaries contain libcurl-impersonate and a statically compiled
+curl-impersonate for ease of use.
 
-The pre-compiled Linux binaries are built for Ubuntu systems. On other distributions if you have errors with certificate verification you may have to tell curl where to find the CA certificates. For example:
+The pre-compiled Linux binaries are built for Ubuntu systems. On other distributions if
+you have errors with certificate verification you may have to tell curl where to find
+the CA certificates. For example:
 
     curl_chrome123 https://www.wikipedia.org --cacert /etc/ssl/certs/ca-bundle.crt
 
@@ -142,7 +153,9 @@ See [INSTALL.md](INSTALL.md).
 > [!WARNING]
 > New docker images added in this fork are work in progress.
 
-Docker images based on Alpine Linux and Debian with `curl-impersonate` compiled and ready to use are available on [Docker Hub](https://hub.docker.com/r/lwthiker/curl-impersonate). The images contain the binary and all the wrapper scripts. Use like the following:
+Docker images based on Alpine Linux and Debian with `curl-impersonate` compiled and ready
+to use are available on [Docker Hub](https://hub.docker.com/r/lwthiker/curl-impersonate).
+The images contain the binary and all the wrapper scripts. Use like the following:
 
 ```bash
 # Chrome version, Alpine Linux
@@ -160,6 +173,7 @@ AUR packages are available to Archlinux users:
 * Build from source code: [curl-impersonate-chrome](https://aur.archlinux.org/packages/curl-impersonate-chrome), [curl-impersonate-firefox](https://aur.archlinux.org/packages/curl-impersonate-firefox).
 
 ## Advanced usage
+
 ### libcurl-impersonate
 
 `libcurl-impersonate.so` is libcurl compiled with the same changes as the command line `curl-impersonate`.
@@ -171,8 +185,12 @@ CURLcode curl_easy_impersonate(struct Curl_easy *data, const char *target,
                                int default_headers);
 ```
 
-You can call it with the target names, e.g. `chrome123`, and it will internally set all the options and headers that are otherwise set by the wrapper scripts.
-If `default_headers` is set to 0, the built-in list of  HTTP headers will not be set, and the user is expected to provide them instead using the regular [`CURLOPT_HTTPHEADER`](https://curl.se/libcurl/c/CURLOPT_HTTPHEADER.html) libcurl option.
+You can call it with the target names, e.g. `chrome123`, and it will internally set all
+the options and headers that are otherwise set by the wrapper scripts.
+
+If `default_headers` is set to 0, the built-in list of  HTTP headers will not be set, and
+the user is expected to provide them instead using the regular [`CURLOPT_HTTPHEADER`](https://curl.se/libcurl/c/CURLOPT_HTTPHEADER.html)
+libcurl option.
 
 Calling the above function sets the following libcurl options:
 
@@ -191,10 +209,14 @@ Calling the above function sets the following libcurl options:
 * `CURLOPT_TLS_GREASE`, whether to enable the grease behavior. (non-standard TLS options created for this project).
 * `CURLOPT_TLS_EXTENSION_ORDER`, explicit order or TLS extensions, in the format of `0-5-10`. (non-standard TLS options created for this project).
 
-Note that if you call `curl_easy_setopt()` later with one of the above it will override the options set by `curl_easy_impersonate()`.
+Note that if you call `curl_easy_setopt()` later with one of the above it will override
+the options set by `curl_easy_impersonate()`.
 
 ### Using CURL_IMPERSONATE env var
-If your application uses `libcurl` already, you can replace the existing library at runtime with `LD_PRELOAD` (Linux only). You can then set the `CURL_IMPERSONATE` env var. For example:
+
+If your application uses `libcurl` already, you can replace the existing library at
+runtime with `LD_PRELOAD` (Linux only). You can then set the `CURL_IMPERSONATE` env var.
+For example:
 
     LD_PRELOAD=/path/to/libcurl-impersonate.so CURL_IMPERSONATE=chrome116 my_app
 
@@ -209,20 +231,22 @@ If you need precise control over the HTTP headers, set `CURL_IMPERSONATE_HEADERS
 
     LD_PRELOAD=/path/to/libcurl-impersonate.so CURL_IMPERSONATE=chrome116 CURL_IMPERSONATE_HEADERS=no my_app
 
-Note that the `LD_PRELOAD` method will NOT WORK for `curl` itself because the curl tool overrides the TLS settings. Use the wrapper scripts instead.
+Note that the `LD_PRELOAD` method will NOT WORK for `curl` itself because the curl tool
+overrides the TLS settings. Use the wrapper scripts instead.
 
-### Notes on dependencies 
+### Notes on dependencies
 
-If you intend to copy the self-compiled artifacts to another system, or use the [Pre-compiled binaries](#pre-compiled-binaries) provided by the project, make sure that all the additional dependencies are met on the target system as well. 
-In particular, see the [note about the Firefox version](INSTALL.md#a-note-about-the-firefox-version).
+If you intend to copy the self-compiled artifacts to another system, or use the [Pre-compiled binaries](#pre-compiled-binaries)
+provided by the project, make sure that all the additional dependencies are met on the target system as well. 
 
 ## Contents
 
 This repository contains these folders:
-* [chrome](chrome) - Scripts and patches for building the Chrome version of `curl-impersonate`.
-    * [curl_chrome110](chrome/curl_chrome110), [curl_chrome124](chrome/curl_chrome124) - Wrapper scripts that launch `curl-impersonate` with the correct flags.
-    * [curl-impersonate.patch](chrome/patches/curl-impersonate.patch) - The main patch that makes curl use the same TLS extensions as Firefox. Also makes curl compile statically with libnghttp2.
+* [patches](patches) - patches for building `curl-impersonate`.
+    * [curl.patch](chrome/patches/curl-impersonate.patch) - The main patch that makes curl use the same TLS extensions as Firefox. Also makes curl compile statically with libnghttp2.
     * [boringssl.patch](chrome/patches/boringssl.patch) - The boringssl patch that tweaks boringssl behaviors.
+* [bin](bin) - prebuilt scripts for each browser version.
+    * [curl_chrome110](bin/chrome/curl_chrome110), [curl_chrome124](bin/chrome/curl_chrome124) - Wrapper scripts that launch `curl-impersonate` with the correct flags.
 * [win](win) - Scripts for building the Windows version of `curl-impersonate`, which is quite different from `*nix`.
 * [zigshim](zigshim) - We use the awesome `zig` toolchain to bring `curl-impersonate` to more archs on Linux. Special thanks to @bjia56 for making it possible.
 * [docker](docker) - Debian and alpine dockerfiles for this project.

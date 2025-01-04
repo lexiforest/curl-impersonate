@@ -14,6 +14,10 @@ mv boringssl-${BORING_SSL_COMMIT} boringssl
 
 cd boringssl
 
+export CFLAGS='-Wno-unused-variable -static -static-libgcc -static-libstdc++'
+export CXXFLAGS='-static -static-libgcc -static-libstdc++'
+export LDFLAGS='-static -static-libgcc -static-libstdc++'
+
 patchfile=../../patches/boringssl.patch
 patch -p1 < $patchfile
 sed -i 's/-ggdb//g' CMakeLists.txt

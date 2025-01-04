@@ -141,9 +141,9 @@ jobs:
 
       - name: Build the Chrome version of curl-impersonate
         run: |
-          make chrome-build
-          make chrome-checkbuild
-          make chrome-install
+          make build
+          make checkbuild
+          make install
 
       - name: Prepare the tests
         if: matrix.host == 'x86_64-linux-gnu'
@@ -198,7 +198,7 @@ jobs:
       - name: Clean build
         run: |
           set -e
-          make chrome-clean
+          make clean
           rm -Rf ${{ runner.temp }}/install
           mkdir ${{ runner.temp }}/install
 
@@ -216,12 +216,12 @@ jobs:
       - name: Rebuild statically
         run: |
           set -e
-          make chrome-build
-          make chrome-checkbuild
+          make build
+          make checkbuild
           if [[ "${{ endsWith(matrix.host, 'musl') }}" == "true" ]]; then
-            make chrome-install
+            make install
           else
-            make chrome-install-strip
+            make install-strip
           fi
 
       - name: Create tar release files for curl-impersonate
@@ -333,9 +333,9 @@ jobs:
 
       - name: Build the Chrome version of curl-impersonate
         run: |
-          ${{ matrix.make }} chrome-build
-          ${{ matrix.make }} chrome-checkbuild
-          ${{ matrix.make }} chrome-install
+          ${{ matrix.make }} build
+          ${{ matrix.make }} checkbuild
+          ${{ matrix.make }} install
 
       - name: Prepare the tests
         run: |
@@ -362,7 +362,7 @@ jobs:
       - name: Clean build
         if: startsWith(github.ref, 'refs/tags/')
         run: |
-          ${{ matrix.make }} chrome-clean
+          ${{ matrix.make }} clean
           rm -Rf ${{ runner.temp }}/install
           mkdir ${{ runner.temp }}/install
 
@@ -375,9 +375,9 @@ jobs:
       - name: Rebuild statically
         if: startsWith(github.ref, 'refs/tags/')
         run: |
-          ${{ matrix.make }} chrome-build
-          ${{ matrix.make }} chrome-checkbuild
-          ${{ matrix.make }} chrome-install-strip
+          ${{ matrix.make }} build
+          ${{ matrix.make }} checkbuild
+          ${{ matrix.make }} install-strip
 
       - name: Create tar release files for curl-impersonate
         if: startsWith(github.ref, 'refs/tags/')
