@@ -13,24 +13,41 @@
 > 5. Upgrade to more recent version of curl, 8.11.0 as of Jan, 2025.
 > 6. Ability to change extension orders and enable/disable TLS grease.
 > 7. (In progress) Single binary to support both Webkit-based and Gecko-based browsers, i.e. Chrome and Firefox.
+> 8. A easy-to-use Python binding: [curl_cffi](https://github.com/lexiforest/curl_cffi)
 
-A special build of [curl](https://github.com/curl/curl) that can impersonate the four major browsers: Chrome, Edge, Safari and Firefox(In progress). `curl-impersonate` is able to perform TLS and HTTP handshakes that are identical to that of a real browser.
+A special build of [curl](https://github.com/curl/curl) that can impersonate the four
+major browsers: Chrome, Edge, Safari and Firefox(In progress). `curl-impersonate` is
+able to perform TLS and HTTP handshakes that are identical to that of a real browser.
 
-`curl-impersonate` can be used either as a command line tool, similar to the regular curl, or as a library that can be integrated instead of the regular libcurl. See [Usage](#Basic-usage) below.
+`curl-impersonate` can be used either as a command line tool, similar to the regular
+curl, or as a library that can be integrated instead of the regular libcurl. See
+[Usage](#Basic-usage) below.
 
 ## Why?
 
-When you use an HTTP client with a TLS website, it first performs a TLS handshake. The first message of that handshake is called Client Hello. The Client Hello message that most HTTP clients and libraries produce differs drastically from that of a real browser.
+When you use an HTTP client with a TLS website, it first performs a TLS handshake. The
+first message of that handshake is called Client Hello. The Client Hello message that
+most HTTP clients and libraries produce differs drastically from that of a real browser.
 
-If the server uses HTTP/2, then in addition to the TLS handshake there is also an HTTP/2 handshake where various settings are exchanged. The settings that most HTTP clients and libraries use differ as well from those of any real browsers.
+If the server uses HTTP/2, then in addition to the TLS handshake there is also an HTTP/2
+handshake where various settings are exchanged. The settings that most HTTP clients and
+libraries use differ as well from those of any real browsers.
 
-For these reasons, some web services use the TLS and HTTP handshakes to fingerprint which client is accessing them, and then present different content for different clients. These methods are known as [TLS fingerprinting](https://lwthiker.com/networks/2022/06/17/tls-fingerprinting.html) and [HTTP/2 fingerprinting](https://lwthiker.com/networks/2022/06/17/http2-fingerprinting.html) respectively. Their widespread use has led to the web becoming less open, less private and much more restrictive towards specific web clients
+For these reasons, some web services use the TLS and HTTP handshakes to fingerprint
+which client is accessing them, and then present different content for different clients.
+These methods are known as [TLS fingerprinting](https://lwthiker.com/networks/2022/06/17/tls-fingerprinting.html)
+and [HTTP/2 fingerprinting](https://lwthiker.com/networks/2022/06/17/http2-fingerprinting.html)
+respectively. Their widespread use has led to the web becoming less open, less private
+and much more restrictive towards specific web clients
 
-With the modified curl in this repository, the TLS and HTTP handshakes look *exactly* like those of a real browser.
+With the modified curl in this repository, the TLS and HTTP handshakes look *exactly*
+like those of a real browser.
 
 ## How?
 
-To make this work, `curl` was patched significantly to resemble a browser. Specifically, The modifications that were needed to make this work:
+To make this work, `curl` was patched significantly to resemble a browser. Specifically,
+The modifications that were needed to make this work:
+
 * Compiling with BoringSSL, Google's TLS library, which is used by Chrome and Safari.
 * Modifying the way curl configures various TLS extensions and SSL options.
 * Adding support for new TLS extensions.
@@ -39,10 +56,14 @@ To make this work, `curl` was patched significantly to resemble a browser. Speci
 
 The resulting curl looks, from a network perspective, identical to a real browser.
 
-Read the full technical description in the blog posts: [part a](https://lwthiker.com/reversing/2022/02/17/curl-impersonate-firefox.html), [part b](https://lwthiker.com/reversing/2022/02/20/impersonating-chrome-too.html).
+Read the full technical description in the blog posts:
+[part a](https://lwthiker.com/reversing/2022/02/17/curl-impersonate-firefox.html),
+[part b](https://lwthiker.com/reversing/2022/02/20/impersonating-chrome-too.html).
 
 ## Supported browsers
+
 The following browsers can be impersonated.
+
 | Browser | Version | Build | OS | Target name | Wrapper script |
 | --- | --- | --- | --- | --- | --- |
 | ![Chrome](https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome_24x24.png "Chrome") | 99 | 99.0.4844.51 | Windows 10 | `chrome99` | [curl_chrome99](chrome/curl_chrome99) |
