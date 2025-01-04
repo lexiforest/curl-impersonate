@@ -3,7 +3,9 @@
 curl-impersonate is a curl build that lets you send HTTP requests that look like a browser's.
 curl-impersonate can impersonate recent versions of Chrome, Edge, Safari & Firefox(In progress).
 
-curl-impersonate can be used either as a command line tool, similar to the regular curl, or as a library that can be integrated instead of the regular libcurl.
+curl-impersonate can be used either as a command line tool, similar to the regular curl,
+or as a library that can be integrated instead of the regular libcurl.
+
 These docs describe the various usage options.
 
 ## Contents

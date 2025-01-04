@@ -1,4 +1,4 @@
-ARG CHROME_IMAGE=curl-impersonate-chrome
+ARG CHROME_IMAGE=curl-impersonate
 
 FROM ${CHROME_IMAGE} as chrome
 

@@ -5,19 +5,28 @@ Since it is just a modified curl build, all the original flags and command-line 
 
 For example, it can be run as follows:
 
-    curl-impersonate-chrome -v -L https://wikipedia.org
+    curl-impersonate -v -L https://wikipedia.org
 
-However, by default, running the binaries as above will not prdouce the same TLS and HTTP/2 signatures as the impersonated browsers. Rather, this project provides additional *wrapper scripts* that launch these binaries with the correct set of command line flags to produce the desired signatures. For example:
+However, by default, running the binaries as above will not prdouce the same TLS and
+HTTP/2 signatures as the impersonated browsers. Rather, this project provides additional
+*wrapper scripts* that launch these binaries with the correct set of command line flags
+to produce the desired signatures. For example:
 
     curl_chrome104 -v -L https://wikipedia.org
 
-will produce a signature identical to Chrome version 104. You can add command line flags and they will be passed on to curl. However, some flags change curl's TLS signature. See below for more details.
+will produce a signature identical to Chrome version 104. You can add command line flags
+and they will be passed on to curl. However, some flags change curl's TLS signature. See
+below for more details.
 
 The full list of wrapper scripts is available on the [main page](https://github.com/yifeikong/curl-impersonate#supported-browsers).
 
 ## Changing the HTTP headers
-The wrapper scripts use a certain set of HTTP headers such as `User-Agent`, `Accept-Encoding` and a few more.
-These headers were chosen to be identical to the default set of headers used by the browser upon requesting an unvisited website. The order of the headers was chosen to match as well.
+The wrapper scripts use a certain set of HTTP headers such as `User-Agent`, `Accept-Encoding`
+and a few more.
+
+These headers were chosen to be identical to the default set of headers used by the
+browser upon requesting an unvisited website. The order of the headers was chosen to
+match as well.
 
 In many different scenarios you may wish to change the headers, their order, or to add new ones.
 To do so correctly, currently the best option is to modify the scripts.
@@ -29,7 +38,7 @@ Understanding this can help in some scenarios where better control of the signat
 
 The important part of the script is:
 ```bash
-"$dir/curl-impersonate-chrome" \
+"$dir/curl-impersonate" \
     --ciphers TLS_AES_128_GCM_SHA256,TLS_AES_256_GCM_SHA384,TLS_CHACHA20_POLY1305_SHA256,ECDHE-ECDSA-AES128-GCM-SHA256,ECDHE-RSA-AES128-GCM-SHA256,ECDHE-ECDSA-AES256-GCM-SHA384,ECDHE-RSA-AES256-GCM-SHA384,ECDHE-ECDSA-CHACHA20-POLY1305,ECDHE-RSA-CHACHA20-POLY1305,ECDHE-RSA-AES128-SHA,ECDHE-RSA-AES256-SHA,AES128-GCM-SHA256,AES256-GCM-SHA384,AES128-SHA,AES256-SHA \
     -H 'sec-ch-ua: "Chromium";v="104", " Not A;Brand";v="99", "Google Chrome";v="104"' \
     -H 'sec-ch-ua-mobile: ?0' \
