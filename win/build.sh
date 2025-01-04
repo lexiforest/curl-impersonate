@@ -65,7 +65,7 @@ cmake -B build -G "MinGW Makefiles" \
     -DCURL_USE_LIBSSH=OFF \
     -DUSE_ECH=ON \
     -DHAVE_ECH=ON \
-    -DUSE_HTTPSRR \
+    -DUSE_HTTPSRR=ON \
     -DCMAKE_BUILD_TYPE=Release \
     -DBUILD_STATIC_LIBS=ON \
     -DBUILD_STATIC_CURL=ON \
