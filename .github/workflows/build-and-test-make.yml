@@ -16,7 +16,7 @@ permissions:
   contents: write
 
 env:
-  BORING_SSL_COMMIT: d24a38200fef19150eef00cad35b138936c08767
+  BORING_SSL_COMMIT: cd95210465496ac2337b313cf49f607762abe286
 
 jobs:
   build-and-test-linux:
@@ -141,9 +141,9 @@ jobs:
 
       - name: Build the Chrome version of curl-impersonate
         run: |
-          make chrome-build
-          make chrome-checkbuild
-          make chrome-install
+          make build
+          make checkbuild
+          make install
 
       - name: Prepare the tests
         if: matrix.host == 'x86_64-linux-gnu'
@@ -198,7 +198,7 @@ jobs:
       - name: Clean build
         run: |
           set -e
-          make chrome-clean
+          make clean
           rm -Rf ${{ runner.temp }}/install
           mkdir ${{ runner.temp }}/install
 
@@ -216,21 +216,21 @@ jobs:
       - name: Rebuild statically
         run: |
           set -e
-          make chrome-build
-          make chrome-checkbuild
+          make build
+          make checkbuild
           if [[ "${{ endsWith(matrix.host, 'musl') }}" == "true" ]]; then
-            make chrome-install
+            make install
           else
-            make chrome-install-strip
+            make install-strip
           fi
 
       - name: Create tar release files for curl-impersonate
         run: |
           cd ${{ runner.temp }}/install/bin
           if [[ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]]; then
-            tar -c -z -f ${{ runner.temp }}/curl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz curl-impersonate-chrome curl_*
+            tar -c -z -f ${{ runner.temp }}/curl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz curl-impersonate curl_*
           else
-            tar -c -z -f ${{ runner.temp }}/curl-impersonate.${{ matrix.host }}.tar.gz curl-impersonate-chrome curl_*
+            tar -c -z -f ${{ runner.temp }}/curl-impersonate.${{ matrix.host }}.tar.gz curl-impersonate curl_*
           fi
           echo "release_file_bin=${{ runner.temp }}/curl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz" >> $GITHUB_ENV
 
@@ -253,9 +253,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-12, macos-14]
+        os: [macos-13, macos-14]
         include:
-          - os: macos-12
+          - os: macos-13
             arch: x86_64
             host: x86_64-macos
             capture_interface: en0
@@ -333,9 +333,9 @@ jobs:
 
       - name: Build the Chrome version of curl-impersonate
         run: |
-          ${{ matrix.make }} chrome-build
-          ${{ matrix.make }} chrome-checkbuild
-          ${{ matrix.make }} chrome-install
+          ${{ matrix.make }} build
+          ${{ matrix.make }} checkbuild
+          ${{ matrix.make }} install
 
       - name: Prepare the tests
         run: |
@@ -362,7 +362,7 @@ jobs:
       - name: Clean build
         if: startsWith(github.ref, 'refs/tags/')
         run: |
-          ${{ matrix.make }} chrome-clean
+          ${{ matrix.make }} clean
           rm -Rf ${{ runner.temp }}/install
           mkdir ${{ runner.temp }}/install
 
@@ -375,15 +375,15 @@ jobs:
       - name: Rebuild statically
         if: startsWith(github.ref, 'refs/tags/')
         run: |
-          ${{ matrix.make }} chrome-build
-          ${{ matrix.make }} chrome-checkbuild
-          ${{ matrix.make }} chrome-install-strip
+          ${{ matrix.make }} build
+          ${{ matrix.make }} checkbuild
+          ${{ matrix.make }} install-strip
 
       - name: Create tar release files for curl-impersonate
         if: startsWith(github.ref, 'refs/tags/')
         run: |
           cd ${{ runner.temp }}/install/bin
-          tar -c -z -f ${{ runner.temp }}/curl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz curl-impersonate-chrome curl_*
+          tar -c -z -f ${{ runner.temp }}/curl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz curl-impersonate curl_*
           echo "release_file_bin=${{ runner.temp }}/curl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz" >> $GITHUB_ENV
 
       - name: Upload release files

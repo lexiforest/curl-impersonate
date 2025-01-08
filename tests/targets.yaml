@@ -89,93 +89,93 @@
 # CURL_IMPERSONATE env var.
 - - minicurl
   - CURL_IMPERSONATE: chrome99
-  - libcurl-impersonate-chrome
+  - libcurl-impersonate
   - chrome_99.0.4844.51_win10
 - - minicurl
   - CURL_IMPERSONATE: chrome100
-  - libcurl-impersonate-chrome
+  - libcurl-impersonate
   - chrome_100.0.4896.127_win10
 - - minicurl
   - CURL_IMPERSONATE: chrome101
-  - libcurl-impersonate-chrome
+  - libcurl-impersonate
   - chrome_101.0.4951.67_win10
 - - minicurl
   - CURL_IMPERSONATE: chrome104
-  - libcurl-impersonate-chrome
+  - libcurl-impersonate
   - chrome_104.0.5112.81_win10
 - - minicurl
   - CURL_IMPERSONATE: chrome107
-  - libcurl-impersonate-chrome
+  - libcurl-impersonate
   - chrome_107.0.5304.107_win10
 - - minicurl
   - CURL_IMPERSONATE: chrome110
-  - libcurl-impersonate-chrome
+  - libcurl-impersonate
   - chrome_110.0.5481.177_win10
 - - minicurl
   - CURL_IMPERSONATE: chrome116
-  - libcurl-impersonate-chrome
+  - libcurl-impersonate
   - chrome_116.0.5845.180_win10
 - - minicurl
   - CURL_IMPERSONATE: chrome119
-  - libcurl-impersonate-chrome
+  - libcurl-impersonate
   - chrome_119.0.6045.199_macOS
 - - minicurl
   - CURL_IMPERSONATE: chrome120
-  - libcurl-impersonate-chrome
+  - libcurl-impersonate
   - chrome_120.0.6099.109_macOS
 - - minicurl
   - CURL_IMPERSONATE: chrome123
-  - libcurl-impersonate-chrome
+  - libcurl-impersonate
   - chrome_123.0.6312.124_macOS
 - - minicurl
   - CURL_IMPERSONATE: chrome124
-  - libcurl-impersonate-chrome
+  - libcurl-impersonate
   - chrome_124.0.6367.60_macOS
 - - minicurl
   - CURL_IMPERSONATE: chrome131
-  - libcurl-impersonate-chrome
+  - libcurl-impersonate
   - chrome_131.0.6778.86_macOS
 - - minicurl
   - CURL_IMPERSONATE: chrome131_android
-  - libcurl-impersonate-chrome
+  - libcurl-impersonate
   - chrome_131.0.6778.81_android14
 - - minicurl
   - CURL_IMPERSONATE: chrome99_android
-  - libcurl-impersonate-chrome
+  - libcurl-impersonate
   - chrome_99.0.4844.73_android12
 - - minicurl
   - CURL_IMPERSONATE: edge99
-  - libcurl-impersonate-chrome
+  - libcurl-impersonate
   - edge_99.0.1150.30_win10
 - - minicurl
   - CURL_IMPERSONATE: edge101
-  - libcurl-impersonate-chrome
+  - libcurl-impersonate
   - edge_101.0.1210.47_win10
 - - minicurl
   - CURL_IMPERSONATE: safari15_3
-  - libcurl-impersonate-chrome
+  - libcurl-impersonate
   - safari_15.3_macos11.6.4
 - - minicurl
   - CURL_IMPERSONATE: safari15_5
-  - libcurl-impersonate-chrome
+  - libcurl-impersonate
   - safari_15.5_macos12.4
 - - minicurl
   - CURL_IMPERSONATE: safari17_0
-  - libcurl-impersonate-chrome
+  - libcurl-impersonate
   - safari_17.0_macOS
 - - minicurl
   - CURL_IMPERSONATE: safari17_2_ios
-  - libcurl-impersonate-chrome
+  - libcurl-impersonate
   - safari_17.2_iOS
 - - minicurl
   - CURL_IMPERSONATE: safari18_0
-  - libcurl-impersonate-chrome
+  - libcurl-impersonate
   - safari_18.0_macOS
 - - minicurl
   - CURL_IMPERSONATE: safari18_0_ios
-  - libcurl-impersonate-chrome
+  - libcurl-impersonate
   - safari_18.0_iOS
 # - - minicurl
 #   - CURL_IMPERSONATE: firefox120
-#   - libcurl-impersonate-chrome
+#   - libcurl-impersonate
 #   - firefox_120_macOS

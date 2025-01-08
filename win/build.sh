@@ -14,7 +14,11 @@ mv boringssl-${BORING_SSL_COMMIT} boringssl
 
 cd boringssl
 
-patchfile=../../chrome/patches/boringssl.patch
+export CFLAGS='-Wno-unused-variable -static -static-libgcc -static-libstdc++'
+export CXXFLAGS='-static -static-libgcc -static-libstdc++'
+export LDFLAGS='-static -static-libgcc -static-libstdc++'
+
+patchfile=../../patches/boringssl.patch
 patch -p1 < $patchfile
 sed -i 's/-ggdb//g' CMakeLists.txt
 sed -i 's/-Werror//g' CMakeLists.txt
@@ -30,7 +34,7 @@ export BROTLI_LIBS='-lbrotlidec -lbrotlicommon'
 export OPENSSL_PATH=$PWD/boringssl
 export OPENSSL_LIBPATH=$PWD/boringssl/lib
 
-CURL_VERSION=curl-8_7_1
+CURL_VERSION=curl-8_11_0
 
 curl -L https://github.com/curl/curl/archive/${CURL_VERSION}.zip -o curl.zip
 unzip -q -o curl.zip
@@ -41,7 +45,7 @@ mv curl-${CURL_VERSION} curl
 
 cd curl
 
-patchfile=../../chrome/patches/curl-impersonate.patch
+patchfile=../../patches/curl.patch
 patch -p1 < $patchfile
 
 export CMAKE_PREFIX_PATH=../boringssl
@@ -64,6 +68,8 @@ cmake -B build -G "MinGW Makefiles" \
     -DCURL_USE_LIBSSH2=OFF \
     -DCURL_USE_LIBSSH=OFF \
     -DUSE_ECH=ON \
+    -DHAVE_ECH=ON \
+    -DUSE_HTTPSRR=ON \
     -DCMAKE_BUILD_TYPE=Release \
     -DBUILD_STATIC_LIBS=ON \
     -DBUILD_STATIC_CURL=ON \

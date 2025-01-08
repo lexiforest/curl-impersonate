@@ -63,13 +63,13 @@ jobs:
             mingw-w64-${{ matrix.env }}-go
             mingw-w64-${{ matrix.env }}-libuv
 
+      - name: Setup tmate session for debugging
+        uses: mxschmitt/action-tmate@v3
+
       - name: Copy and patch
         shell: msys2 {0}
         run: ./win/build.sh ${{ matrix.sys }}
 
-      # - name: Setup tmate session for debugging
-      #   uses: mxschmitt/action-tmate@v3
-      #
       - uses: ilammy/msvc-dev-cmd@v1
 
       - name: Generate lib files
