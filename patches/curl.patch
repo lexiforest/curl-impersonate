@@ -354,7 +354,7 @@ index fb162a30d..43b2264bc 100644
  /**
   * Return the n-th header entry or NULL if it does not exist.
 diff --git a/lib/easy.c b/lib/easy.c
-index d16fa8c07..234caf72f 100644
+index d16fa8c07..5a03b6b16 100644
 --- a/lib/easy.c
 +++ b/lib/easy.c
 @@ -74,6 +74,8 @@
@@ -594,8 +594,8 @@ index d16fa8c07..234caf72f 100644
  {
    CURLcode result;
    struct Curl_easy *data;
-+  char *env_target;
-+  char *env_headers;
++  char *env_target = NULL;
++  char *env_headers = NULL;
  
    /* Make sure we inited the global SSL stuff */
    global_init_lock();
