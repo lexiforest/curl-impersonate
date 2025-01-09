@@ -277,7 +277,7 @@ $(CURL_VERSION)/.chrome: $(chrome_libs)	$(CURL_VERSION).tar.gz $(CURL_VERSION)/.
 
 	echo "Configuring curl with: $$config_flags"
 
-	CXXFLAGS="-stdlib=libc++" LDFLAGS="-lc++" ./configure --without-libpsl --enable-debug $$config_flags LIBS="$$add_libs"
+	CXXFLAGS="-stdlib=libc++" LDFLAGS="-lc++" LIBS="-lc++" ./configure --without-libpsl --enable-debug $$config_flags LIBS="$$add_libs"
 
 	# Remove possible leftovers from a previous compilation
 	$(MAKE) clean MAKEFLAGS=
