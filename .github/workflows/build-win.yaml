@@ -2,23 +2,25 @@ name: Build for windows
 on:
   push:
     branches:
-      - disabled  # only temporary
-      # - main
-      # - feature/*
-      # - bugfix/*
+      - main
+      - feature/*
+      - bugfix/*
     tags:
-      - disabled
-      # - "v*.*.*"
+      - "v*.*.*"
   pull_request:
     branches:
-      - disabled
-      # - main
+      - main
 
 permissions:
   contents: write
 
 env:
-  BORING_SSL_COMMIT: d24a38200fef19150eef00cad35b138936c08767
+  ZLIB_COMMIT: 09155eaa2f9270dc4ed1fa13e2b4b2613e6e4851
+  ZSTD_COMMIT: 794ea1b0afca0f020f4e57b6732332231fb23c70
+  BROTLI_COMMIT: ed738e842d2fbdf2d6459e39267a633c4a9b2f5d
+  BORINGSSL_COMMIT: cd95210465496ac2337b313cf49f607762abe286
+  CURL_COMMIT: de7b3e89218467159a7af72d58cea8425946e97d
+  NGHTTP2_COMMIT: 8f44147c385fb1ed93a6f39911eeb30279bfd2dd
 
 jobs:
   build-windows:
@@ -27,8 +29,8 @@ jobs:
     strategy:
       matrix:
         include:
-          - { sys: mingw64, env: x86_64 }
-          - { sys: mingw32, env: i686 }
+          - { sys: vcvars64, env: x86_64 }
+          - { sys: vcvars32, env: i686 }
     steps:
       - name: configure Pagefile
         uses: al-cheb/configure-pagefile-action@v1.3
@@ -45,46 +47,29 @@ jobs:
       - name: Check out the repo
         uses: actions/checkout@v2
 
-      - uses: msys2/setup-msys2@v2
-        name: Install msys
-        with:
-          update: true
-          msystem: ${{ matrix.sys }}
-          install: >-
-            git
-            patch
-            unzip
-            mingw-w64-${{ matrix.env }}-brotli
-            mingw-w64-${{ matrix.env }}-libidn2
-            mingw-w64-${{ matrix.env }}-zstd
-            mingw-w64-${{ matrix.env }}-nghttp2
-            mingw-w64-${{ matrix.env }}-zlib
-            mingw-w64-${{ matrix.env }}-make
-            mingw-w64-${{ matrix.env }}-cmake
-            mingw-w64-${{ matrix.env }}-nasm
-            mingw-w64-${{ matrix.env }}-gcc
-            mingw-w64-${{ matrix.env }}-go
-            mingw-w64-${{ matrix.env }}-libuv
+      - name: Install NASM
+        shell: cmd
+        run: choco install nasm -y
 
-      - name: Copy and patch
-        shell: msys2 {0}
-        run: ./win/build.sh ${{ matrix.sys }}
+      - name: Fetch and patch deps
+        shell: bash
+        run: ./win/deps.sh
 
       # - name: Setup tmate session for debugging
       #   uses: mxschmitt/action-tmate@v3
       #
-      - uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Generate lib files
-        run: ./win/dll2lib.bat ${{ matrix.env }} build\dist\libcurl.dll
+      - name: Build
+        shell: cmd
+        run: ./win/build.bat ${{ matrix.sys }}
 
       - name: Build tarball
-        shell: msys2 {0}
+        shell: bash
         run: |
           if [[ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]]; then
-            tar cvzf libcurl-impersonate-${{ github.head_ref || github.ref_name }}.${{ matrix.env }}-win32.tar.gz -C ./build/dist .
+            tar cvzf libcurl-impersonate-${{ github.head_ref || github.ref_name }}.${{ matrix.env }}-win32.tar.gz -C ./packages .
           else
-            tar cvzf libcurl-impersonate-${{ matrix.env }}-win32.tar.gz -C ./build/dist .
+            tar cvzf libcurl-impersonate-${{ matrix.env }}-win32.tar.gz -C ./packages .
           fi
 
       - name: Upload artifacts

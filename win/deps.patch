@@ -1,0 +1,96 @@
+diff --git a/deps/boringssl/CMakeLists.txt b/deps/boringssl/CMakeLists.txt
+index 2308d57..733407d 100644
+--- a/deps/boringssl/CMakeLists.txt
++++ b/deps/boringssl/CMakeLists.txt
+@@ -110,7 +110,7 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CLANG)
+     # clang-cl sets different default warnings than clang. It also treats -Wall
+     # as -Weverything, to match MSVC. Instead -W3 is the alias for -Wall.
+     # See http://llvm.org/viewvc/llvm-project?view=revision&revision=319116
+-    set(C_CXX_FLAGS "${C_CXX_FLAGS} -W3 -Wno-unused-parameter -fmsc-version=1900")
++    set(C_CXX_FLAGS "${C_CXX_FLAGS} -W3 -Wno-unused-parameter -fmsc-version=1900 -Wno-deprecated")
+   else()
+     if(EMSCRIPTEN)
+       # emscripten's emcc/clang does not accept the "-ggdb" flag.
+diff --git a/deps/boringssl/crypto/rand_extra/windows.c b/deps/boringssl/crypto/rand_extra/windows.c
+index a44774d..56e890f 100644
+--- a/deps/boringssl/crypto/rand_extra/windows.c
++++ b/deps/boringssl/crypto/rand_extra/windows.c
+@@ -62,6 +62,9 @@ void CRYPTO_sysrand(uint8_t *out, size_t requested) {
+ typedef BOOL (WINAPI *ProcessPrngFunction)(PBYTE pbData, SIZE_T cbData);
+ static ProcessPrngFunction g_processprng_fn = NULL;
+ 
++typedef BOOL(WINAPI *RtlGenRandomFunction)(PVOID RandomBuffer, ULONG RandomBufferLength);
++static RtlGenRandomFunction g_rtlgenrandom_fn = NULL;
++
+ static void init_processprng(void) {
+   HMODULE hmod = LoadLibraryW(L"bcryptprimitives");
+   if (hmod == NULL) {
+@@ -69,7 +72,14 @@ static void init_processprng(void) {
+   }
+   g_processprng_fn = (ProcessPrngFunction)GetProcAddress(hmod, "ProcessPrng");
+   if (g_processprng_fn == NULL) {
+-    abort();
++    hmod = LoadLibraryW(L"advapi32");
++    if (hmod == NULL) {
++      abort();
++    }
++    g_rtlgenrandom_fn = (RtlGenRandomFunction)GetProcAddress(hmod, "SystemFunction036");
++    if (g_rtlgenrandom_fn == NULL) {
++      abort();
++    }
+   }
+ }
+ 
+@@ -83,8 +93,22 @@ void CRYPTO_sysrand(uint8_t *out, size_t requested) {
+   // On non-UWP configurations, use ProcessPrng instead of BCryptGenRandom
+   // to avoid accessing resources that may be unavailable inside the
+   // Chromium sandbox. See https://crbug.com/74242
+-  if (!g_processprng_fn(out, requested)) {
+-    abort();
++  if (g_processprng_fn != NULL) {
++    if (!g_processprng_fn(out, requested)) {
++      abort();
++    }
++  } else {
++    while (requested > 0) {
++      ULONG output_bytes_this_pass = ULONG_MAX;
++      if (requested < output_bytes_this_pass) {
++        output_bytes_this_pass = (ULONG)requested;
++      }
++      if (g_rtlgenrandom_fn(out, output_bytes_this_pass) == FALSE) {
++        abort();
++      }
++      requested -= output_bytes_this_pass;
++      out += output_bytes_this_pass;
++    }
+   }
+ }
+ 
+diff --git a/deps/curl/lib/curl_setup.h b/deps/curl/lib/curl_setup.h
+index 286acc3..0ea2480 100644
+--- a/deps/curl/lib/curl_setup.h
++++ b/deps/curl/lib/curl_setup.h
+@@ -687,6 +687,10 @@
+ #error "No longer supported. Set CURLOPT_CAINFO at runtime instead."
+ #endif
+ 
++#if defined(USE_LIBSSH2)
++#undef USE_LIBSSH2
++#endif
++
+ #if defined(USE_LIBSSH2) || defined(USE_LIBSSH) || defined(USE_WOLFSSH)
+ #define USE_SSH
+ #endif
+diff --git a/deps/zstd/lib/common/cpu.h b/deps/zstd/lib/common/cpu.h
+index 0e684d9..f8c1ecc 100644
+--- a/deps/zstd/lib/common/cpu.h
++++ b/deps/zstd/lib/common/cpu.h
+@@ -35,7 +35,7 @@ MEM_STATIC ZSTD_cpuid_t ZSTD_cpuid(void) {
+     U32 f7b = 0;
+     U32 f7c = 0;
+ #if defined(_MSC_VER) && (defined(_M_X64) || defined(_M_IX86))
+-#if !defined(__clang__)
++#if 1
+     int reg[4];
+     __cpuid((int*)reg, 0);
+     {
