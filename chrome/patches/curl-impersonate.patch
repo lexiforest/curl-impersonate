@@ -3241,7 +3241,7 @@ index ce28f25bb..7d24e8171 100644
  
  #ifndef CURL_DISABLE_MIME
 diff --git a/lib/vtls/openssl.c b/lib/vtls/openssl.c
-index a3953f6c3..ccfa7ff19 100644
+index a3953f6c3..9d32f32cc 100644
 --- a/lib/vtls/openssl.c
 +++ b/lib/vtls/openssl.c
 @@ -79,9 +79,27 @@
@@ -3386,7 +3386,7 @@ index a3953f6c3..ccfa7ff19 100644
  #if defined(OPENSSL_IS_BORINGSSL) || defined(OPENSSL_IS_AWSLC)
  typedef uint32_t sslerr_t;
  #else
-@@ -2644,6 +2769,178 @@ static const char *tls_rt_type(int type)
+@@ -2644,6 +2769,181 @@ static const char *tls_rt_type(int type)
    }
  }
  
@@ -3460,12 +3460,14 @@ index a3953f6c3..ccfa7ff19 100644
 +}
 +#endif
 +
++// curl-impersonate: decompress the zstd cert
 +#ifdef HAVE_ZSTD
 +int DecompressZstdCert(SSL* ssl,
-+                         CRYPTO_BUFFER** out,
-+                         size_t uncompressed_len,
-+                         const uint8_t* in,
-+                         size_t in_len) {
++                       CRYPTO_BUFFER** out,
++                       size_t uncompressed_len,
++                       const uint8_t* in,
++                       size_t in_len) {
++  size_t result;
 +  uint8_t* data;
 +  CRYPTO_BUFFER* decompressed = CRYPTO_BUFFER_alloc(&data, uncompressed_len);
 +  if (!decompressed) {
@@ -3473,7 +3475,8 @@ index a3953f6c3..ccfa7ff19 100644
 +  }
 +
 +  // zstd returns the size of decompressed content
-+  if (ZSTD_decompress(decompressed, uncompressed_len, in, in_len) != uncompressed_len) {
++  result = ZSTD_decompress(data, uncompressed_len, in, in_len);
++  if (ZSTD_isError(result)) {
 +    CRYPTO_BUFFER_free(decompressed);
 +    return 0;
 +  }
@@ -3565,7 +3568,7 @@ index a3953f6c3..ccfa7ff19 100644
  /*
   * Our callback from the SSL/TLS layers.
   */
-@@ -3616,7 +3913,14 @@ static CURLcode ossl_connect_step1(struct Curl_cfilter *cf,
+@@ -3616,7 +3916,14 @@ static CURLcode ossl_connect_step1(struct Curl_cfilter *cf,
    ctx_options = SSL_OP_ALL;
  
  #ifdef SSL_OP_NO_TICKET
@@ -3581,7 +3584,7 @@ index a3953f6c3..ccfa7ff19 100644
  #endif
  
  #ifdef SSL_OP_NO_COMPRESSION
-@@ -3683,6 +3987,21 @@ static CURLcode ossl_connect_step1(struct Curl_cfilter *cf,
+@@ -3683,6 +3990,21 @@ static CURLcode ossl_connect_step1(struct Curl_cfilter *cf,
    }
  #endif
  
@@ -3603,7 +3606,7 @@ index a3953f6c3..ccfa7ff19 100644
    if(ssl_cert || ssl_cert_blob || ssl_cert_type) {
      if(!result &&
         !cert_stuff(data, backend->ctx,
-@@ -3736,6 +4055,35 @@ static CURLcode ossl_connect_step1(struct Curl_cfilter *cf,
+@@ -3736,6 +4058,35 @@ static CURLcode ossl_connect_step1(struct Curl_cfilter *cf,
    }
  #endif
  
@@ -3639,7 +3642,7 @@ index a3953f6c3..ccfa7ff19 100644
  #ifdef USE_OPENSSL_SRP
    if(ssl_config->primary.username && Curl_auth_allowed_to_host(data)) {
      char * const ssl_username = ssl_config->primary.username;
-@@ -3761,6 +4109,56 @@ static CURLcode ossl_connect_step1(struct Curl_cfilter *cf,
+@@ -3761,6 +4112,56 @@ static CURLcode ossl_connect_step1(struct Curl_cfilter *cf,
    }
  #endif
  
@@ -3696,7 +3699,7 @@ index a3953f6c3..ccfa7ff19 100644
    /* OpenSSL always tries to verify the peer, this only says whether it should
     * fail to connect if the verification fails, or if it should continue
     * anyway. In the latter case the result of the verification is checked with
-@@ -3816,6 +4214,24 @@ static CURLcode ossl_connect_step1(struct Curl_cfilter *cf,
+@@ -3816,6 +4217,24 @@ static CURLcode ossl_connect_step1(struct Curl_cfilter *cf,
  
    SSL_set_app_data(backend->handle, cf);
  
@@ -3721,7 +3724,7 @@ index a3953f6c3..ccfa7ff19 100644
  #if (OPENSSL_VERSION_NUMBER >= 0x0090808fL) && !defined(OPENSSL_NO_TLSEXT) && \
    !defined(OPENSSL_NO_OCSP)
    if(conn_config->verifystatus)
-@@ -3839,6 +4255,21 @@ static CURLcode ossl_connect_step1(struct Curl_cfilter *cf,
+@@ -3839,6 +4258,21 @@ static CURLcode ossl_connect_step1(struct Curl_cfilter *cf,
    }
  #endif
  
@@ -3743,7 +3746,7 @@ index a3953f6c3..ccfa7ff19 100644
    SSL_set_app_data(backend->handle, cf);
  
    connssl->reused_session = FALSE;
-@@ -4050,6 +4481,60 @@ static CURLcode ossl_connect_step2(struct Curl_cfilter *cf,
+@@ -4050,6 +4484,60 @@ static CURLcode ossl_connect_step2(struct Curl_cfilter *cf,
            negotiated_group_name? negotiated_group_name : "[blank]",
            OBJ_nid2sn(psigtype_nid));
  
