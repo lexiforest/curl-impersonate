@@ -3196,7 +3196,7 @@ index e31d1d6db..66e106901 100644
         Curl_headersep(head->data[thislen]) )
        return head->data;
 diff --git a/lib/url.c b/lib/url.c
-index 224b9f3e2..84538855e 100644
+index 224b9f3e2..d33e53234 100644
 --- a/lib/url.c
 +++ b/lib/url.c
 @@ -320,6 +320,20 @@ CURLcode Curl_close(struct Curl_easy **datap)
@@ -3226,7 +3226,7 @@ index 224b9f3e2..84538855e 100644
    set->ssl_enable_alpn = TRUE;
 +  set->ssl_enable_ticket = TRUE;
 +  set->tls_grease = FALSE;
-+  set->ssl_use_new_alps_codepoint = FALSE;
++  set->tls_use_new_alps_codepoint = FALSE;
    set->expect_100_timeout = 1000L; /* Wait for a second by default. */
    set->sep_headers = TRUE; /* separated header lists by default */
    set->buffer_size = READBUFFER_SIZE;
