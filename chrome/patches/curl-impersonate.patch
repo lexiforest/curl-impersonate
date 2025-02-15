@@ -53,7 +53,7 @@ index 658189e47..1ebc38b5a 100644
  # List of files required to generate VC IDE .dsp, .vcproj and .vcxproj files
  include lib/Makefile.inc
 diff --git a/configure.ac b/configure.ac
-index 49371a755..a19c12b95 100644
+index 49371a755..9b676c506 100644
 --- a/configure.ac
 +++ b/configure.ac
 @@ -1422,7 +1422,8 @@ if test X"$OPT_BROTLI" != Xno; then
@@ -108,7 +108,17 @@ index 49371a755..a19c12b95 100644
    fi
  
    dnl now deal with whatever we found
-@@ -4962,8 +4976,8 @@ AC_CONFIG_FILES([Makefile \
+@@ -4904,6 +4918,9 @@ if test "x$USE_LIBRTMP" = "x1"; then
+   SUPPORT_PROTOCOLS="$SUPPORT_PROTOCOLS RTMP"
+ fi
+ 
++AC_CHECK_FUNCS([SSL_set_alps_use_new_codepoint])
++
++
+ dnl replace spaces with newlines
+ dnl sort the lines
+ dnl replace the newlines back to spaces
+@@ -4962,8 +4979,8 @@ AC_CONFIG_FILES([Makefile \
             tests/http/clients/Makefile \
             packages/Makefile \
             packages/vms/Makefile \
@@ -160,7 +170,7 @@ index 000000000..7bced6879
 +git df curl-8_7_1 > chrome.patch
 +mv chrome.patch ../curl-impersonate/chrome/patches/curl-impersonate.patch
 diff --git a/include/curl/curl.h b/include/curl/curl.h
-index b2377b789..2fed64889 100644
+index b2377b789..61b7920d5 100644
 --- a/include/curl/curl.h
 +++ b/include/curl/curl.h
 @@ -632,6 +632,7 @@ typedef enum {
@@ -171,7 +181,7 @@ index b2377b789..2fed64889 100644
    CURL_LAST /* never use! */
  } CURLcode;
  
-@@ -2206,6 +2207,94 @@ typedef enum {
+@@ -2206,6 +2207,97 @@ typedef enum {
    /* millisecond version */
    CURLOPT(CURLOPT_SERVER_RESPONSE_TIMEOUT_MS, CURLOPTTYPE_LONG, 324),
  
@@ -262,6 +272,9 @@ index b2377b789..2fed64889 100644
 +
 +  /* curl-impersonate: firefox key_shares_limit */
 +  CURLOPT(CURLOPT_TLS_KEY_SHARES_LIMIT, CURLOPTTYPE_LONG, 1019),
++
++  /* curl-impersonate: Use the new ALPS code point */
++  CURLOPT(CURLOPT_TLS_USE_NEW_ALPS_CODEPOINT, CURLOPTTYPE_LONG, 1020),
 +
    CURLOPT_LASTENTRY /* the last unused */
  } CURLoption;
@@ -504,7 +517,7 @@ index 3b536000a..d7135698f 100644
  /**
   * Return the n-th header entry or NULL if it does not exist.
 diff --git a/lib/easy.c b/lib/easy.c
-index dc4870608..27891695e 100644
+index dc4870608..1515e287a 100644
 --- a/lib/easy.c
 +++ b/lib/easy.c
 @@ -75,6 +75,8 @@
@@ -516,7 +529,7 @@ index dc4870608..27891695e 100644
  
  #include "easy_lock.h"
  
-@@ -342,6 +344,232 @@ CURLsslset curl_global_sslset(curl_sslbackend id, const char *name,
+@@ -342,6 +344,252 @@ CURLsslset curl_global_sslset(curl_sslbackend id, const char *name,
    return rc;
  }
  
@@ -664,30 +677,50 @@ index dc4870608..27891695e 100644
 +
 +  if(opts->tls_grease) {
 +    ret = curl_easy_setopt(data, CURLOPT_TLS_GREASE, opts->tls_grease);
++    if(ret)
++      return ret;
 +  }
 +
 +  if(opts->tls_extension_order) {
 +    ret = curl_easy_setopt(data, CURLOPT_TLS_EXTENSION_ORDER, opts->tls_extension_order);
++    if(ret)
++      return ret;
 +  }
 +
 +  if(opts->tls_delegated_credentials) {
 +    ret = curl_easy_setopt(data, CURLOPT_TLS_DELEGATED_CREDENTIALS, opts->tls_delegated_credentials);
++    if(ret)
++      return ret;
 +  }
 +
 +  if(opts->tls_record_size_limit) {
 +    ret = curl_easy_setopt(data, CURLOPT_TLS_RECORD_SIZE_LIMIT, opts->tls_record_size_limit);
++    if(ret)
++      return ret;
 +  }
 +
 +  if(opts->tls_key_shares_limit) {
 +    ret = curl_easy_setopt(data, CURLOPT_TLS_KEY_SHARES_LIMIT, opts->tls_key_shares_limit);
++    if(ret)
++      return ret;
++  }
++
++  if(opts->tls_use_new_alps_codepoint) {
++    ret = curl_easy_setopt(data, CURLOPT_TLS_USE_NEW_ALPS_CODEPOINT, opts->tls_use_new_alps_codepoint);
++    if(ret)
++      return ret;
 +  }
 +
 +  if(opts->http2_stream_weight) {
 +    ret = curl_easy_setopt(data, CURLOPT_STREAM_WEIGHT, opts->http2_stream_weight);
++    if(ret)
++      return ret;
 +  }
 +
 +  if(opts->http2_stream_exclusive) {
 +    ret = curl_easy_setopt(data, CURLOPT_STREAM_EXCLUSIVE, opts->http2_stream_exclusive);
++    if(ret)
++      return ret;
 +  }
 +
 +  /* Always enable all supported compressions. */
@@ -749,7 +782,7 @@ index dc4870608..27891695e 100644
  /*
   * curl_easy_init() is the external interface to alloc, setup and init an
   * easy handle that is returned. If anything goes wrong, NULL is returned.
-@@ -350,6 +578,8 @@ struct Curl_easy *curl_easy_init(void)
+@@ -350,6 +598,8 @@ struct Curl_easy *curl_easy_init(void)
  {
    CURLcode result;
    struct Curl_easy *data;
@@ -758,7 +791,7 @@ index dc4870608..27891695e 100644
  
    /* Make sure we inited the global SSL stuff */
    global_init_lock();
-@@ -372,6 +602,29 @@ struct Curl_easy *curl_easy_init(void)
+@@ -372,6 +622,29 @@ struct Curl_easy *curl_easy_init(void)
      return NULL;
    }
  
@@ -788,7 +821,7 @@ index dc4870608..27891695e 100644
    return data;
  }
  
-@@ -952,6 +1205,13 @@ struct Curl_easy *curl_easy_duphandle(struct Curl_easy *data)
+@@ -952,6 +1225,13 @@ struct Curl_easy *curl_easy_duphandle(struct Curl_easy *data)
      outcurl->state.referer_alloc = TRUE;
    }
  
@@ -802,7 +835,7 @@ index dc4870608..27891695e 100644
    /* Reinitialize an SSL engine for the new handle
     * note: the engine name has already been copied by dupset */
    if(outcurl->set.str[STRING_SSL_ENGINE]) {
-@@ -1040,6 +1300,9 @@ fail:
+@@ -1040,6 +1320,9 @@ fail:
   */
  void curl_easy_reset(struct Curl_easy *data)
  {
@@ -812,7 +845,7 @@ index dc4870608..27891695e 100644
    Curl_req_hard_reset(&data->req, data);
  
    /* zero out UserDefined data: */
-@@ -1064,6 +1327,23 @@ void curl_easy_reset(struct Curl_easy *data)
+@@ -1064,6 +1347,23 @@ void curl_easy_reset(struct Curl_easy *data)
  #if !defined(CURL_DISABLE_HTTP) && !defined(CURL_DISABLE_DIGEST_AUTH)
    Curl_http_auth_cleanup_digest(data);
  #endif
@@ -837,7 +870,7 @@ index dc4870608..27891695e 100644
  
  /*
 diff --git a/lib/easyoptions.c b/lib/easyoptions.c
-index 9c4438a10..528201881 100644
+index 9c4438a10..50e8d0d60 100644
 --- a/lib/easyoptions.c
 +++ b/lib/easyoptions.c
 @@ -86,6 +86,7 @@ struct curl_easyoption Curl_easyopts[] = {
@@ -891,7 +924,7 @@ index 9c4438a10..528201881 100644
    {"STREAM_WEIGHT", CURLOPT_STREAM_WEIGHT, CURLOT_LONG, 0},
    {"SUPPRESS_CONNECT_HEADERS", CURLOPT_SUPPRESS_CONNECT_HEADERS,
     CURLOT_LONG, 0},
-@@ -342,6 +355,14 @@ struct curl_easyoption Curl_easyopts[] = {
+@@ -342,6 +355,15 @@ struct curl_easyoption Curl_easyopts[] = {
    {"TLSAUTH_PASSWORD", CURLOPT_TLSAUTH_PASSWORD, CURLOT_STRING, 0},
    {"TLSAUTH_TYPE", CURLOPT_TLSAUTH_TYPE, CURLOT_STRING, 0},
    {"TLSAUTH_USERNAME", CURLOPT_TLSAUTH_USERNAME, CURLOT_STRING, 0},
@@ -903,15 +936,16 @@ index 9c4438a10..528201881 100644
 +  {"TLS_RECORD_SIZE_LIMIT", CURLOPT_TLS_RECORD_SIZE_LIMIT, CURLOT_LONG, 0},
 +  {"TLS_SIGNED_CERT_TIMESTAMPS", CURLOPT_TLS_SIGNED_CERT_TIMESTAMPS, CURLOT_LONG, 0},
 +  {"TLS_STATUS_REQUEST", CURLOPT_TLS_STATUS_REQUEST, CURLOT_LONG, 0},
++  {"TLS_USE_NEW_ALPS_CODEPOINT", CURLOPT_TLS_USE_NEW_ALPS_CODEPOINT, CURLOT_LONG, 0},
    {"TRAILERDATA", CURLOPT_TRAILERDATA, CURLOT_CBPTR, 0},
    {"TRAILERFUNCTION", CURLOPT_TRAILERFUNCTION, CURLOT_FUNCTION, 0},
    {"TRANSFERTEXT", CURLOPT_TRANSFERTEXT, CURLOT_LONG, 0},
-@@ -375,6 +396,6 @@ struct curl_easyoption Curl_easyopts[] = {
+@@ -375,6 +397,6 @@ struct curl_easyoption Curl_easyopts[] = {
   */
  int Curl_easyopts_check(void)
  {
 -  return ((CURLOPT_LASTENTRY%10000) != (324 + 1));
-+  return ((CURLOPT_LASTENTRY%10000) != (1013 + 1));
++  return ((CURLOPT_LASTENTRY%10000) != (1020 + 1));
  }
  #endif
 diff --git a/lib/http.c b/lib/http.c
@@ -1544,10 +1578,10 @@ index 80e183480..8ee390b7e 100644
   * Store nghttp2 version info in this buffer.
 diff --git a/lib/impersonate.c b/lib/impersonate.c
 new file mode 100644
-index 000000000..edb2f18ae
+index 000000000..ad5feb13f
 --- /dev/null
 +++ b/lib/impersonate.c
-@@ -0,0 +1,1247 @@
+@@ -0,0 +1,1321 @@
 +#include "curl_setup.h"
 +
 +#include <curl/curl.h>
@@ -1599,6 +1633,7 @@ index 000000000..edb2f18ae
 +    .http2_stream_weight = 256,
 +    .http2_stream_exclusive = 1,
 +    .tls_extension_order = NULL,
++    .tls_use_new_alps_codepoint = false,
 +    .tls_grease = true
 +  },
 +  {
@@ -1645,6 +1680,7 @@ index 000000000..edb2f18ae
 +    .http2_stream_weight = 256,
 +    .http2_stream_exclusive = 1,
 +    .tls_extension_order = NULL,
++    .tls_use_new_alps_codepoint = false,
 +    .tls_grease = true
 +  },
 +  {
@@ -1691,6 +1727,7 @@ index 000000000..edb2f18ae
 +    .http2_stream_weight = 256,
 +    .http2_stream_exclusive = 1,
 +    .tls_extension_order = NULL,
++    .tls_use_new_alps_codepoint = false,
 +    .tls_grease = true
 +  },
 +  {
@@ -1737,6 +1774,7 @@ index 000000000..edb2f18ae
 +    .http2_stream_weight = 256,
 +    .http2_stream_exclusive = 1,
 +    .tls_extension_order = NULL,
++    .tls_use_new_alps_codepoint = false,
 +    .tls_grease = true
 +  },
 +  {
@@ -1783,6 +1821,7 @@ index 000000000..edb2f18ae
 +    .http2_stream_weight = 256,
 +    .http2_stream_exclusive = 1,
 +    .tls_extension_order = NULL,
++    .tls_use_new_alps_codepoint = false,
 +    .tls_grease = true
 +  },
 +  {
@@ -1830,6 +1869,7 @@ index 000000000..edb2f18ae
 +    .http2_stream_weight = 256,
 +    .http2_stream_exclusive = 1,
 +    .tls_extension_order = NULL,
++    .tls_use_new_alps_codepoint = false,
 +    .tls_grease = true
 +  },
 +  {
@@ -1877,6 +1917,7 @@ index 000000000..edb2f18ae
 +    .http2_stream_weight = 256,
 +    .http2_stream_exclusive = 1,
 +    .tls_extension_order = NULL,
++    .tls_use_new_alps_codepoint = false,
 +    .tls_grease = true
 +  },
 +  {
@@ -1925,6 +1966,7 @@ index 000000000..edb2f18ae
 +    .http2_stream_exclusive = 1,
 +    .ech = "GREASE",
 +    .tls_extension_order = NULL,
++    .tls_use_new_alps_codepoint = false,
 +    .tls_grease = true
 +  },
 +  {
@@ -1973,6 +2015,7 @@ index 000000000..edb2f18ae
 +    .http2_stream_exclusive = 1,
 +    .ech = "GREASE",
 +    .tls_extension_order = NULL,
++    .tls_use_new_alps_codepoint = false,
 +    .tls_grease = true
 +  },
 +  {
@@ -2021,6 +2064,7 @@ index 000000000..edb2f18ae
 +    .http2_stream_exclusive = 1,
 +    .ech = "GREASE",
 +    .tls_extension_order = NULL,
++    .tls_use_new_alps_codepoint = false,
 +    .tls_grease = true
 +  },
 +  {
@@ -2071,6 +2115,7 @@ index 000000000..edb2f18ae
 +    .http2_stream_exclusive = 1,
 +    .ech = "GREASE",
 +    .tls_extension_order = NULL,
++    .tls_use_new_alps_codepoint = false,
 +    .tls_grease = true
 +  },
 +  {
@@ -2121,6 +2166,58 @@ index 000000000..edb2f18ae
 +    .http2_stream_exclusive = 1,
 +    .ech = "GREASE",
 +    .tls_extension_order = NULL,
++    .tls_use_new_alps_codepoint = false,
++    .tls_grease = true
++  },
++  {
++    .target = "chrome133a",
++    .httpversion = CURL_HTTP_VERSION_2_0,
++    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
++    .ciphers =
++      "TLS_AES_128_GCM_SHA256,"
++      "TLS_AES_256_GCM_SHA384,"
++      "TLS_CHACHA20_POLY1305_SHA256,"
++      "ECDHE-ECDSA-AES128-GCM-SHA256,"
++      "ECDHE-RSA-AES128-GCM-SHA256,"
++      "ECDHE-ECDSA-AES256-GCM-SHA384,"
++      "ECDHE-RSA-AES256-GCM-SHA384,"
++      "ECDHE-ECDSA-CHACHA20-POLY1305,"
++      "ECDHE-RSA-CHACHA20-POLY1305,"
++      "ECDHE-RSA-AES128-SHA,"
++      "ECDHE-RSA-AES256-SHA,"
++      "AES128-GCM-SHA256,"
++      "AES256-GCM-SHA384,"
++      "AES128-SHA,"
++      "AES256-SHA",
++    .curves = "X25519MLKEM768:X25519:P-256:P-384",
++    .npn = false,
++    .alpn = true,
++    .alps = true,
++    .tls_permute_extensions = true,
++    .tls_session_ticket = true,
++    .cert_compression = "brotli",
++    .http_headers = {
++      "sec-ch-ua: \"Not(A:Brand\";v=\"99\", \"Google Chrome\";v=\"133\", \"Chromium\";v=\"133\"",
++      "sec-ch-ua-mobile: ?0",
++      "sec-ch-ua-platform: \"macOS\"",
++      "Upgrade-Insecure-Requests: 1",
++      "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
++      "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
++      "Sec-Fetch-Site: none",
++      "Sec-Fetch-Mode: navigate",
++      "Sec-Fetch-User: ?1",
++      "Sec-Fetch-Dest: document",
++      "Accept-Encoding: gzip, deflate, br, zstd",
++      "Accept-Language: en-US,en;q=0.9",
++      "Priority: u=0, i"
++    },
++    .http2_settings = "1:65536;2:0;4:6291456;6:262144",
++    .http2_window_update = 15663105,
++    .http2_stream_weight = 256,
++    .http2_stream_exclusive = 1,
++    .ech = "GREASE",
++    .tls_extension_order = NULL,
++    .tls_use_new_alps_codepoint = true,
 +    .tls_grease = true
 +  },
 +  {
@@ -2167,6 +2264,7 @@ index 000000000..edb2f18ae
 +    .http2_stream_weight = 256,
 +    .http2_stream_exclusive = 1,
 +    .tls_extension_order = NULL,
++    .tls_use_new_alps_codepoint = false,
 +    .tls_grease = true
 +  },
 +  {
@@ -2217,6 +2315,7 @@ index 000000000..edb2f18ae
 +    .http2_stream_exclusive = 1,
 +    .ech = "GREASE",
 +    .tls_extension_order = NULL,
++    .tls_use_new_alps_codepoint = false,
 +    .tls_grease = true
 +  },
 +  {
@@ -2263,6 +2362,7 @@ index 000000000..edb2f18ae
 +    .http2_stream_weight = 256,
 +    .http2_stream_exclusive = 1,
 +    .tls_extension_order = NULL,
++    .tls_use_new_alps_codepoint = false,
 +    .tls_grease = true
 +  },
 +  {
@@ -2309,6 +2409,7 @@ index 000000000..edb2f18ae
 +    .http2_stream_weight = 256,
 +    .http2_stream_exclusive = 1,
 +    .tls_extension_order = NULL,
++    .tls_use_new_alps_codepoint = false,
 +    .tls_grease = true
 +  },
 +  {
@@ -2371,6 +2472,7 @@ index 000000000..edb2f18ae
 +    .http2_stream_weight = 255,
 +    .http2_stream_exclusive = 0,
 +    .tls_extension_order = NULL,
++    .tls_use_new_alps_codepoint = false,
 +    .tls_grease = true
 +  },
 +  {
@@ -2428,6 +2530,7 @@ index 000000000..edb2f18ae
 +    .http2_stream_weight = 255,
 +    .http2_stream_exclusive = 0,
 +    .tls_extension_order = NULL,
++    .tls_use_new_alps_codepoint = false,
 +    .tls_grease = true
 +  },
 +  {
@@ -2488,6 +2591,7 @@ index 000000000..edb2f18ae
 +    .http2_stream_weight = 255,
 +    .http2_stream_exclusive = 0,
 +    .tls_extension_order = NULL,
++    .tls_use_new_alps_codepoint = false,
 +    .tls_grease = true
 +  },
 +  {
@@ -2548,6 +2652,7 @@ index 000000000..edb2f18ae
 +    .http2_stream_weight = 256,
 +    .http2_stream_exclusive = 0,
 +    .tls_extension_order = NULL,
++    .tls_use_new_alps_codepoint = false,
 +    .tls_grease = true
 +  },
 +  {
@@ -2608,6 +2713,7 @@ index 000000000..edb2f18ae
 +    .http2_stream_weight = 255,
 +    .http2_stream_exclusive = 0,
 +    .tls_extension_order = NULL,
++    .tls_use_new_alps_codepoint = false,
 +    .tls_grease = true
 +  },
 +  {
@@ -2668,6 +2774,7 @@ index 000000000..edb2f18ae
 +    .http2_stream_weight = 256,
 +    .http2_stream_exclusive = 0,
 +    .tls_extension_order = NULL,
++    .tls_use_new_alps_codepoint = false,
 +    .tls_grease = true
 +  },
 +  {
@@ -2727,6 +2834,7 @@ index 000000000..edb2f18ae
 +    .http2_pseudo_headers_order = "mspa",
 +    .http2_stream_weight = 255,
 +    .tls_extension_order = NULL,
++    .tls_use_new_alps_codepoint = false,
 +    .tls_grease = true
 +  },
 +  {
@@ -2797,10 +2905,10 @@ index 000000000..edb2f18ae
 +};
 diff --git a/lib/impersonate.h b/lib/impersonate.h
 new file mode 100644
-index 000000000..e88e78f51
+index 000000000..f0ef93a7a
 --- /dev/null
 +++ b/lib/impersonate.h
-@@ -0,0 +1,55 @@
+@@ -0,0 +1,56 @@
 +#ifndef HEADER_CURL_IMPERSONATE_H
 +#define HEADER_CURL_IMPERSONATE_H
 +
@@ -2837,6 +2945,7 @@ index 000000000..e88e78f51
 +  int http2_window_update;
 +  const char *http2_streams;
 +  bool tls_permute_extensions;
++  bool tls_use_new_alps_codepoint;
 +  const char *ech;
 +  const char *tls_extension_order;
 +  const char *tls_delegated_credentials;
@@ -2871,7 +2980,7 @@ index ed9cac796..6ca666e4a 100644
  #ifdef USE_WINSOCK
    multi->wsa_event = WSACreateEvent();
 diff --git a/lib/setopt.c b/lib/setopt.c
-index 8a5a5d7c3..b7d8a479a 100644
+index 8a5a5d7c3..336bd2aa3 100644
 --- a/lib/setopt.c
 +++ b/lib/setopt.c
 @@ -51,6 +51,7 @@
@@ -2934,7 +3043,7 @@ index 8a5a5d7c3..b7d8a479a 100644
  #endif
    case CURLOPT_IPRESOLVE:
      arg = va_arg(param, long);
-@@ -2936,6 +2975,64 @@ CURLcode Curl_vsetopt(struct Curl_easy *data, CURLoption option, va_list param)
+@@ -2936,6 +2975,67 @@ CURLcode Curl_vsetopt(struct Curl_easy *data, CURLoption option, va_list param)
    case CURLOPT_SSL_ENABLE_ALPN:
      data->set.ssl_enable_alpn = (0 != va_arg(param, long));
      break;
@@ -2975,6 +3084,9 @@ index 8a5a5d7c3..b7d8a479a 100644
 +    arg = va_arg(param, long);
 +    data->set.tls_key_shares_limit = arg;
 +    break;
++  case CURLOPT_TLS_USE_NEW_ALPS_CODEPOINT:
++    data->set.tls_use_new_alps_codepoint = (0 != va_arg(param, long)) ? TRUE : FALSE;
++    break;
 +
 +#ifdef USE_HTTP2
 +  case CURLOPT_HTTP2_PSEUDO_HEADERS_ORDER:
@@ -2999,7 +3111,7 @@ index 8a5a5d7c3..b7d8a479a 100644
  #ifdef USE_UNIX_SOCKETS
    case CURLOPT_UNIX_SOCKET_PATH:
      data->set.abstract_unix_socket = FALSE;
-@@ -2963,6 +3060,14 @@ CURLcode Curl_vsetopt(struct Curl_easy *data, CURLoption option, va_list param)
+@@ -2963,6 +3063,14 @@ CURLcode Curl_vsetopt(struct Curl_easy *data, CURLoption option, va_list param)
      break;
  #else
      return CURLE_NOT_BUILT_IN;
@@ -3014,7 +3126,7 @@ index 8a5a5d7c3..b7d8a479a 100644
  #endif
    case CURLOPT_STREAM_DEPENDS:
    case CURLOPT_STREAM_DEPENDS_E:
-@@ -3132,6 +3237,31 @@ CURLcode Curl_vsetopt(struct Curl_easy *data, CURLoption option, va_list param)
+@@ -3132,6 +3240,31 @@ CURLcode Curl_vsetopt(struct Curl_easy *data, CURLoption option, va_list param)
      data->set.ws_raw_mode = raw;
      break;
    }
@@ -3084,7 +3196,7 @@ index e31d1d6db..66e106901 100644
         Curl_headersep(head->data[thislen]) )
        return head->data;
 diff --git a/lib/url.c b/lib/url.c
-index 224b9f3e2..23dfc266e 100644
+index 224b9f3e2..84538855e 100644
 --- a/lib/url.c
 +++ b/lib/url.c
 @@ -320,6 +320,20 @@ CURLcode Curl_close(struct Curl_easy **datap)
@@ -3108,16 +3220,17 @@ index 224b9f3e2..23dfc266e 100644
  #if !defined(CURL_DISABLE_HTTP) && !defined(CURL_DISABLE_FORM_API)
    Curl_mime_cleanpart(data->state.formp);
    Curl_safefree(data->state.formp);
-@@ -458,6 +472,8 @@ CURLcode Curl_init_userdefined(struct Curl_easy *data)
+@@ -458,6 +472,9 @@ CURLcode Curl_init_userdefined(struct Curl_easy *data)
    set->tcp_fastopen = FALSE;
    set->tcp_nodelay = TRUE;
    set->ssl_enable_alpn = TRUE;
 +  set->ssl_enable_ticket = TRUE;
 +  set->tls_grease = FALSE;
++  set->ssl_use_new_alps_codepoint = FALSE;
    set->expect_100_timeout = 1000L; /* Wait for a second by default. */
    set->sep_headers = TRUE; /* separated header lists by default */
    set->buffer_size = READBUFFER_SIZE;
-@@ -3664,6 +3680,11 @@ static CURLcode create_conn(struct Curl_easy *data,
+@@ -3664,6 +3681,11 @@ static CURLcode create_conn(struct Curl_easy *data,
           (default) */
        if(data->set.ssl_enable_alpn)
          conn->bits.tls_enable_alpn = TRUE;
@@ -3130,7 +3243,7 @@ index 224b9f3e2..23dfc266e 100644
  
      if(waitpipe)
 diff --git a/lib/urldata.h b/lib/urldata.h
-index ce28f25bb..7d24e8171 100644
+index ce28f25bb..19504beb8 100644
 --- a/lib/urldata.h
 +++ b/lib/urldata.h
 @@ -53,6 +53,15 @@
@@ -3166,18 +3279,19 @@ index ce28f25bb..7d24e8171 100644
  };
  
  struct ssl_config_data {
-@@ -545,6 +557,10 @@ struct ConnectBits {
+@@ -545,6 +557,11 @@ struct ConnectBits {
    BIT(multiplex); /* connection is multiplexed */
    BIT(tcp_fastopen); /* use TCP Fast Open */
    BIT(tls_enable_alpn); /* TLS ALPN extension? */
 +  BIT(tls_enable_alps); /* TLS ALPS extension? */
 +  BIT(tls_enable_ticket); /* TLS session ticket extension? */
 +  BIT(tls_permute_extensions); /* TLS extension permutations */
++  BIT(tls_use_new_alps_codepoint); /* TLS ALPS new codepoint */
 +  BIT(tls_grease);  /* TLS grease? */
  #ifndef CURL_DISABLE_DOH
    BIT(doh);
  #endif
-@@ -1320,6 +1336,19 @@ struct UrlState {
+@@ -1320,6 +1337,19 @@ struct UrlState {
    CURLcode hresult; /* used to pass return codes back from hyper callbacks */
  #endif
  
@@ -3197,7 +3311,7 @@ index ce28f25bb..7d24e8171 100644
  #ifndef CURL_DISABLE_VERBOSE_STRINGS
    struct curl_trc_feat *feat; /* opt. trace feature transfer is part of */
  #endif
-@@ -1496,6 +1525,15 @@ enum dupstring {
+@@ -1496,6 +1526,15 @@ enum dupstring {
    STRING_SSL_EC_CURVES,
    STRING_AWS_SIGV4, /* Parameters for V4 signature */
    STRING_HAPROXY_CLIENT_IP,     /* CURLOPT_HAPROXY_CLIENT_IP */
@@ -3213,7 +3327,7 @@ index ce28f25bb..7d24e8171 100644
  
    /* -- end of null-terminated strings -- */
  
-@@ -1791,6 +1829,13 @@ struct UserDefined {
+@@ -1791,6 +1830,14 @@ struct UserDefined {
    BIT(tcp_keepalive);  /* use TCP keepalives */
    BIT(tcp_fastopen);   /* use TCP Fast Open */
    BIT(ssl_enable_alpn);/* TLS ALPN extension? */
@@ -3224,10 +3338,11 @@ index ce28f25bb..7d24e8171 100644
 +  BIT(tls_key_usage_no_check);  /* TLS key_usage_check? */
 +  BIT(tls_signed_cert_timestamps);  /* TLS signed cert timestamps? */
 +  BIT(tls_status_request);  /* TLS status request */
++  BIT(tls_use_new_alps_codepoint); /* TLS use new alps codepoint */
    BIT(path_as_is);     /* allow dotdots? */
    BIT(pipewait);       /* wait for multiplex status before starting a new
                            connection */
-@@ -1811,6 +1856,12 @@ struct UserDefined {
+@@ -1811,6 +1858,12 @@ struct UserDefined {
  #ifdef USE_WEBSOCKETS
    BIT(ws_raw_mode);
  #endif
@@ -3241,7 +3356,7 @@ index ce28f25bb..7d24e8171 100644
  
  #ifndef CURL_DISABLE_MIME
 diff --git a/lib/vtls/openssl.c b/lib/vtls/openssl.c
-index a3953f6c3..9d32f32cc 100644
+index a3953f6c3..662d8734d 100644
 --- a/lib/vtls/openssl.c
 +++ b/lib/vtls/openssl.c
 @@ -79,9 +79,27 @@
@@ -3699,7 +3814,7 @@ index a3953f6c3..9d32f32cc 100644
    /* OpenSSL always tries to verify the peer, this only says whether it should
     * fail to connect if the verification fails, or if it should continue
     * anyway. In the latter case the result of the verification is checked with
-@@ -3816,6 +4217,24 @@ static CURLcode ossl_connect_step1(struct Curl_cfilter *cf,
+@@ -3816,6 +4217,29 @@ static CURLcode ossl_connect_step1(struct Curl_cfilter *cf,
  
    SSL_set_app_data(backend->handle, cf);
  
@@ -3707,6 +3822,11 @@ index a3953f6c3..9d32f32cc 100644
 +  if(connssl->alps) {
 +    size_t i;
 +    struct alpn_proto_buf proto;
++
++    /* curl-impersonate: Set new ALPS codepoint before adding any ALPS settings */
++    if(data->set.tls_use_new_alps_codepoint) {
++      SSL_set_alps_use_new_codepoint(backend->handle, 1);
++    }
 +
 +    for(i = 0; i < connssl->alps->count; ++i) {
 +      /* curl-impersonate: Add the ALPS extension (17513) like Chrome does. */
@@ -3724,7 +3844,7 @@ index a3953f6c3..9d32f32cc 100644
  #if (OPENSSL_VERSION_NUMBER >= 0x0090808fL) && !defined(OPENSSL_NO_TLSEXT) && \
    !defined(OPENSSL_NO_OCSP)
    if(conn_config->verifystatus)
-@@ -3839,6 +4258,21 @@ static CURLcode ossl_connect_step1(struct Curl_cfilter *cf,
+@@ -3839,6 +4263,21 @@ static CURLcode ossl_connect_step1(struct Curl_cfilter *cf,
    }
  #endif
  
@@ -3746,7 +3866,7 @@ index a3953f6c3..9d32f32cc 100644
    SSL_set_app_data(backend->handle, cf);
  
    connssl->reused_session = FALSE;
-@@ -4050,6 +4484,60 @@ static CURLcode ossl_connect_step2(struct Curl_cfilter *cf,
+@@ -4050,6 +4489,60 @@ static CURLcode ossl_connect_step2(struct Curl_cfilter *cf,
            negotiated_group_name? negotiated_group_name : "[blank]",
            OBJ_nid2sn(psigtype_nid));
  
@@ -4154,10 +4274,10 @@ index 3259bc7a5..04cf81ee4 100644
  
  void config_free(struct OperationConfig *config)
 diff --git a/src/tool_cfgable.h b/src/tool_cfgable.h
-index dfa74d81f..0594d91c6 100644
+index dfa74d81f..307e6d878 100644
 --- a/src/tool_cfgable.h
 +++ b/src/tool_cfgable.h
-@@ -161,8 +161,21 @@ struct OperationConfig {
+@@ -161,8 +161,22 @@ struct OperationConfig {
    bool crlf;
    char *customrequest;
    char *ssl_ec_curves;
@@ -4176,10 +4296,11 @@ index dfa74d81f..0594d91c6 100644
 +  char *tls_delegated_credentials;
 +  long tls_record_size_limit;
 +  long tls_key_shares_limit;
++  bool tls_use_new_alps_codepoint;
    long httpversion;
    bool http09_allowed;
    bool nobuffer;
-@@ -192,6 +205,7 @@ struct OperationConfig {
+@@ -192,6 +206,7 @@ struct OperationConfig {
    struct curl_slist *prequote;
    long ssl_version;
    long ssl_version_max;
@@ -4187,7 +4308,7 @@ index dfa74d81f..0594d91c6 100644
    long proxy_ssl_version;
    long ip_version;
    long create_file_mode; /* CURLOPT_NEW_FILE_PERMS */
-@@ -268,6 +282,8 @@ struct OperationConfig {
+@@ -268,6 +283,8 @@ struct OperationConfig {
    bool proxy_ssl_auto_client_cert; /* proxy version of ssl_auto_client_cert */
    char *oauth_bearer;             /* OAuth 2.0 bearer token */
    bool noalpn;                    /* enable/disable TLS ALPN extension */
@@ -4196,7 +4317,7 @@ index dfa74d81f..0594d91c6 100644
    char *unix_socket_path;         /* path to Unix domain socket */
    bool abstract_unix_socket;      /* path to an abstract Unix domain socket */
    bool falsestart;
-@@ -298,6 +314,11 @@ struct OperationConfig {
+@@ -298,6 +315,11 @@ struct OperationConfig {
    struct State state;             /* for create_transfer() */
    bool rm_partial;                /* on error, remove partially written output
                                       files */
@@ -4209,7 +4330,7 @@ index dfa74d81f..0594d91c6 100644
  
  struct GlobalConfig {
 diff --git a/src/tool_getparam.c b/src/tool_getparam.c
-index c6a9c9358..e8f59eff3 100644
+index c6a9c9358..7b86e36ca 100644
 --- a/src/tool_getparam.c
 +++ b/src/tool_getparam.c
 @@ -77,6 +77,7 @@ static ParameterError getstr(char **str, const char *val, bool allowblank)
@@ -4257,22 +4378,23 @@ index c6a9c9358..e8f59eff3 100644
    C_SOCKS4,
    C_SOCKS4A,
    C_SOCKS5,
-@@ -311,7 +321,14 @@ typedef enum {
+@@ -311,7 +321,15 @@ typedef enum {
    C_TFTP_BLKSIZE,
    C_TFTP_NO_OPTIONS,
    C_TIME_COND,
 +  C_TLS_DELEGATED_CREDENTIALS,
-   C_TLS_MAX,
-+  C_TLS_RECORD_SIZE_LIMIT,
-+  C_TLS_KEY_SHARES_LIMIT,
-+  C_TLS_SESSION_TICKET,
 +  C_TLS_EXTENSION_ORDER,
-+  C_TLS_PERMUTE_EXTENSIONS,
 +  C_TLS_GREASE,
++  C_TLS_KEY_SHARES_LIMIT,
+   C_TLS_MAX,
++  C_TLS_PERMUTE_EXTENSIONS,
++  C_TLS_RECORD_SIZE_LIMIT,
++  C_TLS_SESSION_TICKET,
++  C_TLS_USE_NEW_ALPS_CODEPOINT,
    C_TLS13_CIPHERS,
    C_TLSAUTHTYPE,
    C_TLSPASSWORD,
-@@ -358,6 +375,7 @@ struct LongShort {
+@@ -358,6 +376,7 @@ struct LongShort {
  static const struct LongShort aliases[]= {
    {"abstract-unix-socket",       ARG_FILE, ' ', C_ABSTRACT_UNIX_SOCKET},
    {"alpn",                       ARG_BOOL, ' ', C_ALPN},
@@ -4280,7 +4402,7 @@ index c6a9c9358..e8f59eff3 100644
    {"alt-svc",                    ARG_STRG, ' ', C_ALT_SVC},
    {"anyauth",                    ARG_BOOL, ' ', C_ANYAUTH},
    {"append",                     ARG_BOOL, 'a', C_APPEND},
-@@ -368,6 +386,7 @@ static const struct LongShort aliases[]= {
+@@ -368,6 +387,7 @@ static const struct LongShort aliases[]= {
    {"cacert",                     ARG_FILE, ' ', C_CACERT},
    {"capath",                     ARG_FILE, ' ', C_CAPATH},
    {"cert",                       ARG_FILE, 'E', C_CERT},
@@ -4288,7 +4410,7 @@ index c6a9c9358..e8f59eff3 100644
    {"cert-status",                ARG_BOOL, ' ', C_CERT_STATUS},
    {"cert-type",                  ARG_STRG, ' ', C_CERT_TYPE},
    {"ciphers",                    ARG_STRG, ' ', C_CIPHERS},
-@@ -404,6 +423,9 @@ static const struct LongShort aliases[]= {
+@@ -404,6 +424,9 @@ static const struct LongShort aliases[]= {
    {"doh-insecure",               ARG_BOOL, ' ', C_DOH_INSECURE},
    {"doh-url"        ,            ARG_STRG, ' ', C_DOH_URL},
    {"dump-header",                ARG_FILE, 'D', C_DUMP_HEADER},
@@ -4298,7 +4420,7 @@ index c6a9c9358..e8f59eff3 100644
    {"egd-file",                   ARG_STRG, ' ', C_EGD_FILE},
    {"engine",                     ARG_STRG, ' ', C_ENGINE},
    {"eprt",                       ARG_BOOL, ' ', C_EPRT},
-@@ -447,6 +469,12 @@ static const struct LongShort aliases[]= {
+@@ -447,6 +470,12 @@ static const struct LongShort aliases[]= {
    {"http1.1",                    ARG_NONE, ' ', C_HTTP1_1},
    {"http2",                      ARG_NONE, ' ', C_HTTP2},
    {"http2-prior-knowledge",      ARG_NONE, ' ', C_HTTP2_PRIOR_KNOWLEDGE},
@@ -4311,7 +4433,7 @@ index c6a9c9358..e8f59eff3 100644
    {"http3",                      ARG_NONE, ' ', C_HTTP3},
    {"http3-only",                 ARG_NONE, ' ', C_HTTP3_ONLY},
    {"ignore-content-length",      ARG_BOOL, ' ', C_IGNORE_CONTENT_LENGTH},
-@@ -563,6 +591,7 @@ static const struct LongShort aliases[]= {
+@@ -563,6 +592,7 @@ static const struct LongShort aliases[]= {
    {"service-name",               ARG_STRG, ' ', C_SERVICE_NAME},
    {"sessionid",                  ARG_BOOL, ' ', C_SESSIONID},
    {"show-error",                 ARG_BOOL, 'S', C_SHOW_ERROR},
@@ -4319,7 +4441,7 @@ index c6a9c9358..e8f59eff3 100644
    {"silent",                     ARG_BOOL, 's', C_SILENT},
    {"socks4",                     ARG_STRG, ' ', C_SOCKS4},
    {"socks4a",                    ARG_STRG, ' ', C_SOCKS4A},
-@@ -592,7 +621,14 @@ static const struct LongShort aliases[]= {
+@@ -592,7 +622,15 @@ static const struct LongShort aliases[]= {
    {"tftp-blksize",               ARG_STRG, ' ', C_TFTP_BLKSIZE},
    {"tftp-no-options",            ARG_BOOL, ' ', C_TFTP_NO_OPTIONS},
    {"time-cond",                  ARG_STRG, 'z', C_TIME_COND},
@@ -4331,10 +4453,11 @@ index c6a9c9358..e8f59eff3 100644
 +  {"tls-permute-extensions",     ARG_BOOL, ' ', C_TLS_PERMUTE_EXTENSIONS},  // curl-impersonate
 +  {"tls-record-size-limit",      ARG_STRG, ' ', C_TLS_RECORD_SIZE_LIMIT},  // curl-impersonate
 +  {"tls-session-ticket",         ARG_BOOL, ' ', C_TLS_SESSION_TICKET},  // curl-impersonate
++  {"tls-use-new-alps-codepoint", ARG_BOOL, ' ', C_TLS_USE_NEW_ALPS_CODEPOINT},  // curl-impersonate
    {"tls13-ciphers",              ARG_STRG, ' ', C_TLS13_CIPHERS},
    {"tlsauthtype",                ARG_STRG, ' ', C_TLSAUTHTYPE},
    {"tlspassword",                ARG_STRG, ' ', C_TLSPASSWORD},
-@@ -1434,6 +1470,9 @@ ParameterError getparameter(const char *flag, /* f or -long-flag */
+@@ -1434,6 +1472,9 @@ ParameterError getparameter(const char *flag, /* f or -long-flag */
      case C_ALPN: /* --alpn */
        config->noalpn = (!toggle)?TRUE:FALSE;
        break;
@@ -4344,7 +4467,7 @@ index c6a9c9358..e8f59eff3 100644
      case C_LIMIT_RATE: /* --limit-rate */
        err = GetSizeParameter(global, nextarg, "rate", &value);
        if(!err) {
-@@ -1865,6 +1904,27 @@ ParameterError getparameter(const char *flag, /* f or -long-flag */
+@@ -1865,6 +1906,30 @@ ParameterError getparameter(const char *flag, /* f or -long-flag */
      case C_TLS_MAX: /* --tls-max */
        err = str2tls_max(&config->ssl_version_max, nextarg);
        break;
@@ -4369,10 +4492,13 @@ index c6a9c9358..e8f59eff3 100644
 +    case C_TLS_GREASE:  /* --tls-grease curl-impersonate */
 +      config->tls_grease = toggle;
 +      break;
++    case C_TLS_USE_NEW_ALPS_CODEPOINT: /* --tls-use-new-alps-codepoint curl-impersonate */
++      config->tls_use_new_alps_codepoint = toggle;
++      break;
      case C_SUPPRESS_CONNECT_HEADERS: /* --suppress-connect-headers */
        config->suppress_connect_headers = toggle;
        break;
-@@ -1914,6 +1974,39 @@ ParameterError getparameter(const char *flag, /* f or -long-flag */
+@@ -1914,6 +1979,39 @@ ParameterError getparameter(const char *flag, /* f or -long-flag */
          return PARAM_LIBCURL_DOESNT_SUPPORT;
        sethttpver(global, config, CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE);
        break;
@@ -4412,7 +4538,7 @@ index c6a9c9358..e8f59eff3 100644
      case C_HTTP3: /* --http3: */
        /* Try HTTP/3, allow fallback */
        if(!feature_http3)
-@@ -2033,6 +2126,18 @@ ParameterError getparameter(const char *flag, /* f or -long-flag */
+@@ -2033,6 +2131,18 @@ ParameterError getparameter(const char *flag, /* f or -long-flag */
      case C_DUMP_HEADER: /* --dump-header */
        err = getstr(&config->headerfile, nextarg, DENY_BLANK);
        break;
@@ -4431,7 +4557,7 @@ index c6a9c9358..e8f59eff3 100644
      case C_REFERER: { /* --referer */
        char *ptr = strstr(nextarg, ";auto");
        if(ptr) {
-@@ -2051,6 +2156,9 @@ ParameterError getparameter(const char *flag, /* f or -long-flag */
+@@ -2051,6 +2161,9 @@ ParameterError getparameter(const char *flag, /* f or -long-flag */
        cleanarg(clearthis);
        GetFileAndPassword(nextarg, &config->cert, &config->key_passwd);
        break;
@@ -4441,7 +4567,7 @@ index c6a9c9358..e8f59eff3 100644
      case C_CACERT: /* --cacert */
        err = getstr(&config->cacert, nextarg, DENY_BLANK);
        break;
-@@ -2555,6 +2663,9 @@ ParameterError getparameter(const char *flag, /* f or -long-flag */
+@@ -2555,6 +2668,9 @@ ParameterError getparameter(const char *flag, /* f or -long-flag */
      case C_SILENT: /* --silent */
        global->silent = toggle;
        break;
@@ -4506,7 +4632,7 @@ index 5d9364405..f346f8e0c 100644
     "Disable buffering of the output stream",
     CURLHELP_CURL},
 diff --git a/src/tool_operate.c b/src/tool_operate.c
-index 7e2c1eefe..a97f86011 100644
+index 7e2c1eefe..59eaf8557 100644
 --- a/src/tool_operate.c
 +++ b/src/tool_operate.c
 @@ -1510,6 +1510,36 @@ static CURLcode single_transfer(struct GlobalConfig *global,
@@ -4561,7 +4687,7 @@ index 7e2c1eefe..a97f86011 100644
          if(config->writeout)
            my_setopt_str(curl, CURLOPT_CERTINFO, 1L);
  
-@@ -1930,6 +1968,30 @@ static CURLcode single_transfer(struct GlobalConfig *global,
+@@ -1930,6 +1968,34 @@ static CURLcode single_transfer(struct GlobalConfig *global,
            my_setopt_str(curl, CURLOPT_PROXY_TLS13_CIPHERS,
                          config->proxy_cipher13_list);
  
@@ -4572,6 +4698,10 @@ index 7e2c1eefe..a97f86011 100644
 +        /* curl-impersonate */
 +        if (config->tls_grease)
 +          my_setopt(curl, CURLOPT_TLS_GREASE, 1L);
++
++        /* curl-impersonate */
++        if (config->tls_use_new_alps_codepoint)
++          my_setopt(curl, CURLOPT_TLS_USE_NEW_ALPS_CODEPOINT, 1L);
 +
 +        /* curl-impersonate */
 +        if(config->tls_extension_order)
@@ -4592,7 +4722,7 @@ index 7e2c1eefe..a97f86011 100644
          /* new in libcurl 7.9.2: */
          if(config->disable_epsv)
            /* disable it */
-@@ -2139,6 +2201,18 @@ static CURLcode single_transfer(struct GlobalConfig *global,
+@@ -2139,6 +2205,18 @@ static CURLcode single_transfer(struct GlobalConfig *global,
            my_setopt(curl, CURLOPT_SSL_ENABLE_ALPN, 0L);
          }
  
@@ -4611,7 +4741,7 @@ index 7e2c1eefe..a97f86011 100644
          /* new in 7.40.0, abstract support added in 7.53.0 */
          if(config->unix_socket_path) {
            if(config->abstract_unix_socket) {
-@@ -2187,6 +2261,16 @@ static CURLcode single_transfer(struct GlobalConfig *global,
+@@ -2187,6 +2265,16 @@ static CURLcode single_transfer(struct GlobalConfig *global,
          if(config->hsts)
            my_setopt_str(curl, CURLOPT_HSTS, config->hsts);
  

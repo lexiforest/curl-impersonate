@@ -78,6 +78,7 @@ The following browsers can be impersonated.
 | ![Chrome](https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome_24x24.png "Chrome") | 123 | 123.0.6312.124 | macOS Sonoma | `chrome123` | [curl_chrome123](chrome/curl_chrome123) |
 | ![Chrome](https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome_24x24.png "Chrome") | 124 | 124.0.6367.60 | macOS Sonoma | `chrome124` | [curl_chrome124](chrome/curl_chrome124) |
 | ![Chrome](https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome_24x24.png "Chrome") | 131 | 131.0.6778.86 | macOS Sonoma | `chrome131` | [curl_chrome131](chrome/curl_chrome131) |
+| ![Chrome](https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome_24x24.png "Chrome") | 133 | 133.0.6943.55 | macOS Sequoia | `chrome133a` | [curl_chrome131a](chrome/curl_chrome131a) |
 | ![Chrome](https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome_24x24.png "Chrome") | 99 | 99.0.4844.73 | Android 12 | `chrome99_android` | [curl_chrome99_android](chrome/curl_chrome99_android) |
 | ![Chrome](https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome_24x24.png "Chrome") | 131 | 131.0.6778.81 | Android 14 | `chrome131_android` | [curl_chrome131_android](chrome/curl_chrome131_android) |
 | ![Edge](https://raw.githubusercontent.com/alrra/browser-logos/main/src/edge/edge_24x24.png "Edge") | 99 | 99.0.1150.30 | Windows 10 | `edge99` | [curl_edge99](chrome/curl_edge99) |
@@ -95,6 +96,7 @@ Notes:
 
 1. Chromium-based browsers all share the same fingerprints, except for the `User-Agent` header and `sec-ch-ua-platform` header. They will not be updated unless this assumption changed. Use your own header if you need to impersonate `Edge`, `Chrome Android` etc.
 2. The original Safari fingerprints in the upstream fork are [not correct](https://github.com/lwthiker/curl-impersonate/issues/215).
+3. The version postfix `-a`(e.g. `chrome133a`) means that this is an alternative version, i.e. the fingerprint has not been officially updated by browser, but has been observed because of A/B testing.
 </small>
 
 ~~This list is also available in the [browsers.json](browsers.json) file.()~~ Needs to be updated.
