@@ -19,4 +19,5 @@
     --compressed ^
     --tlsv1.0 --no-tls-session-ticket ^
     --tls-grease ^
+    --tls-signed-cert-timestamps ^
     %*

@@ -87,6 +87,10 @@
   - null
   - null
   - firefox_133.0.3_macOS
+- - curl_firefox135
+  - null
+  - null
+  - firefox_135.0.1_macOS
 
 # Test libcurl-impersonate by loading it with LD_PRELOAD to an app
 # linked against the regular libcurl and setting the
@@ -187,3 +191,7 @@
   - CURL_IMPERSONATE: firefox133
   - libcurl-impersonate-chrome
   - firefox_133.0.3_macOS
+- - minicurl
+  - CURL_IMPERSONATE: firefox135
+  - libcurl-impersonate-chrome
+  - firefox_135.0.1_macOS

@@ -23,4 +23,5 @@
     --tlsv1.0 --no-tls-session-ticket ^
     --cert-compression zlib ^
     --tls-grease ^
+    --tls-signed-cert-timestamps ^
     %*

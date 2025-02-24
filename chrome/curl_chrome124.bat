@@ -32,4 +32,5 @@
     --tlsv1.2 --alps --tls-permute-extensions ^
     --cert-compression brotli ^
     --tls-grease ^
+    --tls-signed-cert-timestamps ^
     %*

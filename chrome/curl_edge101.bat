@@ -25,4 +25,5 @@
     --tlsv1.2 --alps ^
     --cert-compression brotli ^
     --tls-grease ^
+    --tls-signed-cert-timestamps ^
     %*

@@ -32,4 +32,5 @@
     --cert-compression brotli ^
     --tls-grease ^
     --tls-use-new-alps-codepoint ^
+    --tls-signed-cert-timestamps ^
     %*
