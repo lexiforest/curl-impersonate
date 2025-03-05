@@ -70,7 +70,7 @@ jobs:
       - name: Set up zig
         uses: goto-bus-stop/setup-zig@v2
         with:
-          version: 0.14.0-dev.1917+ecd5878b7
+          version: 0.14.0
 
       - name: Install Ubuntu dependencies
         run: |
