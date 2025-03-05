@@ -145,8 +145,7 @@ jobs:
 
       - name: Build the Chrome version of curl-impersonate
         run: |
-          export CFLAGS="-Wno-macro-redefined"
-          make chrome-build
+          CFLAGS="-Wno-macro-redefined" make chrome-build
           make chrome-checkbuild
           make chrome-install
 
@@ -221,8 +220,7 @@ jobs:
       - name: Rebuild statically
         run: |
           set -e
-          export CFLAGS="-Wno-macro-redefined"
-          make chrome-build
+          CFLAGS="-Wno-macro-redefined" make chrome-build
           make chrome-checkbuild
           if [[ "${{ endsWith(matrix.host, 'musl') }}" == "true" ]]; then
             make chrome-install
