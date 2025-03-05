@@ -16,7 +16,7 @@ permissions:
   contents: write
 
 env:
-  BORING_SSL_COMMIT: d24a38200fef19150eef00cad35b138936c08767
+  BORING_SSL_COMMIT: 23768dca563c4e62d48bb3675e49e34955dced12
 
 jobs:
   build-and-test-linux:
@@ -182,7 +182,7 @@ jobs:
           cp ${{ runner.temp }}/zstd/lib/lib*.a ${{ runner.temp }}/install/lib
           cp nghttp2*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
           cp brotli*/out/installed/lib/lib*.a ${{ runner.temp }}/install/lib
-          cp boringssl/build/lib/lib*.a ${{ runner.temp }}/install/lib
+          cp boringssl*/lib/lib*.a ${{ runner.temp }}/install/lib
 
           cd ${{ runner.temp }}/install/lib
           ls -lah .
@@ -257,9 +257,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-12, macos-14]
+        os: [macos-13, macos-14]
         include:
-          - os: macos-12
+          - os: macos-13
             arch: x86_64
             host: x86_64-macos
             capture_interface: en0

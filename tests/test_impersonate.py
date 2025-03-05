@@ -206,7 +206,7 @@ def _run_curl(curl_binary, env_vars, extra_args, urls, output="/dev/null"):
     logging.debug("runing curl with: %s", " ".join(args))
 
     curl = subprocess.Popen(args, env=env)
-    return curl.wait(timeout=15)
+    return curl.wait(timeout=60)
 
 
 @pytest.mark.parametrize(

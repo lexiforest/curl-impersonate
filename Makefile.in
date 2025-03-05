@@ -11,8 +11,7 @@ SUBJOBS := 4
 
 BROTLI_VERSION := 1.1.0
  # In case this is changed, update build-and-test-make.yml as well
- # In case this is changed, update build-and-test-make.yml as well
-BORING_SSL_COMMIT := d24a38200fef19150eef00cad35b138936c08767
+BORING_SSL_COMMIT := 23768dca563c4e62d48bb3675e49e34955dced12
 NGHTTP2_VERSION := nghttp2-1.63.0
 NGHTTP2_URL := https://github.com/nghttp2/nghttp2/releases/download/v1.63.0/nghttp2-1.63.0.tar.bz2
 CURL_VERSION := curl-8_7_1
@@ -20,8 +19,9 @@ CURL_VERSION := curl-8_7_1
 # https://github.com/google/brotli/commit/641bec0e30bea648b3da1cd90fc6b44deb429f71
 brotli_install_dir := $(abspath brotli-$(BROTLI_VERSION)/out/installed)
 brotli_static_libs := $(brotli_install_dir)/lib/libbrotlicommon.a $(brotli_install_dir)/lib/libbrotlidec.a
-boringssl_install_dir := $(abspath boringssl/build)
-boringssl_static_libs := $(boringssl_install_dir)/lib/libssl.a $(boringssl_install_dir)/lib/libcrypto.a
+boringssl_dir := $(abspath boringssl-$(BORING_SSL_COMMIT))
+boringssl_install_dir := $(boringssl_dir)/build
+boringssl_static_libs := $(boringssl_dir)/lib/libssl.a $(boringssl_dir)/lib/libcrypto.a
 nghttp2_install_dir := $(abspath $(NGHTTP2_VERSION)/installed)
 nghttp2_static_libs := $(nghttp2_install_dir)/lib/libnghttp2.a
 
@@ -110,7 +110,7 @@ chrome-clean: ## Clean build artifacts of the Chrome version. Use after re-runni
 
 clean: ## Remove all build artifacts, including dependencies
 	rm -Rf brotli-$(BROTLI_VERSION).tar.gz brotli-$(BROTLI_VERSION)
-	rm -Rf boringssl.zip boringssl
+	rm -Rf boringssl-$(BORING_SSL_COMMIT).zip boringssl-$(BORING_SSL_COMMIT)
 	rm -Rf $(NGHTTP2_VERSION).tar.bz2 $(NGHTTP2_VERSION)
 	rm -Rf $(CURL_VERSION).tar.gz $(CURL_VERSION)
 
@@ -151,19 +151,19 @@ $(brotli_static_libs): brotli-$(BROTLI_VERSION).tar.gz
 	@cmake@ --build . --config Release --target install --parallel $(SUBJOBS)
 
 
-boringssl.zip:
+boringssl-$(BORING_SSL_COMMIT).zip:
 	curl -L https://github.com/google/boringssl/archive/$(BORING_SSL_COMMIT).zip \
-		-o boringssl.zip
+		-o boringssl-$(BORING_SSL_COMMIT).zip
 
 # Patch boringssl and use a dummy '.patched' file to mark it patched
-boringssl/.patched: $(srcdir)/chrome/patches/boringssl.patch
-	unzip -q -o boringssl.zip
-	mv boringssl-$(BORING_SSL_COMMIT) boringssl
-	cd boringssl/
+boringssl-$(BORING_SSL_COMMIT)/.patched: $(srcdir)/chrome/patches/boringssl.patch
+	unzip -q -o boringssl-$(BORING_SSL_COMMIT).zip
+	# mv boringssl boringssl-$(BORING_SSL_COMMIT)
+	cd boringssl-$(BORING_SSL_COMMIT)/
 	for p in $^; do patch -p1 < $$p; done
 	touch .patched
 
-$(boringssl_static_libs): boringssl.zip boringssl/.patched
+$(boringssl_static_libs): boringssl-$(BORING_SSL_COMMIT).zip boringssl-$(BORING_SSL_COMMIT)/.patched
 	mkdir -p $(boringssl_install_dir)
 	cd $(boringssl_install_dir)
 
@@ -194,12 +194,12 @@ $(boringssl_static_libs): boringssl.zip boringssl/.patched
 			-GNinja \
 			..
 	@ninja@ -j$(SUBJOBS)
+
 	# Fix the directory structure so that curl can compile against it.
-	# See https://everything.curl.dev/source/build/tls/boringssl
-	mkdir -p lib
-	ln -sf ../crypto/libcrypto.a lib/libcrypto.a
-	ln -sf ../ssl/libssl.a lib/libssl.a
-	cp -Rf ../include .
+	# See: https://everything.curl.dev/build/boringssl.html
+	mkdir -p $(boringssl_dir)/lib
+	cp ssl/libssl.a $(boringssl_dir)/lib
+	cp crypto/libcrypto.a $(boringssl_dir)/lib
 
 
 $(NGHTTP2_VERSION).tar.bz2:
@@ -251,7 +251,7 @@ $(CURL_VERSION)/.chrome: $(chrome_libs)	$(CURL_VERSION).tar.gz $(CURL_VERSION)/.
 	  config_flags="--prefix=@prefix@"; \
 	  config_flags="$$config_flags --with-nghttp2=$(nghttp2_install_dir)"; \
 	  config_flags="$$config_flags --with-brotli=$(brotli_install_dir)"; \
-	  config_flags="$$config_flags --with-openssl=$(boringssl_install_dir)"; \
+	  config_flags="$$config_flags --with-openssl=$(boringssl_dir)"; \
 	  config_flags="$$config_flags --enable-websockets"; \
 	  config_flags="$$config_flags --enable-ech"; \
 	  config_flags="$$config_flags --enable-ipv6"; \
@@ -278,12 +278,12 @@ $(CURL_VERSION)/.chrome: $(chrome_libs)	$(CURL_VERSION).tar.gz $(CURL_VERSION)/.
 	  if test -n "$(with_ca_path)"; then \
 		config_flags="$$config_flags --with-ca-path=$(with_ca_path)"; \
 	  fi; \
-	  add_libs="-pthread"; \
+	  add_libs="-pthread -lc++"; \
 	}
 
 	echo "Configuring curl with: $$config_flags"
 
-	./configure $$config_flags LIBS="$$add_libs"
+	CXXFLAGS="-stdlib=libc++" LDFLAGS="-lc++" ./configure $$config_flags LIBS="$$add_libs"
 
 	# Remove possible leftovers from a previous compilation
 	$(MAKE) clean MAKEFLAGS=

@@ -13,7 +13,7 @@ However, by default, running the binaries as above will not prdouce the same TLS
 
 will produce a signature identical to Chrome version 104. You can add command line flags and they will be passed on to curl. However, some flags change curl's TLS signature. See below for more details.
 
-The full list of wrapper scripts is available on the [main page](https://github.com/yifeikong/curl-impersonate#supported-browsers).
+The full list of wrapper scripts is available on the [main page](https://github.com/lexiforest/curl-impersonate#supported-browsers).
 
 ## Changing the HTTP headers
 The wrapper scripts use a certain set of HTTP headers such as `User-Agent`, `Accept-Encoding` and a few more.

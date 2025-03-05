@@ -43,6 +43,18 @@
   - null
   - null
   - chrome_124.0.6367.60_macOS
+- - curl_chrome131
+  - null
+  - null
+  - chrome_131.0.6778.86_macOS
+- - curl_chrome133a
+  - null
+  - null
+  - chrome_133.0.6943.55_macOS
+- - curl_chrome131_android
+  - null
+  - null
+  - chrome_131.0.6778.81_android14
 - - curl_chrome99_android
   - null
   - null
@@ -71,10 +83,14 @@
   - null
   - null
   - safari_18.0_iOS
-# - - curl_firefox120
-#   - null
-#   - null
-#   - firefox_120_macOS
+- - curl_firefox133
+  - null
+  - null
+  - firefox_133.0.3_macOS
+- - curl_firefox135
+  - null
+  - null
+  - firefox_135.0.1_macOS
 
 # Test libcurl-impersonate by loading it with LD_PRELOAD to an app
 # linked against the regular libcurl and setting the
@@ -124,6 +140,18 @@
   - libcurl-impersonate-chrome
   - chrome_124.0.6367.60_macOS
 - - minicurl
+  - CURL_IMPERSONATE: chrome131
+  - libcurl-impersonate-chrome
+  - chrome_131.0.6778.86_macOS
+- - minicurl
+  - CURL_IMPERSONATE: chrome133a
+  - libcurl-impersonate-chrome
+  - chrome_133.0.6943.55_macOS
+- - minicurl
+  - CURL_IMPERSONATE: chrome131_android
+  - libcurl-impersonate-chrome
+  - chrome_131.0.6778.81_android14
+- - minicurl
   - CURL_IMPERSONATE: chrome99_android
   - libcurl-impersonate-chrome
   - chrome_99.0.4844.73_android12
@@ -159,7 +187,11 @@
   - CURL_IMPERSONATE: safari18_0_ios
   - libcurl-impersonate-chrome
   - safari_18.0_iOS
-# - - minicurl
-#   - CURL_IMPERSONATE: firefox120
-#   - libcurl-impersonate-chrome
-#   - firefox_120_macOS
+- - minicurl
+  - CURL_IMPERSONATE: firefox133
+  - libcurl-impersonate-chrome
+  - firefox_133.0.3_macOS
+- - minicurl
+  - CURL_IMPERSONATE: firefox135
+  - libcurl-impersonate-chrome
+  - firefox_135.0.1_macOS
