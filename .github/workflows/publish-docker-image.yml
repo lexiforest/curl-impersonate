@@ -5,7 +5,8 @@ name: Publish Docker image
 on:
   push:
     tags:
-      - 'v*'
+      - disabled
+      # - 'v*'
 
 jobs:
   push-docker-image:

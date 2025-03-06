@@ -3,14 +3,17 @@ name: Docker images
 on:
   push:
     branches:
-      - main
-      - feature/*
-      - bugfix/*
+      - disabled
+      # - main
+      # - feature/*
+      # - bugfix/*
     tags:
-      - "v*.*.*"
+      - disabled
+      # - "v*.*.*"
   pull_request:
     branches:
-      - main
+      - disabled
+      # - main
 
 jobs:
   build-docker-and-test:

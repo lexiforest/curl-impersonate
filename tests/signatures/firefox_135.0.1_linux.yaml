@@ -1,0 +1,153 @@
+browser:
+  name: firefox
+  os: macOS
+  version: 135.0.1
+signature:
+  http2:
+    frames:
+    - frame_type: SETTINGS
+      settings:
+      - key: 1
+        value: 65536
+      - key: 2
+        value: 0
+      - key: 4
+        value: 131072
+      - key: 5
+        value: 16384
+      stream_id: 0
+    - frame_type: WINDOW_UPDATE
+      stream_id: 0
+      window_size_increment: 12517377
+    - frame_type: HEADERS
+      headers:
+      - 'user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:135.0) Gecko/20100101 Firefox/135.0'
+      - 'accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+      - 'accept-language: en-US,en;q=0.5'
+      - 'accept-encoding: gzip, deflate, br, zstd'
+      - 'upgrade-insecure-requests: 1'
+      - 'sec-fetch-dest: document'
+      - 'sec-fetch-mode: navigate'
+      - 'sec-fetch-site: none'
+      - 'sec-fetch-user: ?1'
+      - 'priority: u=0, i'
+      - 'te: trailers'
+      pseudo_headers:
+      - :method
+      - :path
+      - :authority
+      - :scheme
+      stream_id: 15
+  tls_client_hello:
+    ciphersuites:
+    - 4865
+    - 4867
+    - 4866
+    - 49195
+    - 49199
+    - 52393
+    - 52392
+    - 49196
+    - 49200
+    - 49162
+    - 49161
+    - 49171
+    - 49172
+    - 156
+    - 157
+    - 47
+    - 53
+    comp_methods:
+    - 0
+    extensions:
+    - type: server_name
+    - length: 0
+      type: extended_master_secret
+    - length: 1
+      type: renegotiation_info
+    - length: 16
+      supported_groups:
+      - 4588
+      - 29
+      - 23
+      - 24
+      - 25
+      - 256
+      - 257
+      type: supported_groups
+    - ec_point_formats:
+      - 0
+      length: 2
+      type: ec_point_formats
+    - length: 0
+      type: session_ticket
+    - alpn_list:
+      - h2
+      - http/1.1
+      length: 14
+      type: application_layer_protocol_negotiation
+    - length: 5
+      status_request_type: 1
+      type: status_request
+    - length: 10
+      sig_hash_algs:
+      - 1027
+      - 1283
+      - 1539
+      - 515
+      type: delegated_credentials
+    - length: 0
+      type: signed_certificate_timestamp
+    - key_shares:
+      - group: 4588
+        length: 1216
+      - group: 29
+        length: 32
+      - group: 23
+        length: 65
+      length: 1327
+      type: keyshare
+    - length: 5
+      supported_versions:
+      - TLS_VERSION_1_3
+      - TLS_VERSION_1_2
+      type: supported_versions
+    - length: 24
+      sig_hash_algs:
+      - 1027
+      - 1283
+      - 1539
+      - 2052
+      - 2053
+      - 2054
+      - 1025
+      - 1281
+      - 1537
+      - 515
+      - 513
+      type: signature_algorithms
+    - length: 2
+      psk_ke_mode: 1
+      type: psk_key_exchange_modes
+    - length: 2
+      record_size_limit: 4001
+      type: record_size_limit
+    - algorithms:
+      - 1
+      - 2
+      - 3
+      length: 7
+      type: compress_certificate
+    - length: 0
+      type: encrypted_client_hello
+    handshake_version: TLS_VERSION_1_2
+    record_version: TLS_VERSION_1_0
+    session_id_length: 32
+third_party:
+  user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:135.0) Gecko/20100101 Firefox/135.0"
+  ja3_hash: "6f7889b9fb1a62a9577e685c1fcfa919"
+  ja3_text: "771,4865-4867-4866-49195-49199-52393-52392-49196-49200-49162-49161-49171-49172-156-157-47-53,0-23-65281-10-11-35-16-5-34-18-51-43-13-45-28-27-65037,4588-29-23-24-25-256-257,0"
+  ja3n_hash: "e4147a4860c1f347354f0a84d8787c02"
+  ja3n_text: "771,4865-4867-4866-49195-49199-52393-52392-49196-49200-49162-49161-49171-49172-156-157-47-53,0-5-10-11-13-16-18-23-27-28-34-35-43-45-51-65037-65281,4588-29-23-24-25-256-257,0"
+  akamai_hash: "6ea73faa8fc5aac76bded7bd238f6433"
+  akamai_text: "1:65536;2:0;4:131072;5:16384|12517377|0|m,p,a,s"

@@ -1,0 +1,28 @@
+diff --git a/deps/curl/lib/curl_setup.h b/deps/curl/lib/curl_setup.h
+index 286acc3..0ea2480 100644
+--- a/deps/curl/lib/curl_setup.h
++++ b/deps/curl/lib/curl_setup.h
+@@ -687,6 +687,10 @@
+ #error "No longer supported. Set CURLOPT_CAINFO at runtime instead."
+ #endif
+ 
++#if defined(USE_LIBSSH2)
++#undef USE_LIBSSH2
++#endif
++
+ #if defined(USE_LIBSSH2) || defined(USE_LIBSSH) || defined(USE_WOLFSSH)
+ #define USE_SSH
+ #endif
+diff --git a/deps/zstd/lib/common/cpu.h b/deps/zstd/lib/common/cpu.h
+index 0e684d9..f8c1ecc 100644
+--- a/deps/zstd/lib/common/cpu.h
++++ b/deps/zstd/lib/common/cpu.h
+@@ -35,7 +35,7 @@ MEM_STATIC ZSTD_cpuid_t ZSTD_cpuid(void) {
+     U32 f7b = 0;
+     U32 f7c = 0;
+ #if defined(_MSC_VER) && (defined(_M_X64) || defined(_M_IX86))
+-#if !defined(__clang__)
++#if 1
+     int reg[4];
+     __cpuid((int*)reg, 0);
+     {

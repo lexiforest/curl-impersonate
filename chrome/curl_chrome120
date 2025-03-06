@@ -23,8 +23,12 @@ dir=${0%/*}
     --http2 \
     --http2-settings '1:65536;2:0;4:6291456;6:262144' \
     --http2-window-update 15663105 \
+    --http2-stream-weight 256 \
+    --http2-stream-exclusive 1 \
     --compressed \
     --ech GREASE \
     --tlsv1.2 --alps --tls-permute-extensions \
     --cert-compression brotli \
+    --tls-grease \
+    --tls-signed-cert-timestamps \
     "$@"

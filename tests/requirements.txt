@@ -1,4 +1,4 @@
 pyyaml
 pytest
 pytest-asyncio
-th1 @ git+https://github.com/yifeikong/th1.git@main
+th1 @ git+https://github.com/lexiforest/th1.git@main
