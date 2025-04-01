@@ -16,7 +16,7 @@ permissions:
   contents: write
 
 env:
-  BORING_SSL_COMMIT: cd95210465496ac2337b313cf49f607762abe286
+  BORING_SSL_COMMIT: 23768dca563c4e62d48bb3675e49e34955dced12
 
 jobs:
   build-and-test-linux:
@@ -59,6 +59,10 @@ jobs:
             host: arm-linux-gnueabihf
             capture_interface: eth0
             zigflags: -target arm-linux-gnueabihf.2.17 -mcpu=arm1176jzf_s
+          - arch: riscv64
+            host: riscv64-linux-gnu
+            capture_interface: eth0
+            zigflags: -target riscv64-linux-gnu.2.27
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
@@ -66,13 +70,13 @@ jobs:
       - name: Set up zig
         uses: goto-bus-stop/setup-zig@v2
         with:
-          version: 0.11.0
+          version: 0.14.0
 
       - name: Install Ubuntu dependencies
         run: |
           sudo apt-get update
           sudo apt-get install build-essential pkg-config cmake ninja-build curl autoconf automake libtool
-          sudo apt-get install gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf
+          sudo apt-get install gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf gcc-riscv64-linux-gnu
           # Chrome version dependencies
           sudo apt-get install golang-go
           # Needed to compile 'minicurl'

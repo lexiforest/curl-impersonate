@@ -11,7 +11,7 @@ SUBJOBS := 4
 
 BROTLI_VERSION := 1.1.0
  # In case this is changed, update build-and-test-make.yml as well
-BORING_SSL_COMMIT := cd95210465496ac2337b313cf49f607762abe286
+BORING_SSL_COMMIT := 23768dca563c4e62d48bb3675e49e34955dced12
 NGHTTP2_VERSION := nghttp2-1.63.0
 NGHTTP2_URL := https://github.com/nghttp2/nghttp2/releases/download/v1.63.0/nghttp2-1.63.0.tar.bz2
 CURL_VERSION := curl-8_11_0
@@ -180,7 +180,8 @@ $(boringssl_static_libs): boringssl-$(BORING_SSL_COMMIT).zip boringssl-$(BORING_
 	# prevent clang from failing on them.
 	@cmake@ -DCMAKE_BUILD_TYPE=Release \
 			-DCMAKE_POSITION_INDEPENDENT_CODE=on \
-			-DCMAKE_C_FLAGS="$(CFLAGS) -Wno-unknown-warning-option -Wno-stringop-overflow -Wno-array-bounds" \
+			-DCMAKE_C_FLAGS="$(CFLAGS) -Wno-unknown-warning-option -Wno-stringop-overflow -Wno-array-bounds  -Wno-macro-redefined" \
+			-DCMAKE_CXX_FLAGS="$(CXX_FLAGS) -Wno-macro-redefined" \
 			-DCMAKE_CXX_COMPILER=$(CXX) \
 			-DCMAKE_C_COMPILER=$(CC) \
 			-DCMAKE_SYSTEM_NAME=$$system_name \
@@ -270,7 +271,7 @@ $(CURL_VERSION)/.chrome: $(chrome_libs)	$(CURL_VERSION).tar.gz $(CURL_VERSION)/.
 		config_flags="$$config_flags --with-ca-bundle=$(with_ca_bundle)"; \
 	  fi; \
 	  if test -n "$(with_ca_path)"; then \
-		config_flags="$$config_flags --with-ca-path=$(with_ca_path)"; \
+		config_flags="$$config_flags --with-ca-path=$(with_ca_path)"; \makefil
 	  fi; \
 	  add_libs="-pthread -lc++"; \
 	}

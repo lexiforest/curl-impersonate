@@ -25,7 +25,7 @@ sudo apt install zstd libzstd-dev
 Clone this repository:
 
 ```sh
-git clone https://github.com/yifeikong/curl-impersonate.git
+git clone https://github.com/lexiforest/curl-impersonate.git
 cd curl-impersonate
 ```
 
@@ -87,14 +87,14 @@ Install dependencies for building all the components:
 
 ```sh
 brew install pkg-config make cmake ninja autoconf automake libtool
-brwe install zstd
+brew install zstd
 brew install go
 ```
 
 Clone this repository:
 
 ```sh
-git clone https://github.com/yifeikong/curl-impersonate.git
+git clone https://github.com/lexiforest/curl-impersonate.git
 cd curl-impersonate
 ```
 
