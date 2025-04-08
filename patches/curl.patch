@@ -3284,7 +3284,7 @@ index e4487ba65..0ba8046bb 100644
  
  #ifndef CURL_DISABLE_MIME
 diff --git a/lib/vtls/openssl.c b/lib/vtls/openssl.c
-index 4d5e1be29..78464ecdc 100644
+index 4d5e1be29..2d71260db 100644
 --- a/lib/vtls/openssl.c
 +++ b/lib/vtls/openssl.c
 @@ -81,9 +81,21 @@
@@ -3728,15 +3728,15 @@ index 4d5e1be29..78464ecdc 100644
 +  }
 +
 +  if(data->set.str[STRING_TLS_DELEGATED_CREDENTIALS]) {
-+    SSL_CTX_set_delegated_credentials(backend->ctx, data->set.str[STRING_TLS_DELEGATED_CREDENTIALS]);
++    SSL_CTX_set_delegated_credentials(octx->ssl_ctx, data->set.str[STRING_TLS_DELEGATED_CREDENTIALS]);
 +  }
 +
 +  if(data->set.tls_record_size_limit) {
-+    SSL_CTX_set_record_size_limit(backend->ctx, data->set.tls_record_size_limit);
++    SSL_CTX_set_record_size_limit(octx->ssl_ctx, data->set.tls_record_size_limit);
 +  }
 +
 +  if(data->set.tls_key_shares_limit) {
-+    SSL_CTX_set_key_shares_limit(backend->ctx, data->set.tls_key_shares_limit);
++    SSL_CTX_set_key_shares_limit(octx->ssl_ctx, data->set.tls_key_shares_limit);
 +  }
 +
 +  // curl-impersonate: Set key usage check
