@@ -82,8 +82,8 @@ endif
 install: ## Install the Chrome version of curl-impersonate after build
 	cd $(CURL_VERSION)
 	$(MAKE) install-exec MAKEFLAGS=
-	# Wrapper scripts for the Chrome version (e.g. 'curl_chrome99')
-	install $(srcdir)/chrome/curl_* @bindir@
+	# Wrapper scripts for the cli shortcut (e.g. 'curl_chrome99')
+	install $(srcdir)/bin/curl_* @bindir@
 .PHONY: install
 
 install-strip: ## Like 'install', but strip binaries for smaller size
@@ -92,14 +92,14 @@ install-strip: ## Like 'install', but strip binaries for smaller size
 	# We could have used 'install-strip' but then the docs would be installed as well.
 	# Instead strip manually.
 	$(STRIP) @bindir@/curl-impersonate
-	# Wrapper scripts for the Chrome version (e.g. 'curl_chrome99')
-	install $(srcdir)/chrome/curl_chrome* $(srcdir)/chrome/curl_edge* $(srcdir)/chrome/curl_safari* @$(srcdir)/chrome/curl_firefox* bindir@
+	# Wrapper scripts for the cli shortcut (e.g. 'curl_chrome99')
+	install $(srcdir)/bin/curl_* bindir@
 .PHONY: install-strip
 
 uninstall: ## Uninstall the Chrome version of curl-impersonate after 'make install'
 	cd $(CURL_VERSION)
 	$(MAKE) uninstall MAKEFLAGS=
-	rm -Rf @bindir@/curl_chrome* @bindir@/curl_edge* @bindir@/curl_safari* @bindir@/curl_firefox*
+	rm -Rf @bindir@/curl_*
 .PHONY: uninstall
 
 clean:

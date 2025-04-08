@@ -4146,7 +4146,7 @@ index 75fef60c8..ba715bb75 100644
    long happy_eyeballs_timeout_ms; /* happy eyeballs timeout in milliseconds.
                                       0 is valid. default: CURL_HET_DEFAULT. */
 diff --git a/src/tool_getparam.c b/src/tool_getparam.c
-index a55973a60..d92f21fa5 100644
+index a55973a60..29fec1ea8 100644
 --- a/src/tool_getparam.c
 +++ b/src/tool_getparam.c
 @@ -90,6 +90,7 @@ static ParameterError getstrn(char **str, const char *val,
@@ -4157,14 +4157,14 @@ index a55973a60..d92f21fa5 100644
    {"alt-svc",                    ARG_STRG, ' ', C_ALT_SVC},
    {"anyauth",                    ARG_BOOL, ' ', C_ANYAUTH},
    {"append",                     ARG_BOOL, 'a', C_APPEND},
-@@ -103,6 +104,7 @@ static const struct LongShort aliases[]= {
+@@ -100,6 +101,7 @@ static const struct LongShort aliases[]= {
+   {"cacert",                     ARG_FILE|ARG_TLS, ' ', C_CACERT},
+   {"capath",                     ARG_FILE|ARG_TLS, ' ', C_CAPATH},
+   {"cert",                       ARG_FILE|ARG_TLS, 'E', C_CERT},
++  {"cert-compression",           ARG_STRG|ARG_TLS, ' ', C_CERT_COMPRESSION},  // curl-impersonate
    {"cert-status",                ARG_BOOL|ARG_TLS, ' ', C_CERT_STATUS},
    {"cert-type",                  ARG_STRG|ARG_TLS, ' ', C_CERT_TYPE},
    {"ciphers",                    ARG_STRG|ARG_TLS, ' ', C_CIPHERS},
-+  {"cert-compression",           ARG_STRG|ARG_TLS, ' ', C_CERT_COMPRESSION},  // curl-impersonate
-   {"clobber",                    ARG_BOOL|ARG_NO, ' ', C_CLOBBER},
-   {"compressed",                 ARG_BOOL, ' ', C_COMPRESSED},
-   {"compressed-ssh",             ARG_BOOL, ' ', C_COMPRESSED_SSH},
 @@ -181,6 +183,12 @@ static const struct LongShort aliases[]= {
    {"http1.1",                    ARG_NONE, ' ', C_HTTP1_1},
    {"http2",                      ARG_NONE, ' ', C_HTTP2},
@@ -4186,11 +4186,12 @@ index a55973a60..d92f21fa5 100644
    {"silent",                     ARG_BOOL, 's', C_SILENT},
    {"skip-existing",              ARG_BOOL, ' ', C_SKIP_EXISTING},
    {"socks4",                     ARG_STRG, ' ', C_SOCKS4},
-@@ -342,7 +351,16 @@ static const struct LongShort aliases[]= {
+@@ -341,8 +350,17 @@ static const struct LongShort aliases[]= {
+   {"tftp-blksize",               ARG_STRG, ' ', C_TFTP_BLKSIZE},
    {"tftp-no-options",            ARG_BOOL, ' ', C_TFTP_NO_OPTIONS},
    {"time-cond",                  ARG_STRG, 'z', C_TIME_COND},
-   {"tls-earlydata",              ARG_BOOL|ARG_TLS, ' ', C_TLS_EARLYDATA},
 +  {"tls-delegated-credentials",  ARG_STRG, ' ', C_TLS_DELEGATED_CREDENTIALS},  // curl-impersonate
+   {"tls-earlydata",              ARG_BOOL|ARG_TLS, ' ', C_TLS_EARLYDATA},
 +  {"tls-extension-order",        ARG_STRG, ' ', C_TLS_EXTENSION_ORDER},  // curl-impersonate
 +  {"tls-grease",                 ARG_BOOL, ' ', C_TLS_GREASE},  // curl-impersonate
 +  {"tls-key-shares-limit",       ARG_STRG, ' ', C_TLS_KEY_SHARES_LIMIT},  // curl-impersonate
@@ -4203,6 +4204,15 @@ index a55973a60..d92f21fa5 100644
    {"tls13-ciphers",              ARG_STRG|ARG_TLS, ' ', C_TLS13_CIPHERS},
    {"tlsauthtype",                ARG_STRG|ARG_TLS, ' ', C_TLSAUTHTYPE},
    {"tlspassword",                ARG_STRG|ARG_TLS, ' ', C_TLSPASSWORD},
+@@ -1864,7 +1882,7 @@ ParameterError getparameter(const char *flag, /* f or -long-flag */
+         /* if given a blank string, make it NULL again */
+         curlx_safefree(config->doh_url);
+       break;
+-    case C_CIPHERS: /* -- ciphers */
++    case C_CIPHERS: /* --ciphers */
+       err = getstr(&config->cipher_list, nextarg, DENY_BLANK);
+       break;
+     case C_DNS_INTERFACE: /* --dns-interface */
 @@ -1913,6 +1931,9 @@ ParameterError getparameter(const char *flag, /* f or -long-flag */
      case C_ALPN: /* --alpn */
        config->noalpn = !toggle;
