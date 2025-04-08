@@ -35,8 +35,8 @@ Configure and compile:
 mkdir build && cd build
 ../configure
 # Build and install
-make chrome-build
-sudo make chrome-install
+make build
+sudo make install
 # You may need to update the linker's cache to find libcurl-impersonate
 sudo ldconfig
 # Optionally remove all the build files
@@ -54,7 +54,7 @@ curl_chrome119 https://www.wikipedia.org
 or run directly with you own flags:
 
 ```sh
-curl-impersonate-chrome https://www.wikipedia.org
+curl-impersonate https://www.wikipedia.org
 ```
 
 ### Red Hat based (CentOS/Fedora/Amazon Linux)
@@ -104,8 +104,8 @@ Configure and compile:
 mkdir build && cd build
 ../configure
 # Build and install
-gmake chrome-build
-sudo gmake chrome-install
+gmake build
+sudo gmake install
 # Optionally remove all the build files
 cd ../ && rm -Rf build
 ```
@@ -135,7 +135,7 @@ sudo apt-get install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
             --with-ca-path=/etc/ssl/certs \
             --with-ca-bundle=/etc/ssl/certs/ca-certificates.crt
 
-make chrome-build
+make build
 ```
 
 The flags mean as follows:
@@ -149,13 +149,13 @@ The Docker build is a bit more reproducible and serves as the reference implemen
 [`chrome/Dockerfile`](chrome/Dockerfile) is a debian-based Dockerfile that will build curl with all the necessary modifications and patches. Build it like the following:
 
 ```sh
-docker build -t curl-impersonate-chrome chrome/
+docker build -t curl-impersonate chrome/
 ```
 
 The resulting binaries and libraries are in the `/usr/local` directory, which contains:
 
-* `curl-impersonate-chrome`, `curl-impersonate` - The curl binary that can impersonate Chrome/Edge/Safari. It is compiled statically against libcurl, BoringSSL, and libnghttp2 so that it won't conflict with any existing libraries on your system. You can use it from the container or copy it out. Tested to work on Ubuntu 20.04.
+* `curl-impersonate`, - The curl binary that can impersonate Chrome/Edge/Safari. It is compiled statically against libcurl, BoringSSL, and libnghttp2 so that it won't conflict with any existing libraries on your system. You can use it from the container or copy it out. Tested to work on Ubuntu 20.04.
 * `curl_chrome99`, `curl_chrome100`, `...` - Wrapper scripts that launch `curl-impersonate` with all the needed flags.
-* `libcurl-impersonate-chrome.so`, `libcurl-impersonate.so` - libcurl compiled with impersonation support. See [libcurl-impersonate](README.md#libcurl-impersonate) for more details.
+* `libcurl-impersonate.so`, `libcurl-impersonate.so` - libcurl compiled with impersonation support. See [libcurl-impersonate](README.md#libcurl-impersonate) for more details.
 
 You can use them inside the docker, copy them out using `docker cp` or use them in a multi-stage docker build.

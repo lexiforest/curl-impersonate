@@ -102,8 +102,8 @@ RUN cd ${CURL_VERSION} && \
     make && make install
 
 RUN mkdir out && \
-    cp /build/install/bin/curl-impersonate-chrome out/ && \
-    ln -s curl-impersonate-chrome out/curl-impersonate && \
+    cp /build/install/bin/curl-impersonate out/ && \
+    ln -s curl-impersonate out/curl-impersonate && \
     strip out/curl-impersonate
 
 # Verify that the resulting 'curl' has all the necessary features.
@@ -133,9 +133,9 @@ RUN cd ${CURL_VERSION} && \
 # Copy libcurl-impersonate and symbolic links
 RUN cp -d /build/install/lib/libcurl-impersonate* /build/out
 
-RUN ver=$(readlink -f ${CURL_VERSION}/lib/.libs/libcurl-impersonate-chrome.so | sed 's/.*so\.//') && \
+RUN ver=$(readlink -f ${CURL_VERSION}/lib/.libs/libcurl-impersonate.so | sed 's/.*so\.//') && \
     major=$(echo -n $ver | cut -d'.' -f1) && \
-    ln -s "libcurl-impersonate-chrome.so.$ver" "out/libcurl-impersonate.so.$ver" && \
+    ln -s "libcurl-impersonate.so.$ver" "out/libcurl-impersonate.so.$ver" && \
     ln -s "libcurl-impersonate.so.$ver" "out/libcurl-impersonate.so" && \
     strip "out/libcurl-impersonate.so.$ver"
 

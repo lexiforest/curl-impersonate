@@ -6,12 +6,12 @@ It is possible to use libcurl-impersonate in PHP scripts instead of the original
 
 First, patch libcurl-impersonate and change its SONAME:
 ```bash
-patchelf --set-soname libcurl.so.4 /path/to/libcurl-impersonate-chrome.so
+patchelf --set-soname libcurl.so.4 /path/to/libcurl-impersonate.so
 ```
 
 Then replace at runtime with:
 ```bash
-LD_PRELOAD=/path/to/libcurl-impersonate-chrome.so CURL_IMPERSONATE=chrome101 php -r 'print_r(curl_version());'
+LD_PRELOAD=/path/to/libcurl-impersonate.so CURL_IMPERSONATE=chrome101 php -r 'print_r(curl_version());'
 ```
 
 If successful you should see:
@@ -22,7 +22,7 @@ If successful you should see:
 
 ## On macOS
 
-On Mac, first rename `libcurl-impersonate-chrome.dylib` to `libcurl.4.dylib` and place in some directory, say `/usr/local/lib`. Then run php with the `DYLD_LIBRARY_PATH` env var pointing to that directory, for example:
+On Mac, first rename `libcurl-impersonate.dylib` to `libcurl.4.dylib` and place in some directory, say `/usr/local/lib`. Then run php with the `DYLD_LIBRARY_PATH` env var pointing to that directory, for example:
 ```
 DYLD_LIBRARY_PATH=/usr/local/lib php -r 'print_r(curl_version());'
 ```

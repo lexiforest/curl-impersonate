@@ -9,7 +9,7 @@ Pre-compiled binaries for Windows, Linux and macOS are available at the [GitHub 
 * Archlinux - `pacman -S ca-certificates zstd`
 * macOS - `brew install ca-certificates zstd`
 
-The pre-compiled binaries contain libcurl-impersonate and a statically compiled curl-impersonate for ease of use.
+The pre-compiled binaries contain `libcurl-impersonate` and a statically compiled `curl-impersonate` for ease of use.
 
 The pre-compiled Linux binaries are built for Ubuntu systems. On other distributions if you have errors with certificate verification you may have to tell curl where to find the CA certificates. For example:
 
@@ -41,4 +41,4 @@ docker run --rm lwthiker/curl-impersonate:0.5-chrome curl_chrome110 https://www.
 
 AUR packages are available to Archlinux users:
 * Pre-compiled package: [curl-impersonate-bin](https://aur.archlinux.org/packages/curl-impersonate-bin), [libcurl-impersonate-bin](https://aur.archlinux.org/packages/libcurl-impersonate-bin).
-* Build from source code: [curl-impersonate-chrome](https://aur.archlinux.org/packages/curl-impersonate-chrome), [curl-impersonate-firefox](https://aur.archlinux.org/packages/curl-impersonate-firefox).
+* Build from source code: [curl-impersonate-chrome](https://aur.archlinux.org/packages/curl-impersonate-chrome)

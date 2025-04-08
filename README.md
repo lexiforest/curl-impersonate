@@ -17,6 +17,8 @@
 > 8. (In progress) Built with http/3 enabled.
 > 9. A user-friendly Python binding: [curl_cffi](https://github.com/lexiforest/curl_cffi).
 > 10. More prebuilt binaries, including Windows, Arm, and even RISC-V!
+> 11. Commercial support at [impersonate.pro](https://impersonate.pro).
+
 
 A special build of [curl](https://github.com/curl/curl) that can impersonate the four
 major browsers: Chrome, Edge, Safari and Firefox. `curl-impersonate` is able to perform
@@ -149,7 +151,7 @@ Other files of interest:
 
 If you'd like to help, please check out the [open issues in the origional repo](https://github.com/lwthiker/curl-impersonate/issues) and [open issues here](https://github.com/lexiforest/curl-impersonate/issues). You can open a pull request with your changes. Note that some of the upstream issues have been fixed.
 
-This repository contains the build process for `curl-impersonate`. The actual patches to `curl` are maintained in a [separate repository](https://github.com/lexiforest/curl) forked from lwthiker's fork of the upstream curl. The changes are maintained in the [impersonate-firefox](https://github.com/lexiforest/curl/tree/impersonate-firefox) and [impersonate-chrome](https://github.com/lexiforest/curl/tree/impersonate-chrome) branches.
+This repository contains the build process for `curl-impersonate`. The actual patches to `curl` are maintained in a [separate repository](https://github.com/lexiforest/curl) forked from lwthiker's fork of the upstream curl. The changes are maintained in the [impersonate-chrome](https://github.com/lexiforest/curl/tree/impersonate-chrome) branch.
 
 You may also need the [forked and patched](https://github.com/lexiforest/boringssl) BoringSSL.
 
