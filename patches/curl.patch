@@ -1089,7 +1089,7 @@ index 03d1959e2..21b73b9b1 100644
    }
  
 diff --git a/lib/http2.c b/lib/http2.c
-index 88fbcceb7..fcd1d2657 100644
+index 88fbcceb7..94f7cd9b4 100644
 --- a/lib/http2.c
 +++ b/lib/http2.c
 @@ -51,6 +51,7 @@
@@ -1298,32 +1298,42 @@ index 88fbcceb7..fcd1d2657 100644
  static CURLcode h2_progress_egress(struct Curl_cfilter *cf,
                                    struct Curl_easy *data);
  
-@@ -314,8 +458,22 @@ static CURLcode cf_h2_update_local_win(struct Curl_cfilter *cf,
+@@ -314,8 +458,6 @@ static CURLcode cf_h2_update_local_win(struct Curl_cfilter *cf,
                    stream->id, dwsize - wsize);
      }
      else {
 -      rv = nghttp2_session_set_local_window_size(ctx->h2, NGHTTP2_FLAG_NONE,
 -                                                 stream->id, dwsize);
-+      // curl-impersonate:
-+      // Directly changing the initial window update using users' settings.
-+      int current_window_size = nghttp2_session_get_local_window_size(ctx->h2);
-+
-+      // Use chrome's value as default
-+      int window_update = 15663105;
-+      if(data->set.http2_window_update) {
-+        window_update = data->set.http2_window_update;
-+      }
-+
-+      // printf("Using window update %d\n", window_update);
-+
-+      rv = nghttp2_session_set_local_window_size(
-+          ctx->h2, NGHTTP2_FLAG_NONE, 0,
-+          current_window_size + window_update);
-+
        if(rv) {
          failf(data, "[%d] nghttp2_session_set_local_window_size() failed: "
                "%s(%d)", stream->id, nghttp2_strerror(rv), rv);
-@@ -610,6 +768,17 @@ static CURLcode cf_h2_ctx_open(struct Curl_cfilter *cf,
+@@ -600,9 +742,23 @@ static CURLcode cf_h2_ctx_open(struct Curl_cfilter *cf,
+       goto out;
+     }
+   }
++  
++  // curl-impersonate:
++  // Directly changing the initial window update using users' settings.
++  int current_window_size = nghttp2_session_get_local_window_size(ctx->h2);
++
++  // Use chrome's value as default
++  int window_update = 15663105;
++  if(data->set.http2_window_update) {
++    window_update = data->set.http2_window_update;
++  }
++
++  // printf("Using window update %d\n", window_update);
++
++  rc = nghttp2_session_set_local_window_size(
++      ctx->h2, NGHTTP2_FLAG_NONE, 0,
++      current_window_size + window_update);
+ 
+-  rc = nghttp2_session_set_local_window_size(ctx->h2, NGHTTP2_FLAG_NONE, 0,
+-                                             HTTP2_HUGE_WINDOW_SIZE);
+   if(rc) {
+     failf(data, "nghttp2_session_set_local_window_size() failed: %s(%d)",
+           nghttp2_strerror(rc), rc);
+@@ -610,6 +766,17 @@ static CURLcode cf_h2_ctx_open(struct Curl_cfilter *cf,
      goto out;
    }
  
@@ -1341,7 +1351,7 @@ index 88fbcceb7..fcd1d2657 100644
    /* all set, traffic will be send on connect */
    result = CURLE_OK;
    CURL_TRC_CF(data, cf, "[0] created h2 session%s",
-@@ -1925,11 +2094,19 @@ out:
+@@ -1925,11 +2092,19 @@ out:
    return rv;
  }
  
@@ -1362,7 +1372,7 @@ index 88fbcceb7..fcd1d2657 100644
  }
  
  static int sweight_in_effect(const struct Curl_easy *data)
-@@ -1944,6 +2121,12 @@ static int sweight_in_effect(const struct Curl_easy *data)
+@@ -1944,6 +2119,12 @@ static int sweight_in_effect(const struct Curl_easy *data)
   * and dependency to the peer. It also stores the updated values in the state
   * struct.
   */
@@ -1375,7 +1385,7 @@ index 88fbcceb7..fcd1d2657 100644
  
  static void h2_pri_spec(struct cf_h2_ctx *ctx,
                          struct Curl_easy *data,
-@@ -1952,6 +2135,11 @@ static void h2_pri_spec(struct cf_h2_ctx *ctx,
+@@ -1952,6 +2133,11 @@ static void h2_pri_spec(struct cf_h2_ctx *ctx,
    struct Curl_data_priority *prio = &data->set.priority;
    struct h2_stream_ctx *depstream = H2_STREAM_CTX(ctx, prio->parent);
    int32_t depstream_id = depstream ? depstream->id : 0;
@@ -1387,7 +1397,7 @@ index 88fbcceb7..fcd1d2657 100644
    nghttp2_priority_spec_init(pri_spec, depstream_id,
                               sweight_wanted(data),
                               data->set.priority.exclusive);
-@@ -1971,20 +2159,24 @@ static CURLcode h2_progress_egress(struct Curl_cfilter *cf,
+@@ -1971,20 +2157,24 @@ static CURLcode h2_progress_egress(struct Curl_cfilter *cf,
    struct h2_stream_ctx *stream = H2_STREAM_CTX(ctx, data);
    int rv = 0;
  
@@ -1435,10 +1445,10 @@ index 93cc2d44f..52e80ce9c 100644
   * Store nghttp2 version info in this buffer.
 diff --git a/lib/impersonate.c b/lib/impersonate.c
 new file mode 100644
-index 000000000..6116ace72
+index 000000000..85e07dded
 --- /dev/null
 +++ b/lib/impersonate.c
-@@ -0,0 +1,1470 @@
+@@ -0,0 +1,1408 @@
 +#include "curl_setup.h"
 +
 +#include <curl/curl.h>
@@ -2840,68 +2850,6 @@ index 000000000..6116ace72
 +    .tls_record_size_limit = 4001,
 +    .tls_grease = false,
 +    .tls_signed_cert_timestamps = true,
-+    .tls_key_shares_limit = 3
-+  },
-+  {
-+    .target = "firefox135",
-+    .httpversion = CURL_HTTP_VERSION_2_0,
-+    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
-+    .ciphers =
-+      "TLS_AES_128_GCM_SHA256,"
-+      "TLS_CHACHA20_POLY1305_SHA256,"
-+      "TLS_AES_256_GCM_SHA384,"
-+      "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,"
-+      "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,"
-+      "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,"
-+      "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,"
-+      "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,"
-+      "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,"
-+      "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,"
-+      "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,"
-+      "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,"
-+      "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,"
-+      "TLS_RSA_WITH_AES_128_GCM_SHA256,"
-+      "TLS_RSA_WITH_AES_256_GCM_SHA384,"
-+      "TLS_RSA_WITH_AES_128_CBC_SHA,"
-+      "TLS_RSA_WITH_AES_256_CBC_SHA",
-+    .http_headers = {
-+      "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:135.0) Gecko/20100101 Firefox/135.0",
-+      "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-+      "Accept-Language: en-US,en;q=0.5",
-+      "Accept-Encoding: gzip, deflate, br, zstd",
-+      "Upgrade-Insecure-Requests: 1",
-+      "Sec-Fetch-Dest: document",
-+      "Sec-Fetch-Mode: navigate",
-+      "Sec-Fetch-Site: none",
-+      "Sec-Fetch-User: ?1",
-+      "Priority: u=0, i",
-+      "Te: trailers"
-+    },
-+    .curves = "X25519MLKEM768:X25519:P-256:P-384:P-521:ffdhe2048:ffdhe3072",
-+    .sig_hash_algs =
-+      "ecdsa_secp256r1_sha256,"
-+      "ecdsa_secp384r1_sha384,"
-+      "ecdsa_secp521r1_sha512,"
-+      "rsa_pss_rsae_sha256,"
-+      "rsa_pss_rsae_sha384,"
-+      "rsa_pss_rsae_sha512,"
-+      "rsa_pkcs1_sha256,"
-+      "rsa_pkcs1_sha384,"
-+      "rsa_pkcs1_sha512,"
-+      "ecdsa_sha1,"
-+      "rsa_pkcs1_sha1",
-+    .alpn = true,
-+    .http2_settings = "1:65536;2:0;4:131072;5:16384",
-+    .http2_window_update = 12517377,
-+    .http2_pseudo_headers_order = "mpas",
-+    .cert_compression = "zlib,brotli,zstd",
-+    .ech = "grease",
-+    .tls_session_ticket = true,
-+    .tls_extension_order = "0-23-65281-10-11-35-16-5-34-18-51-43-13-45-28-27-65037",
-+    .tls_delegated_credentials = "ecdsa_secp256r1_sha256:ecdsa_secp384r1_sha384:ecdsa_secp521r1_sha512:ecdsa_sha1",
-+    .tls_record_size_limit = 4001,
-+    .tls_grease = false,
-+    .tls_signed_cert_timestamps = false,
 +    .tls_key_shares_limit = 3
 +  },
 +  {
