@@ -137,8 +137,8 @@ More documentation is available in the [docs/](docs/) directory.
 This repository contains these folders:
 * [chrome](chrome) - Scripts and patches for building the Chrome version of `curl-impersonate`.
     * [curl_chrome110](chrome/curl_chrome110), [curl_chrome124](chrome/curl_chrome124) - Wrapper scripts that launch `curl-impersonate` with the correct flags.
-    * [curl-impersonate.patch](chrome/patches/curl-impersonate.patch) - The main patch that makes curl use the same TLS extensions as Firefox. Also makes curl compile statically with libnghttp2.
-    * [boringssl.patch](chrome/patches/boringssl.patch) - The boringssl patch that tweaks boringssl behaviors.
+    * [curl.patch](patches/curl.patch) - The main patch that makes curl use the same TLS extensions as Firefox. Also makes curl compile statically with libnghttp2.
+    * [boringssl.patch](patches/boringssl.patch) - The boringssl patch that tweaks boringssl behaviors.
 * [win](win) - Scripts for building the Windows version of `curl-impersonate`, which is quite different from `*nix`.
 * [zigshim](zigshim) - We use the awesome `zig` toolchain to bring `curl-impersonate` to more archs on Linux.
 * [docker](docker) - Debian and alpine dockerfiles for this project.

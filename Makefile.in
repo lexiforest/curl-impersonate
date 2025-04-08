@@ -14,7 +14,7 @@ BROTLI_VERSION := 1.1.0
 BORING_SSL_COMMIT := 23768dca563c4e62d48bb3675e49e34955dced12
 NGHTTP2_VERSION := nghttp2-1.63.0
 NGHTTP2_URL := https://github.com/nghttp2/nghttp2/releases/download/v1.63.0/nghttp2-1.63.0.tar.bz2
-CURL_VERSION := curl-8_7_1
+CURL_VERSION := curl-8_13_0
 
 # https://github.com/google/brotli/commit/641bec0e30bea648b3da1cd90fc6b44deb429f71
 brotli_install_dir := $(abspath brotli-$(BROTLI_VERSION)/out/installed)
@@ -93,16 +93,16 @@ install-strip: ## Like 'install', but strip binaries for smaller size
 	# Instead strip manually.
 	$(STRIP) @bindir@/curl-impersonate
 	# Wrapper scripts for the Chrome version (e.g. 'curl_chrome99')
-	install $(srcdir)/chrome/curl_chrome* $(srcdir)/chrome/curl_edge* $(srcdir)/chrome/curl_safari* @bindir@
+	install $(srcdir)/chrome/curl_chrome* $(srcdir)/chrome/curl_edge* $(srcdir)/chrome/curl_safari* @$(srcdir)/chrome/curl_firefox* bindir@
 .PHONY: install-strip
 
 uninstall: ## Uninstall the Chrome version of curl-impersonate after 'make install'
 	cd $(CURL_VERSION)
 	$(MAKE) uninstall MAKEFLAGS=
-	rm -Rf @bindir@/curl_chrome* @bindir@/curl_edge* @bindir@/curl_safari*
+	rm -Rf @bindir@/curl_chrome* @bindir@/curl_edge* @bindir@/curl_safari* @bindir@/curl_firefox*
 .PHONY: uninstall
 
-clean: 
+clean:
 	## Remove all build artifacts, including dependencies
 	rm -Rf brotli-$(BROTLI_VERSION).tar.gz brotli-$(BROTLI_VERSION)
 	rm -Rf boringssl-$(BORING_SSL_COMMIT).zip boringssl-$(BORING_SSL_COMMIT)
@@ -122,28 +122,28 @@ $(brotli_static_libs): brotli-$(BROTLI_VERSION).tar.gz
 	cd out
 
 	# Convert autoconf style os name to CMake style os name.
-	case $(host_os) in           \
-	  linux*)                    \
-	    system_name=Linux        \
-	    ;;                       \
-	  darwin*)                   \
-	    system_name=Darwin       \
-	    ;;                       \
-	  *)                         \
-	    system_name=$(host_os)   \
-	    ;;                       \
+	case $(host_os) in               \
+		linux*)                      \
+			system_name=Linux        \
+			;;                       \
+		darwin*)                     \
+			system_name=Darwin       \
+			;;                       \
+		*)                           \
+			system_name=$(host_os)   \
+			;;                       \
 	esac
 
 	@cmake@ -DCMAKE_BUILD_TYPE=Release \
-	        -DCMAKE_INSTALL_PREFIX=./installed \
-	        -DCMAKE_INSTALL_LIBDIR=lib \
-	        -DCMAKE_CXX_COMPILER=$(CXX) \
-	        -DCMAKE_C_COMPILER=$(CC) \
-			-DCMAKE_C_FLAGS="$(CFLAGS)" \
-	        -DCMAKE_SYSTEM_NAME=$$system_name \
-	        -DCMAKE_SYSTEM_PROCESSOR=$(host_cpu) \
-	        -DBUILD_SHARED_LIBS=OFF \
-	        ..
+		-DCMAKE_INSTALL_PREFIX=./installed \
+		-DCMAKE_INSTALL_LIBDIR=lib \
+		-DCMAKE_CXX_COMPILER=$(CXX) \
+		-DCMAKE_C_COMPILER=$(CC) \
+		-DCMAKE_C_FLAGS="$(CFLAGS)" \
+		-DCMAKE_SYSTEM_NAME=$$system_name \
+		-DCMAKE_SYSTEM_PROCESSOR=$(host_cpu) \
+		-DBUILD_SHARED_LIBS=OFF \
+		..
 
 	@cmake@ --build . --config Release --target install --parallel $(SUBJOBS)
 
@@ -153,7 +153,7 @@ boringssl-$(BORING_SSL_COMMIT).zip:
 		-o boringssl-$(BORING_SSL_COMMIT).zip
 
 # Patch boringssl and use a dummy '.patched' file to mark it patched
-boringssl-$(BORING_SSL_COMMIT)/.patched: $(srcdir)/chrome/patches/boringssl.patch
+boringssl-$(BORING_SSL_COMMIT)/.patched: $(srcdir)/patches/boringssl.patch
 	unzip -q -o boringssl-$(BORING_SSL_COMMIT).zip
 	# mv boringssl boringssl-$(BORING_SSL_COMMIT)
 	cd boringssl-$(BORING_SSL_COMMIT)/
@@ -165,16 +165,16 @@ $(boringssl_static_libs): boringssl-$(BORING_SSL_COMMIT).zip boringssl-$(BORING_
 	cd $(boringssl_install_dir)
 
 	# Convert autoconf style os name to CMake style os name.
-	case $(host_os) in      \
-	  linux*)               \
-	    system_name=Linux   \
-	    ;;                  \
-	  darwin*)              \
-	    system_name=Darwin  \
-	    ;;                  \
-	  *)                    \
-	    system_name=Linux   \
-	    ;;                  \
+	case $(host_os) in          \
+		linux*)                 \
+			system_name=Linux   \
+			;;                  \
+		darwin*)                \
+			system_name=Darwin  \
+			;;                  \
+		*)                      \
+			system_name=Linux   \
+			;;                  \
 	esac
 
 	# The extra CMAKE_C_FLAGS are needed because otherwise boringssl fails to
@@ -211,12 +211,12 @@ $(nghttp2_static_libs): $(NGHTTP2_VERSION).tar.bz2
 	# If the user provided the --host flag to our configure script
 	# (for cross compilation), then pass it on to nghttp2.
 	{ \
-	  config_flags="--prefix=$(nghttp2_install_dir)"; \
-	  config_flags="$$config_flags --with-pic --enable-lib-only"; \
-	  config_flags="$$config_flags --disable-shared --disable-python-bindings"; \
-	  if test -n "$(host_alias)"; then \
-	    config_flags="$$config_flags --host=$(host_alias)"; \
-	  fi; \
+		config_flags="--prefix=$(nghttp2_install_dir)"; \
+		config_flags="$$config_flags --with-pic --enable-lib-only"; \
+		config_flags="$$config_flags --disable-shared --disable-python-bindings"; \
+		if test -n "$(host_alias)"; then \
+			config_flags="$$config_flags --host=$(host_alias)"; \
+		fi; \
 	}
 
 	./configure $$config_flags
@@ -228,7 +228,7 @@ $(CURL_VERSION).tar.gz:
 		-o "$(CURL_VERSION).tar.gz"
 
 # Apply the "Chorme version" patches and mark using a dummy file
-$(CURL_VERSION)/.patched: $(srcdir)/chrome/patches/curl-*.patch
+$(CURL_VERSION)/.patched: $(srcdir)/patches/curl.patch
 	rm -Rf $(CURL_VERSION)
 	tar -xf $(CURL_VERSION).tar.gz
 	mv curl-$(CURL_VERSION) $(CURL_VERSION)  # fix directory name
