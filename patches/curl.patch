@@ -3284,7 +3284,7 @@ index e4487ba65..0ba8046bb 100644
  
  #ifndef CURL_DISABLE_MIME
 diff --git a/lib/vtls/openssl.c b/lib/vtls/openssl.c
-index 4d5e1be29..2d71260db 100644
+index 4d5e1be29..9b9435de6 100644
 --- a/lib/vtls/openssl.c
 +++ b/lib/vtls/openssl.c
 @@ -81,9 +81,21 @@
@@ -3757,18 +3757,20 @@ index 4d5e1be29..2d71260db 100644
    /* OpenSSL always tries to verify the peer, this only says whether it should
     * fail to connect if the verification fails, or if it should continue
     * anyway. In the latter case the result of the verification is checked with
-@@ -3891,6 +4300,29 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
+@@ -3891,6 +4300,31 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
  
    SSL_set_app_data(octx->ssl, ssl_user_data);
  
-+#ifdef HAS_ALPN
++
++
++#ifdef HAS_ALPN_OPENSSL
 +  if(connssl->alps) {
 +    size_t i;
 +    struct alpn_proto_buf proto;
 +
 +    /* curl-impersonate: Set new ALPS codepoint before adding any ALPS settings */
 +    if(data->set.tls_use_new_alps_codepoint) {
-+      SSL_set_alps_use_new_codepoint(backend->handle, 1);
++      SSL_set_alps_use_new_codepoint(octx->ssl, 1);
 +    }
 +
 +    for(i = 0; i < connssl->alps->count; ++i) {

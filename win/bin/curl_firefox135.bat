@@ -23,7 +23,7 @@
     --http2-stream-weight 42 ^
     --http2-stream-exclusive 0 ^
     --compressed ^
-    --ech GREASE ^
+    --ech grease ^
     --tls-extension-order "0-23-65281-10-11-35-16-5-34-18-51-43-13-45-28-27-65037" ^
     --tls-delegated-credentials "ecdsa_secp256r1_sha256:ecdsa_secp384r1_sha384:ecdsa_secp521r1_sha512:ecdsa_sha1" ^
     --tls-record-size-limit 4001 ^
