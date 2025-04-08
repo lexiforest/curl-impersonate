@@ -76,4 +76,4 @@ cmake %cmake_common_args% -DBUILD_SHARED_LIBS=ON^
 cmake --build "%build%\curl" --config %configuration% --target install
 popd
 
-copy .\chrome\*.bat .\packages\bin /Y
+copy .\win\bin\*.bat .\packages\bin /Y
