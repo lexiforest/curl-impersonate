@@ -135,11 +135,13 @@ More documentation is available in the [docs/](docs/) directory.
 ## Repository Contents
 
 This repository contains these folders:
-* [chrome](chrome) - Scripts and patches for building the Chrome version of `curl-impersonate`.
+* [patches](patches/) - Patches for building `curl-impersonate`.
+    * [curl.patch](patches/curl.patch) - The main patch that makes curl use the same TLS extensions as browsers. Also makes curl compile statically with libnghttp2 etc.
+    * [boringssl.patch](patches/boringssl.patch) - The boringssl patch that tweaks boringssl behaviors to the same as browsers.
+* [bin](bin/) - Shortcut scripts for easier use.
     * [curl_chrome110](chrome/curl_chrome110), [curl_chrome124](chrome/curl_chrome124) - Wrapper scripts that launch `curl-impersonate` with the correct flags.
-    * [curl.patch](patches/curl.patch) - The main patch that makes curl use the same TLS extensions as Firefox. Also makes curl compile statically with libnghttp2.
-    * [boringssl.patch](patches/boringssl.patch) - The boringssl patch that tweaks boringssl behaviors.
 * [win](win) - Scripts for building the Windows version of `curl-impersonate`, which is quite different from `*nix`.
+    * [win/bin](win/bin/) - Shortcut scripts for easier use on Windows.
 * [zigshim](zigshim) - We use the awesome `zig` toolchain to bring `curl-impersonate` to more archs on Linux.
 * [docker](docker) - Debian and alpine dockerfiles for this project.
 
@@ -151,7 +153,7 @@ Other files of interest:
 
 If you'd like to help, please check out the [open issues in the origional repo](https://github.com/lwthiker/curl-impersonate/issues) and [open issues here](https://github.com/lexiforest/curl-impersonate/issues). You can open a pull request with your changes. Note that some of the upstream issues have been fixed.
 
-This repository contains the build process for `curl-impersonate`. The actual patches to `curl` are maintained in a [separate repository](https://github.com/lexiforest/curl) forked from lwthiker's fork of the upstream curl. The changes are maintained in the [impersonate-chrome](https://github.com/lexiforest/curl/tree/impersonate-chrome) branch.
+This repository contains the build process for `curl-impersonate`. The actual patches to `curl` are maintained in a [separate repository](https://github.com/lexiforest/curl-chrome) forked from lwthiker's fork of the upstream curl. The changes are maintained in the [impersonate-chrome](https://github.com/lexiforest/curl-chrome/tree/impersonate-chrome) branch.
 
 You may also need the [forked and patched](https://github.com/lexiforest/boringssl) BoringSSL.
 
