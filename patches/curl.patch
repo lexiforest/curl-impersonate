@@ -3788,7 +3788,7 @@ index 4d5e1be29..2d71260db 100644
    if(conn_config->verifystatus)
      SSL_set_tlsext_status_type(octx->ssl, TLSEXT_STATUSTYPE_ocsp);
 diff --git a/lib/vtls/vtls.c b/lib/vtls/vtls.c
-index b44b76473..c12a547d1 100644
+index b44b76473..1f2c3af6d 100644
 --- a/lib/vtls/vtls.c
 +++ b/lib/vtls/vtls.c
 @@ -172,6 +172,17 @@ alpn_get_spec(http_majors allowed, bool use_alpn)
@@ -3870,7 +3870,7 @@ index b44b76473..c12a547d1 100644
 -  ctx = cf_ctx_new(data, alpn_get_spec(data->state.http_neg.wanted,
 -                                       conn->bits.tls_enable_alpn));
 +  ctx = cf_ctx_new(data, alpn_get_spec(data->state.http_neg.wanted, conn->bits.tls_enable_alpn),
-+                   alps_get_spec(data->state.httpwant, conn->bits.tls_enable_alps));
++                   alps_get_spec(data->state.http_neg.wanted, conn->bits.tls_enable_alps));
    if(!ctx) {
      result = CURLE_OUT_OF_MEMORY;
      goto out;
@@ -3888,7 +3888,7 @@ index b44b76473..c12a547d1 100644
  
 -  ctx = cf_ctx_new(data, alpn_get_spec(allowed, use_alpn));
 +  ctx = cf_ctx_new(data, alpn_get_spec(allowed, use_alpn),
-+                   alps_get_spec(httpwant, use_alps));
++                   alps_get_spec(allowed, use_alps));
    if(!ctx) {
      result = CURLE_OUT_OF_MEMORY;
      goto out;

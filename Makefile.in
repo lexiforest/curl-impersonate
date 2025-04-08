@@ -245,12 +245,15 @@ $(CURL_VERSION)/.chrome: $(chrome_libs)	$(CURL_VERSION).tar.gz $(CURL_VERSION)/.
 	# Set up the configure flags to curl.
 	# If the user provided the --host flag to our configure script
 	# (for cross compilation), then pass it on to curl.
+	
+	# XXX: psl should be enabled in the future:
+	# https://daniel.haxx.se/blog/2024/01/10/psl-in-curl/
 	{ \
 	  config_flags="--prefix=@prefix@"; \
 	  config_flags="$$config_flags --with-nghttp2=$(nghttp2_install_dir)"; \
 	  config_flags="$$config_flags --with-brotli=$(brotli_install_dir)"; \
 	  config_flags="$$config_flags --with-openssl=$(boringssl_dir)"; \
-	  config_flags="$$config_flags --without-psl; \
+	  config_flags="$$config_flags --without-psl"; \
 	  config_flags="$$config_flags --enable-websockets"; \
 	  config_flags="$$config_flags --enable-ech"; \
 	  config_flags="$$config_flags --enable-ipv6"; \
