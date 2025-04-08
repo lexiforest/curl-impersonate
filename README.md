@@ -11,7 +11,7 @@
 > 2. ZSTD compression support introduced in Chrome 123.
 > 3. X25519Kyber768/X25519MLKEM curves introduced in Chrome 124 and 130.
 > 4. More options for impersonating Akamai http/2 fingerprints, especially for Safari.
-> 5. Upgrade to more recent version of curl, 8.7.1 as of April, 2024.
+> 5. Upgrade to more recent version of curl, 8.13.0 as of April, 2025.
 > 6. Ability to change extension orders and enable/disable TLS grease.
 > 7. Single binary to support Chrome, Safari and Firefox.
 > 8. (In progress) Built with http/3 enabled.
