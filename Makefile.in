@@ -93,7 +93,7 @@ install-strip: ## Like 'install', but strip binaries for smaller size
 	# Instead strip manually.
 	$(STRIP) @bindir@/curl-impersonate
 	# Wrapper scripts for the cli shortcut (e.g. 'curl_chrome99')
-	install $(srcdir)/bin/curl_* bindir@
+	install $(srcdir)/bin/curl_* @bindir@
 .PHONY: install-strip
 
 uninstall: ## Uninstall the Chrome version of curl-impersonate after 'make install'

@@ -2999,7 +2999,7 @@ index 09afe804c..4bdc3eede 100644
  
  #ifdef USE_WINSOCK
 diff --git a/lib/setopt.c b/lib/setopt.c
-index 48332295e..ce13a7239 100644
+index 48332295e..912cc0037 100644
 --- a/lib/setopt.c
 +++ b/lib/setopt.c
 @@ -51,6 +51,7 @@
@@ -3137,6 +3137,14 @@ index 48332295e..ce13a7239 100644
  #ifndef CURL_DISABLE_PROXY
    case CURLOPT_PROXY_TLS13_CIPHERS:
      if(Curl_ssl_supports(data, SSLSUPP_TLS13_CIPHERSUITES))
+@@ -3021,6 +3114,7 @@ CURLcode Curl_vsetopt(struct Curl_easy *data, CURLoption option, va_list param)
+        way than being listed explicitly */
+     switch(option) {
+     case CURLOPT_HTTPHEADER:
++    case CURLOPT_HTTPBASEHEADER:
+     case CURLOPT_QUOTE:
+     case CURLOPT_POSTQUOTE:
+     case CURLOPT_TELNETOPTIONS:
 diff --git a/lib/transfer.c b/lib/transfer.c
 index 754bc2cda..8ca633938 100644
 --- a/lib/transfer.c
