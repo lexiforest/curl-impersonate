@@ -374,7 +374,7 @@ index fb162a30d..43b2264bc 100644
  /**
   * Return the n-th header entry or NULL if it does not exist.
 diff --git a/lib/easy.c b/lib/easy.c
-index aa1bedec3..6ffd39d63 100644
+index aa1bedec3..4386e0bab 100644
 --- a/lib/easy.c
 +++ b/lib/easy.c
 @@ -75,6 +75,8 @@
@@ -386,7 +386,7 @@ index aa1bedec3..6ffd39d63 100644
  
  #include "easy_lock.h"
  
-@@ -344,6 +346,251 @@ CURLsslset curl_global_sslset(curl_sslbackend id, const char *name,
+@@ -344,6 +346,249 @@ CURLsslset curl_global_sslset(curl_sslbackend id, const char *name,
    return rc;
  }
  
@@ -533,11 +533,9 @@ index aa1bedec3..6ffd39d63 100644
 +      return ret;
 +  }
 +
-+  if(opts->tls_grease) {
-+    ret = curl_easy_setopt(data, CURLOPT_TLS_GREASE, opts->tls_grease);
-+    if(ret)
-+      return ret;
-+  }
++  ret = curl_easy_setopt(data, CURLOPT_TLS_GREASE, opts->tls_grease);
++  if(ret)
++    return ret;
 +
 +  if(opts->tls_extension_order) {
 +    ret = curl_easy_setopt(data, CURLOPT_TLS_EXTENSION_ORDER, opts->tls_extension_order);
@@ -638,7 +636,7 @@ index aa1bedec3..6ffd39d63 100644
  /*
   * curl_easy_init() is the external interface to alloc, setup and init an
   * easy handle that is returned. If anything goes wrong, NULL is returned.
-@@ -352,6 +599,8 @@ CURL *curl_easy_init(void)
+@@ -352,6 +597,8 @@ CURL *curl_easy_init(void)
  {
    CURLcode result;
    struct Curl_easy *data;
@@ -647,7 +645,7 @@ index aa1bedec3..6ffd39d63 100644
  
    /* Make sure we inited the global SSL stuff */
    global_init_lock();
-@@ -374,6 +623,29 @@ CURL *curl_easy_init(void)
+@@ -374,6 +621,29 @@ CURL *curl_easy_init(void)
      return NULL;
    }
  
@@ -677,7 +675,7 @@ index aa1bedec3..6ffd39d63 100644
    return data;
  }
  
-@@ -1010,6 +1282,13 @@ CURL *curl_easy_duphandle(CURL *d)
+@@ -1010,6 +1280,13 @@ CURL *curl_easy_duphandle(CURL *d)
      outcurl->state.referer_alloc = TRUE;
    }
  
@@ -691,7 +689,7 @@ index aa1bedec3..6ffd39d63 100644
    /* Reinitialize an SSL engine for the new handle
     * note: the engine name has already been copied by dupset */
    if(outcurl->set.str[STRING_SSL_ENGINE]) {
-@@ -1096,6 +1375,9 @@ fail:
+@@ -1096,6 +1373,9 @@ fail:
   */
  void curl_easy_reset(CURL *d)
  {
@@ -701,7 +699,7 @@ index aa1bedec3..6ffd39d63 100644
    struct Curl_easy *data = d;
    Curl_req_hard_reset(&data->req, data);
  
-@@ -1121,6 +1403,23 @@ void curl_easy_reset(CURL *d)
+@@ -1121,6 +1401,23 @@ void curl_easy_reset(CURL *d)
  #if !defined(CURL_DISABLE_HTTP) && !defined(CURL_DISABLE_DIGEST_AUTH)
    Curl_http_auth_cleanup_digest(data);
  #endif
