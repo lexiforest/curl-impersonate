@@ -16,6 +16,6 @@ get_dep https://github.com/nghttp2/nghttp2.git nghttp2 $NGHTTP2_COMMIT
 
 git -C "$PWD/deps/nghttp2" submodule update --init
 
-patch -p1 -d "$PWD/deps/boringssl" < "$PWD/chrome/patches/boringssl.patch"
-patch -p1 -d "$PWD/deps/curl" < "$PWD/chrome/patches/curl-impersonate.patch"
+patch -p1 -d "$PWD/deps/boringssl" < "$PWD/patches/boringssl.patch"
+patch -p1 -d "$PWD/deps/curl" < "$PWD/patches/curl.patch"
 patch -p1 < "$PWD/win/deps.patch"
