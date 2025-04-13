@@ -318,14 +318,14 @@ index a8e4da1cf..e3b315b50 100644
    inet_pton.c        \
    krb5.c             \
 diff --git a/lib/dynhds.c b/lib/dynhds.c
-index 2c92ca63f..c3dbf71b7 100644
+index 2c92ca63f..5694a8e07 100644
 --- a/lib/dynhds.c
 +++ b/lib/dynhds.c
 @@ -56,6 +56,9 @@ entry_new(const char *name, size_t namelen,
    e->valuelen = valuelen;
    if(opts & DYNHDS_OPT_LOWERCASE)
      Curl_strntolower(e->name, e->name, e->namelen);
-+  // curl-impersonate: Make value alsow lower case
++  // curl-impersonate: Make header value also lower case
 +  if(opts & DYNHDS_OPT_LOWERCASE_VAL)
 +    Curl_strntolower(e->value, e->value, e->valuelen);
    return e;
@@ -351,8 +351,17 @@ index 2c92ca63f..c3dbf71b7 100644
  struct dynhds_entry *Curl_dynhds_getn(struct dynhds *dynhds, size_t n)
  {
    DEBUGASSERT(dynhds);
+@@ -175,7 +191,7 @@ CURLcode Curl_dynhds_add(struct dynhds *dynhds,
+   if(dynhds->strs_len + namelen + valuelen > dynhds->max_strs_size)
+     return CURLE_OUT_OF_MEMORY;
+ 
+-entry = entry_new(name, namelen, value, valuelen, dynhds->opts);
++  entry = entry_new(name, namelen, value, valuelen, dynhds->opts);
+   if(!entry)
+     goto out;
+ 
 diff --git a/lib/dynhds.h b/lib/dynhds.h
-index fb162a30d..43b2264bc 100644
+index fb162a30d..f1429fe2f 100644
 --- a/lib/dynhds.h
 +++ b/lib/dynhds.h
 @@ -53,6 +53,7 @@ struct dynhds {
@@ -373,6 +382,15 @@ index fb162a30d..43b2264bc 100644
  
  /**
   * Return the n-th header entry or NULL if it does not exist.
+@@ -99,7 +103,7 @@ struct dynhds_entry *Curl_dynhds_cget(struct dynhds *dynhds, const char *name);
+ /* used by unit2602.c */
+ 
+ /**
+- * Return TRUE iff one or more headers with the given name exist.
++ * Return TRUE if one or more headers with the given name exist.
+  */
+ bool Curl_dynhds_contains(struct dynhds *dynhds,
+                           const char *name, size_t namelen);
 diff --git a/lib/easy.c b/lib/easy.c
 index aa1bedec3..4386e0bab 100644
 --- a/lib/easy.c
@@ -793,7 +811,7 @@ index be617b5d2..1f422dc7b 100644
  }
  #endif
 diff --git a/lib/http.c b/lib/http.c
-index 03d1959e2..21b73b9b1 100644
+index 03d1959e2..c984d68b4 100644
 --- a/lib/http.c
 +++ b/lib/http.c
 @@ -86,6 +86,7 @@
@@ -965,12 +983,21 @@ index 03d1959e2..21b73b9b1 100644
  
 +  /* curl-impersonate: Add HTTP headers to impersonate real browsers. */
 +  result = Curl_http_merge_headers(data);
-+  if (result)
-+    return result;
++  if(result)
++    goto fail;
 +
    result = http_host(data, conn);
    if(result)
      goto fail;
+@@ -4445,7 +4564,7 @@ struct name_const {
+ 
+ /* keep them sorted by length! */
+ static struct name_const H2_NON_FIELD[] = {
+-  { STRCONST("TE") },
++  // { STRCONST("TE") },
+   { STRCONST("Host") },
+   { STRCONST("Upgrade") },
+   { STRCONST("Connection") },
 @@ -4467,6 +4586,33 @@ static bool h2_non_field(const char *name, size_t namelen)
    return FALSE;
  }
@@ -1016,7 +1043,7 @@ index 03d1959e2..21b73b9b1 100644
    DEBUGASSERT(req);
    DEBUGASSERT(h2_headers);
  
-@@ -4505,25 +4655,57 @@ CURLcode Curl_http_req_to_h2(struct dynhds *h2_headers,
+@@ -4505,25 +4655,56 @@ CURLcode Curl_http_req_to_h2(struct dynhds *h2_headers,
  
    Curl_dynhds_reset(h2_headers);
    Curl_dynhds_set_opts(h2_headers, DYNHDS_OPT_LOWERCASE);
@@ -1037,7 +1064,6 @@ index 03d1959e2..21b73b9b1 100644
 -  if(!result && req->path) {
 -    result = Curl_dynhds_add(h2_headers, STRCONST(HTTP_PSEUDO_PATH),
 -                             req->path, strlen(req->path));
-+
 +
 +  result = h2_check_pseudo_header_order(order);
 +
@@ -3113,7 +3139,7 @@ index 754bc2cda..8ca633938 100644
         Curl_headersep(head->data[thislen]) )
        return head->data;
 diff --git a/lib/url.c b/lib/url.c
-index 2125a97af..8a4aa65c9 100644
+index 2125a97af..644038cc9 100644
 --- a/lib/url.c
 +++ b/lib/url.c
 @@ -325,6 +325,10 @@ CURLcode Curl_close(struct Curl_easy **datap)
@@ -3132,7 +3158,7 @@ index 2125a97af..8a4aa65c9 100644
    set->tcp_nodelay = TRUE;
    set->ssl_enable_alpn = TRUE;
 +  set->ssl_enable_ticket = TRUE;
-+  set->tls_grease = TRUE;
++  set->tls_grease = FALSE;
 +  set->tls_use_new_alps_codepoint = FALSE;
    set->expect_100_timeout = 1000L; /* Wait for a second by default. */
    set->sep_headers = TRUE; /* separated header lists by default */
@@ -4374,7 +4400,7 @@ index b69cd89e1..ec131aacf 100644
     "Disable buffering of the output stream",
     CURLHELP_OUTPUT},
 diff --git a/src/tool_operate.c b/src/tool_operate.c
-index 426d1de34..67efd9c9e 100644
+index 426d1de34..e27956285 100644
 --- a/src/tool_operate.c
 +++ b/src/tool_operate.c
 @@ -1111,6 +1111,36 @@ static CURLcode config2setopts(struct GlobalConfig *global,
@@ -4443,7 +4469,7 @@ index 426d1de34..67efd9c9e 100644
 +    my_setopt(curl, CURLOPT_SSL_PERMUTE_EXTENSIONS, 1L);
 +
 +  /* curl-impersonate */
-+  if (config->tls_grease)
++  if(config->tls_grease)
 +    my_setopt(curl, CURLOPT_TLS_GREASE, 1L);
 +
 +  /* curl-impersonate */
