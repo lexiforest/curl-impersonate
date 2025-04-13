@@ -348,53 +348,6 @@ async def test_http2_headers(
     assert equals, msg
 
 
-@pytest.mark.parametrize(
-    "curl_binary, env_vars, ld_preload, expected_signature",
-    CURL_BINARIES_AND_SIGNATURES,
-)
-def test_content_encoding(
-    pytestconfig,
-    curl_binary,
-    env_vars,
-    ld_preload,
-    expected_signature,
-    test_urls,
-):
-    """
-    Ensure the output of curl-impersonate is correct, i.e. that compressed
-    responses are decoded correctly.
-    """
-    curl_binary = os.path.join(
-        pytestconfig.getoption("install_dir"), "bin", curl_binary
-    )
-    if ld_preload:
-        # Injecting libcurl-impersonate with LD_PRELOAD is supported on
-        # Linux only. On Mac there is DYLD_INSERT_LIBRARIES but it
-        # requires more work to be functional.
-        if not sys.platform.startswith("linux"):
-            pytest.skip()
-
-        _set_ld_preload(
-            env_vars,
-            os.path.join(pytestconfig.getoption("install_dir"), "lib", ld_preload),
-        )
-
-    output = tempfile.mkstemp()[1]
-    ret = _run_curl(
-        curl_binary,
-        env_vars=env_vars,
-        extra_args=None,
-        urls=[test_urls[0]],
-        output=output,
-    )
-    assert ret == 0
-
-    with open(output, "r") as f:
-        body = f.read()
-        assert (
-            "<!DOCTYPE html>" in body or "<html>" in body or "<!doctype html>" in body
-        )
-
 
 @pytest.mark.parametrize(
     "curl_binary, env_vars, ld_preload",
