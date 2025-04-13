@@ -19,6 +19,8 @@
 > 10. More prebuilt binaries, including Windows, Arm, and even RISC-V!
 > 11. Commercial support at [impersonate.pro](https://impersonate.pro).
 
+> [!WARNING]
+> Breaking changes on v1.0, see release page for details.
 
 A special build of [curl](https://github.com/curl/curl) that can impersonate the four
 major browsers: Chrome, Edge, Safari and Firefox. `curl-impersonate` is able to perform
@@ -139,7 +141,7 @@ This repository contains these folders:
     * [curl.patch](patches/curl.patch) - The main patch that makes curl use the same TLS extensions as browsers. Also makes curl compile statically with libnghttp2 etc.
     * [boringssl.patch](patches/boringssl.patch) - The boringssl patch that tweaks boringssl behaviors to the same as browsers.
 * [bin](bin/) - Shortcut scripts for easier use.
-    * [curl_chrome110](chrome/curl_chrome110), [curl_chrome124](chrome/curl_chrome124) - Wrapper scripts that launch `curl-impersonate` with the correct flags.
+    * [curl_chrome110](bin/curl_chrome110), [curl_chrome124](bin/curl_chrome124) - Wrapper scripts that launch `curl-impersonate` with the correct flags.
 * [win](win) - Scripts for building the Windows version of `curl-impersonate`, which is quite different from `*nix`.
     * [win/bin](win/bin/) - Shortcut scripts for easier use on Windows.
 * [zigshim](zigshim) - We use the awesome `zig` toolchain to bring `curl-impersonate` to more archs on Linux.
