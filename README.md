@@ -14,7 +14,7 @@
 > 5. Upgrade to more recent version of curl, 8.13.0 as of April, 2025.
 > 6. Ability to change extension orders and enable/disable TLS grease.
 > 7. Single binary to support Chrome, Safari and Firefox.
-> 8. (In progress) Built with http/3 enabled.
+> 8. Built with http/3 enabled.
 > 9. A user-friendly Python binding: [curl_cffi](https://github.com/lexiforest/curl_cffi).
 > 10. More prebuilt binaries, including Windows, Arm, and even RISC-V!
 > 11. Commercial support at [impersonate.pro](https://impersonate.pro).
