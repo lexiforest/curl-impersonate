@@ -10,10 +10,15 @@ SHELL := bash
 SUBJOBS := 4
 
 BROTLI_VERSION := 1.1.0
- # In case this is changed, update build-and-test-make.yml as well
-BORING_SSL_COMMIT := 23768dca563c4e62d48bb3675e49e34955dced12
-NGHTTP2_VERSION := nghttp2-1.63.0
-NGHTTP2_URL := https://github.com/nghttp2/nghttp2/releases/download/v1.63.0/nghttp2-1.63.0.tar.bz2
+# Chrome 135.0.7049.41
+# In case this is changed, update build-and-test-make.yml and build-win as well
+BORING_SSL_COMMIT := 673e61fc215b178a90c0e67858bbf162c8158993
+NGHTTP2_VERSION := 1.63.0
+NGHTTP2_URL := https://github.com/nghttp2/nghttp2/releases/download/v$(NGHTTP2_VERSION)/nghttp2-$(NGHTTP2_VERSION).tar.bz2
+NGTCP2_VERSION := 1.11.0
+NGTCP2_URL := https://github.com/ngtcp2/ngtcp2/releases/download/v$(NGTCP2_VERSION)/ngtcp2-$(NGTCP2_VERSION).tar.bz2
+NGHTTP3_VERSION := 1.9.0
+NGHTTP3_URL := https://github.com/ngtcp2/nghttp3/releases/download/v$(NGHTTP3_VERSION)/nghttp3-$(NGHTTP3_VERSION).tar.bz2
 CURL_VERSION := curl-8_13_0
 
 # https://github.com/google/brotli/commit/641bec0e30bea648b3da1cd90fc6b44deb429f71
@@ -22,11 +27,15 @@ brotli_static_libs := $(brotli_install_dir)/lib/libbrotlicommon.a $(brotli_insta
 boringssl_dir := $(abspath boringssl-$(BORING_SSL_COMMIT))
 boringssl_install_dir := $(boringssl_dir)/build
 boringssl_static_libs := $(boringssl_dir)/lib/libssl.a $(boringssl_dir)/lib/libcrypto.a
-nghttp2_install_dir := $(abspath $(NGHTTP2_VERSION)/installed)
+nghttp2_install_dir := $(abspath nghttp2-$(NGHTTP2_VERSION)/installed)
 nghttp2_static_libs := $(nghttp2_install_dir)/lib/libnghttp2.a
+ngtcp2_install_dir := $(abspath ngtcp2-$(NGTCP2_VERSION)/installed)
+ngtcp2_static_libs := $(ngtcp2_install_dir)/lib/libngtcp2.a
+nghttp3_install_dir := $(abspath nghttp3-$(NGHTTP3_VERSION)/installed)
+nghttp3_static_libs := $(nghttp3_install_dir)/lib/libnghttp3.a
 
 # Dependencies needed to compile the Chrome version
-chrome_libs := $(brotli_static_libs) $(boringssl_static_libs) $(nghttp2_static_libs)
+chrome_libs := $(brotli_static_libs) $(boringssl_static_libs) $(nghttp2_static_libs) $(ngtcp2_static_libs) $(nghttp3_static_libs)
 
 # The following variables will be set by the configure script.
 prefix = @prefix@
@@ -59,7 +68,7 @@ help: ## Show this help message
 .PHONY: help
 .DEFAULT_GOAL := help
 
-build: $(CURL_VERSION)/.chrome ## Build the Chrome version of curl-impersonate
+build: $(CURL_VERSION)/.chrome
 	cd $(CURL_VERSION)
 	# Don't pass this Makefile's MAKEFLAGS
 	$(MAKE) MAKEFLAGS=-j$(SUBJOBS)
@@ -79,7 +88,7 @@ else
 endif
 .PHONY: checkbuild
 
-install: ## Install the Chrome version of curl-impersonate after build
+install:
 	cd $(CURL_VERSION)
 	$(MAKE) install-exec MAKEFLAGS=
 	# Wrapper scripts for the cli shortcut (e.g. 'curl_chrome99')
@@ -106,7 +115,9 @@ clean:
 	## Remove all build artifacts, including dependencies
 	rm -Rf brotli-$(BROTLI_VERSION).tar.gz brotli-$(BROTLI_VERSION)
 	rm -Rf boringssl-$(BORING_SSL_COMMIT).zip boringssl-$(BORING_SSL_COMMIT)
-	rm -Rf $(NGHTTP2_VERSION).tar.bz2 $(NGHTTP2_VERSION)
+	rm -Rf nghttp2-$(NGHTTP2_VERSION).tar.bz2 nghttp2-$(NGHTTP2_VERSION)
+	rm -Rf ngtcp2-$(NGTCP2_VERSION).tar.bz2 ngtcp2-$(NGTCP2_VERSION)
+	rm -Rf nghttp3-$(NGHTTP3_VERSION).tar.bz2 nghttp3-$(NGHTTP3_VERSION)
 	rm -Rf $(CURL_VERSION).tar.gz $(CURL_VERSION)
 .PHONY: clean
 
@@ -200,18 +211,70 @@ $(boringssl_static_libs): boringssl-$(BORING_SSL_COMMIT).zip boringssl-$(BORING_
 	cp crypto/libcrypto.a $(boringssl_dir)/lib
 
 
-$(NGHTTP2_VERSION).tar.bz2:
-	curl -L $(NGHTTP2_URL) -o $(NGHTTP2_VERSION).tar.bz2
+nghttp2-$(NGHTTP2_VERSION).tar.bz2:
+	curl -L $(NGHTTP2_URL) -o nghttp2-$(NGHTTP2_VERSION).tar.bz2
 
-$(nghttp2_static_libs): $(NGHTTP2_VERSION).tar.bz2
-	tar -xf $(NGHTTP2_VERSION).tar.bz2
-	cd $(NGHTTP2_VERSION)
+$(nghttp2_static_libs): nghttp2-$(NGHTTP2_VERSION).tar.bz2
+	tar -xf nghttp2-$(NGHTTP2_VERSION).tar.bz2
+	cd nghttp2-$(NGHTTP2_VERSION)
 
 	# Set up the configure flags to nghttp2.
 	# If the user provided the --host flag to our configure script
 	# (for cross compilation), then pass it on to nghttp2.
 	{ \
 		config_flags="--prefix=$(nghttp2_install_dir)"; \
+		config_flags="$$config_flags --with-pic --enable-lib-only"; \
+		config_flags="$$config_flags --disable-shared --disable-python-bindings"; \
+		if test -n "$(host_alias)"; then \
+			config_flags="$$config_flags --host=$(host_alias)"; \
+		fi; \
+	}
+
+	./configure $$config_flags
+	$(MAKE) MAKEFLAGS=-j$(SUBJOBS)
+	$(MAKE) install MAKEFLAGS=
+
+ngtcp2-$(NGTCP2_VERSION).tar.bz2:
+	curl -L $(NGTCP2_URL) -o ngtcp2-$(NGTCP2_VERSION).tar.bz2
+
+$(ngtcp2_static_libs): ngtcp2-$(NGTCP2_VERSION).tar.bz2 $(boringssl_static_libs)
+	tar -xf ngtcp2-$(NGTCP2_VERSION).tar.bz2
+	cd ngtcp2-$(NGTCP2_VERSION)
+	autoreconf -i
+
+	# Set up the configure flags to ngtcp2.
+	# If the user provided the --host flag to our configure script
+	# (for cross compilation), then pass it on to ngtcp2.
+	# PKG_CONFIG_PATH=<somewhere1>/lib/pkgconfig:<somewhere2>/lib/pkgconfig LDFLAGS="-Wl,-rpath,<somewhere1>/lib"
+	{ \
+		config_flags="--prefix=$(ngtcp2_install_dir)"; \
+		config_flags="$$config_flags --with-pic --enable-lib-only"; \
+		config_flags="$$config_flags --disable-shared --disable-python-bindings"; \
+		if test -n "$(host_alias)"; then \
+			config_flags="$$config_flags --host=$(host_alias)"; \
+		fi; \
+	}
+
+	./configure PKG_CONFIG_PATH=$(nghttp3_install_dir)/lib/pkgconfig \
+		BORINGSSL_LIBS="-L$(boringssl_install_dir)/ssl -lssl -L$(boringssl_install_dir)/crypto -lcrypto" \
+		BORINGSSL_CFLAGS="-I$(boringssl_dir)/include" \
+		--with-boringssl \
+		$$config_flags
+	$(MAKE) MAKEFLAGS=-j$(SUBJOBS)
+	$(MAKE) install MAKEFLAGS=
+
+nghttp3-$(NGHTTP3_VERSION).tar.bz2:
+	curl -L $(NGHTTP3_URL) -o nghttp3-$(NGHTTP3_VERSION).tar.bz2
+
+$(nghttp3_static_libs): nghttp3-$(NGHTTP3_VERSION).tar.bz2
+	tar -xf nghttp3-$(NGHTTP3_VERSION).tar.bz2
+	cd nghttp3-$(NGHTTP3_VERSION)
+
+	# Set up the configure flags to nghttp2.
+	# If the user provided the --host flag to our configure script
+	# (for cross compilation), then pass it on to nghttp2.
+	{ \
+		config_flags="--prefix=$(nghttp3_install_dir)"; \
 		config_flags="$$config_flags --with-pic --enable-lib-only"; \
 		config_flags="$$config_flags --disable-shared --disable-python-bindings"; \
 		if test -n "$(host_alias)"; then \
@@ -250,8 +313,10 @@ $(CURL_VERSION)/.chrome: $(chrome_libs)	$(CURL_VERSION).tar.gz $(CURL_VERSION)/.
 	# https://daniel.haxx.se/blog/2024/01/10/psl-in-curl/
 	{ \
 	  config_flags="--prefix=@prefix@"; \
-	  config_flags="$$config_flags --with-nghttp2=$(nghttp2_install_dir)"; \
 	  config_flags="$$config_flags --with-brotli=$(brotli_install_dir)"; \
+	  config_flags="$$config_flags --with-nghttp2=$(nghttp2_install_dir)"; \
+	  config_flags="$$config_flags --with-ngtcp2=$(ngtcp2_install_dir)"; \
+	  config_flags="$$config_flags --with-nghttp3=$(nghttp3_install_dir)"; \
 	  config_flags="$$config_flags --with-openssl=$(boringssl_dir)"; \
 	  config_flags="$$config_flags --without-libpsl"; \
 	  config_flags="$$config_flags --enable-websockets"; \
@@ -259,7 +324,7 @@ $(CURL_VERSION)/.chrome: $(chrome_libs)	$(CURL_VERSION).tar.gz $(CURL_VERSION)/.
 	  config_flags="$$config_flags --enable-ipv6"; \
 	  config_flags="$$config_flags USE_CURL_SSLKEYLOGFILE=true"; \
 	  if test "$(static_build)" = "yes"; then \
-	    config_flags="$$config_flags --enable-static --disable-shared";
+	    config_flags="$$config_flags --enable-static --disable-shared"; \
 	  fi; \
 	  if test -n "$(host_alias)"; then \
 	    config_flags="$$config_flags --host=$(host_alias)"; \
@@ -285,7 +350,11 @@ $(CURL_VERSION)/.chrome: $(chrome_libs)	$(CURL_VERSION).tar.gz $(CURL_VERSION)/.
 
 	echo "Configuring curl with: $$config_flags"
 
-	CXXFLAGS="-stdlib=libc++" LDFLAGS="-lc++" ./configure $$config_flags LIBS="$$add_libs"
+	CXXFLAGS="-stdlib=libc++" LDFLAGS="-lc++ -Wl,-rpath,$(ngtcp2_install_dir)/lib" \
+			 ./configure \
+			 $$config_flags \
+			 LIBS="$$add_libs" \
+			 PKG_CONFIG_PATH="$(ngtcp2_install_dir)/crypto/boringssl/"
 
 	# Remove possible leftovers from a previous compilation
 	$(MAKE) clean MAKEFLAGS=

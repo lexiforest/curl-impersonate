@@ -16,7 +16,7 @@ permissions:
   contents: write
 
 env:
-  BORING_SSL_COMMIT: 23768dca563c4e62d48bb3675e49e34955dced12
+  BORING_SSL_COMMIT: 673e61fc215b178a90c0e67858bbf162c8158993
 
 jobs:
   build-and-test-linux:

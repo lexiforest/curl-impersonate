@@ -193,6 +193,19 @@ index 84966e81e..3cadce22c 100644
    CURLOPT_LASTENTRY /* the last unused */
  } CURLoption;
  
+diff --git a/include/curl/curlver.h b/include/curl/curlver.h
+index a0d7309d3..95bcb3ca5 100644
+--- a/include/curl/curlver.h
++++ b/include/curl/curlver.h
+@@ -32,7 +32,7 @@
+ 
+ /* This is the version number of the libcurl package from which this header
+    file origins: */
+-#define LIBCURL_VERSION "8.13.0-DEV"
++#define LIBCURL_VERSION "8.13.0-IMPERSONATE"
+ 
+ /* The numeric version number is also available "in parts" by using these
+    defines: */
 diff --git a/include/curl/easy.h b/include/curl/easy.h
 index 56f8060e0..1a348c502 100644
 --- a/include/curl/easy.h
@@ -3259,7 +3272,7 @@ index e4487ba65..0ba8046bb 100644
  
  #ifndef CURL_DISABLE_MIME
 diff --git a/lib/vtls/openssl.c b/lib/vtls/openssl.c
-index 4d5e1be29..9b9435de6 100644
+index 4d5e1be29..137332c7d 100644
 --- a/lib/vtls/openssl.c
 +++ b/lib/vtls/openssl.c
 @@ -81,9 +81,21 @@
@@ -3607,20 +3620,10 @@ index 4d5e1be29..9b9435de6 100644
  #endif
  
  #ifdef SSL_OP_NO_COMPRESSION
-@@ -3751,6 +4056,30 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
+@@ -3751,6 +4056,20 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
    SSL_CTX_set_mode(octx->ssl_ctx, SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
  #endif
  
-+// XXX: Why this is deleted in curl 8.13.0?
-+#ifdef HAS_ALPN
-+  if(alpn && alpn_len) {
-+    if(SSL_CTX_set_alpn_protos(octx->ssl_ctx, alpn, (int)alpn_len)) {
-+      failf(data, "Error setting ALPN");
-+      return CURLE_SSL_CONNECT_ERROR;
-+    }
-+  }
-+#endif
-+
 +  SSL_CTX_set_options(octx->ssl_ctx, SSL_OP_LEGACY_SERVER_CONNECT);
 +  SSL_CTX_set_mode(octx->ssl_ctx,
 +      SSL_MODE_CBC_RECORD_SPLITTING | SSL_MODE_ENABLE_FALSE_START);
@@ -3638,7 +3641,7 @@ index 4d5e1be29..9b9435de6 100644
    if(ssl_cert || ssl_cert_blob || ssl_cert_type) {
      if(!result &&
         !cert_stuff(data, octx->ssl_ctx,
-@@ -3809,6 +4138,35 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
+@@ -3809,6 +4128,35 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
      }
    }
  
@@ -3674,7 +3677,7 @@ index 4d5e1be29..9b9435de6 100644
  #ifdef USE_OPENSSL_SRP
    if(ssl_config->primary.username && Curl_auth_allowed_to_host(data)) {
      char * const ssl_username = ssl_config->primary.username;
-@@ -3834,6 +4192,57 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
+@@ -3834,6 +4182,57 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
    }
  #endif
  
@@ -3732,7 +3735,7 @@ index 4d5e1be29..9b9435de6 100644
    /* OpenSSL always tries to verify the peer, this only says whether it should
     * fail to connect if the verification fails, or if it should continue
     * anyway. In the latter case the result of the verification is checked with
-@@ -3891,6 +4300,31 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
+@@ -3891,6 +4290,31 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
  
    SSL_set_app_data(octx->ssl, ssl_user_data);
  
