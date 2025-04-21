@@ -67,19 +67,19 @@
   - null
   - null
   - edge_101.0.1210.47_win10
-- - curl_safari15_3
+- - curl_safari153
   - null
   - null
   - safari_15.3_macos11.6.4
-- - curl_safari15_5
+- - curl_safari155
   - null
   - null
   - safari_15.5_macos12.4
-- - curl_safari18_0
+- - curl_safari180
   - null
   - null
   - safari_18.0_macOS
-- - curl_safari18_0_ios
+- - curl_safari180_ios
   - null
   - null
   - safari_18.0_iOS
@@ -164,27 +164,27 @@
   - libcurl-impersonate
   - edge_101.0.1210.47_win10
 - - minicurl
-  - CURL_IMPERSONATE: safari15_3
+  - CURL_IMPERSONATE: safari153
   - libcurl-impersonate
   - safari_15.3_macos11.6.4
 - - minicurl
-  - CURL_IMPERSONATE: safari15_5
+  - CURL_IMPERSONATE: safari155
   - libcurl-impersonate
   - safari_15.5_macos12.4
 - - minicurl
-  - CURL_IMPERSONATE: safari17_0
+  - CURL_IMPERSONATE: safari170
   - libcurl-impersonate
   - safari_17.0_macOS
 - - minicurl
-  - CURL_IMPERSONATE: safari17_2_ios
+  - CURL_IMPERSONATE: safari172_ios
   - libcurl-impersonate
   - safari_17.2_iOS
 - - minicurl
-  - CURL_IMPERSONATE: safari18_0
+  - CURL_IMPERSONATE: safari180
   - libcurl-impersonate
   - safari_18.0_macOS
 - - minicurl
-  - CURL_IMPERSONATE: safari18_0_ios
+  - CURL_IMPERSONATE: safari180_ios
   - libcurl-impersonate
   - safari_18.0_iOS
 - - minicurl
