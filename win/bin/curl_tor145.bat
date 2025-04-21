@@ -10,8 +10,8 @@
     -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" ^
     -H "Accept-Language: en-US,en;q=0.5" ^
     -H "Accept-Encoding: gzip, deflate, br, zstd" ^
-    -H "Upgrade-Insecure-Requests: 1" ^
     -H "Sec-GPC: 1" ^
+    -H "Upgrade-Insecure-Requests: 1" ^
     -H "Sec-Fetch-Dest: document" ^
     -H "Sec-Fetch-Mode: navigate" ^
     -H "Sec-Fetch-Site: none" ^
