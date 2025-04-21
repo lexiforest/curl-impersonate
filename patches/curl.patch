@@ -1514,7 +1514,7 @@ index 93cc2d44f..52e80ce9c 100644
   * Store nghttp2 version info in this buffer.
 diff --git a/lib/impersonate.c b/lib/impersonate.c
 new file mode 100644
-index 000000000..0ce4c3be5
+index 000000000..f4454d060
 --- /dev/null
 +++ b/lib/impersonate.c
 @@ -0,0 +1,1502 @@
@@ -3014,7 +3014,7 @@ index 000000000..0ce4c3be5
 +    .tls_record_size_limit = 4001,
 +    .tls_grease = false,
 +    .tls_signed_cert_timestamps = true,
-+    .tls_key_shares_limit = 3,
++    .tls_key_shares_limit = 2,
 +    .use_firefox_tls13_ciphers = true
 +  }
 +};
