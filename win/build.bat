@@ -55,7 +55,7 @@ popd
 
 :: Build & Install boringssl
 pushd "%deps%\boringssl"
-cmake %cmake_common_args% -DCMAKE_POSITION_INDEPENDENT_CODE=ON -S . -B "%build%\boringssl"
+cmake %cmake_common_args% -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DBUILD_SHARED_LIBS=OFF -S . -B "%build%\boringssl"
 cmake --build "%build%\boringssl" --config %configuration% --target install
 popd
 
