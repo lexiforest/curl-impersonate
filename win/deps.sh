@@ -17,6 +17,7 @@ get_dep https://github.com/ngtcp2/nghttp3.git nghttp3 $NGHTTP3_TAG
 get_dep https://github.com/ngtcp2/ngtcp2.git ngtcp2 $NGTCP2_TAG
 
 git -C "$PWD/deps/nghttp2" submodule update --init
+git -C "$PWD/deps/nghttp3" submodule update --init
 git -C "$PWD/deps/ngtcp2" submodule update --init
 
 patch -p1 -d "$PWD/deps/boringssl" < "$PWD/patches/boringssl.patch"
