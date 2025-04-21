@@ -63,6 +63,8 @@ popd
 pushd "%deps%\ngtcp2"
 cmake %cmake_common_args% -DENABLE_SHARED_LIB=OFF -DENABLE_STATIC_LIB=ON -DENABLE_LIB_ONLY=ON^
   -DENABLE_BORINGSSL=ON -DENABLE_OPENSSL=OFF^
+  -DBORINGSSL_INCLUDE_DIR="%build%\include"^
+  -DBORINGSSL_LIBRARIES="%build%\lib\ssl.lib;%build%\lib\crypto.lib"^
   -S . -B "%build%\ngtcp2"
 cmake --build "%build%\ngtcp2" --config %configuration% --target install
 popd
