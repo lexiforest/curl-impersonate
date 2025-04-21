@@ -99,7 +99,7 @@ signature:
         length: 32
       - group: 23
         length: 65
-      length: 208
+      length: 107
       type: keyshare
     - length: 5
       supported_versions:
