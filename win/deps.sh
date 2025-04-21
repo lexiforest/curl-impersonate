@@ -13,6 +13,8 @@ get_dep https://github.com/google/brotli.git brotli $BROTLI_COMMIT
 get_dep https://boringssl.googlesource.com/boringssl.git boringssl $BORINGSSL_COMMIT
 get_dep https://github.com/curl/curl.git curl $CURL_TAG
 get_dep https://github.com/nghttp2/nghttp2.git nghttp2 $NGHTTP2_COMMIT
+get_dep https://github.com/ngtcp2/nghttp3.git nghttp2 $NGHTTP3_TAG
+get_dep https://github.com/ngtcp2/ngtcp2.git nghttp2 $NGTCP2_TAG
 
 git -C "$PWD/deps/nghttp2" submodule update --init
 
