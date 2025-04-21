@@ -11,7 +11,7 @@ get_dep https://github.com/madler/zlib.git zlib $ZLIB_COMMIT
 get_dep https://github.com/facebook/zstd.git zstd $ZSTD_COMMIT
 get_dep https://github.com/google/brotli.git brotli $BROTLI_COMMIT
 get_dep https://boringssl.googlesource.com/boringssl.git boringssl $BORINGSSL_COMMIT
-get_dep https://github.com/curl/curl.git curl $CURL_COMMIT
+get_dep https://github.com/curl/curl.git curl $CURL_TAG
 get_dep https://github.com/nghttp2/nghttp2.git nghttp2 $NGHTTP2_COMMIT
 
 git -C "$PWD/deps/nghttp2" submodule update --init
