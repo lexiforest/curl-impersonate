@@ -61,8 +61,8 @@ popd
 
 :: Build & Install ngtcp2
 pushd "%deps%\ngtcp2"
-set "BORINGSSL_INCLUDE_DIR=%build:\=/%/include"
-set "BORINGSSL_LIBRARIES=%build:\=/%/lib/ssl.lib;%build:\=/%/lib/crypto.lib"
+set "BORINGSSL_INCLUDE_DIR=%packages:\=/%/include"
+set "BORINGSSL_LIBRARIES=%packages:\=/%/lib/ssl.lib;%packages:\=/%/lib/crypto.lib"
 cmake %cmake_common_args% -DENABLE_SHARED_LIB=OFF -DENABLE_STATIC_LIB=ON -DENABLE_LIB_ONLY=ON^
   -DENABLE_BORINGSSL=ON -DENABLE_OPENSSL=OFF^
   -DBORINGSSL_INCLUDE_DIR="%BORINGSSL_INCLUDE_DIR%"^
