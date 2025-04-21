@@ -49,7 +49,7 @@ popd
 
 :: Build & Install nghttp3
 pushd "%deps%\nghttp3"
-cmake %cmake_common_args% -DENABLE_SHARED_LIB=OFF -DENABLE_STATIC_LIB=ON -DENABLE_LIB_ONLY -S . -B "%build%\nghttp3"
+cmake %cmake_common_args% -DENABLE_SHARED_LIB=OFF -DENABLE_STATIC_LIB=ON -DENABLE_LIB_ONLY=ON -S . -B "%build%\nghttp3"
 cmake --build "%build%\nghttp3" --config %configuration% --target install
 popd
 
@@ -61,7 +61,7 @@ popd
 
 :: Build & Install ngtcp2
 pushd "%deps%\ngtcp2"
-cmake %cmake_common_args% -DENABLE_SHARED_LIB=OFF -DENABLE_STATIC_LIB=ON -DENABLE_LIB_ONLY^
+cmake %cmake_common_args% -DENABLE_SHARED_LIB=OFF -DENABLE_STATIC_LIB=ON -DENABLE_LIB_ONLY=ON^
   -DENABLEBORINGSSL=ON -DENABLE_OPENSSL=OFF^
   -S . -B "%build%\ngtcp2"
 cmake --build "%build%\ngtcp2" --config %configuration% --target install
