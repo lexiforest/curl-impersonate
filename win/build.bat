@@ -65,8 +65,8 @@ set "BORINGSSL_INCLUDE_DIR=%build:\=/%/include"
 set "BORINGSSL_LIBRARIES=%build:\=/%/lib/ssl.lib;%build:\=/%/lib/crypto.lib"
 cmake %cmake_common_args% -DENABLE_SHARED_LIB=OFF -DENABLE_STATIC_LIB=ON -DENABLE_LIB_ONLY=ON^
   -DENABLE_BORINGSSL=ON -DENABLE_OPENSSL=OFF^
-  -DBORINGSSL_INCLUDE_DIR="BORINGSSL_INCLUDE_DIR"^
-  -DBORINGSSL_LIBRARIES="BORINGSSL_LIBRARIES"^
+  -DBORINGSSL_INCLUDE_DIR="%BORINGSSL_INCLUDE_DIR%"^
+  -DBORINGSSL_LIBRARIES="%BORINGSSL_LIBRARIES%"^
   -S . -B "%build%\ngtcp2"
 cmake --build "%build%\ngtcp2" --config %configuration% --target install
 popd
