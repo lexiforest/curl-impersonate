@@ -1514,7 +1514,7 @@ index 93cc2d44f..52e80ce9c 100644
   * Store nghttp2 version info in this buffer.
 diff --git a/lib/impersonate.c b/lib/impersonate.c
 new file mode 100644
-index 000000000..b32869f82
+index 000000000..e2cb10a9a
 --- /dev/null
 +++ b/lib/impersonate.c
 @@ -0,0 +1,1434 @@
@@ -1526,7 +1526,7 @@ index 000000000..b32869f82
 +
 +const struct impersonate_opts impersonations[] = {
 +  {
-+    .target = "chrome_100",
++    .target = "chrome100",
 +    .alias = "chrome100",
 +    .httpversion = CURL_HTTP_VERSION_2_0,
 +    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
@@ -1575,7 +1575,7 @@ index 000000000..b32869f82
 +    .tls_grease = true
 +  },
 +  {
-+    .target = "chrome_101",
++    .target = "chrome101",
 +    .alias = "chrome101",
 +    .httpversion = CURL_HTTP_VERSION_2_0,
 +    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
@@ -1624,7 +1624,7 @@ index 000000000..b32869f82
 +    .tls_grease = true
 +  },
 +  {
-+    .target = "chrome_104",
++    .target = "chrome104",
 +    .alias = "chrome104",
 +    .httpversion = CURL_HTTP_VERSION_2_0,
 +    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
@@ -1673,7 +1673,7 @@ index 000000000..b32869f82
 +    .tls_grease = true
 +  },
 +  {
-+    .target = "chrome_107",
++    .target = "chrome107",
 +    .alias = "chrome107",
 +    .httpversion = CURL_HTTP_VERSION_2_0,
 +    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
@@ -1722,7 +1722,7 @@ index 000000000..b32869f82
 +    .tls_grease = true
 +  },
 +  {
-+    .target = "chrome_110",
++    .target = "chrome110",
 +    .alias = "chrome110",
 +    .httpversion = CURL_HTTP_VERSION_2_0,
 +    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
@@ -1772,7 +1772,7 @@ index 000000000..b32869f82
 +    .tls_grease = true
 +  },
 +  {
-+    .target = "chrome_116",
++    .target = "chrome116",
 +    .alias = "chrome116",
 +    .httpversion = CURL_HTTP_VERSION_2_0,
 +    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
@@ -1822,7 +1822,7 @@ index 000000000..b32869f82
 +    .tls_grease = true
 +  },
 +  {
-+    .target = "chrome_119",
++    .target = "chrome119",
 +    .alias = "chrome119",
 +    .httpversion = CURL_HTTP_VERSION_2_0,
 +    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
@@ -1873,7 +1873,7 @@ index 000000000..b32869f82
 +    .tls_grease = true
 +  },
 +  {
-+    .target = "chrome_120",
++    .target = "chrome120",
 +    .alias = "chrome120",
 +    .httpversion = CURL_HTTP_VERSION_2_0,
 +    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
@@ -1924,7 +1924,7 @@ index 000000000..b32869f82
 +    .tls_grease = true
 +  },
 +  {
-+    .target = "chrome_123",
++    .target = "chrome123",
 +    .alias = "chrome123",
 +    .httpversion = CURL_HTTP_VERSION_2_0,
 +    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
@@ -1975,7 +1975,7 @@ index 000000000..b32869f82
 +    .tls_grease = true
 +  },
 +  {
-+    .target = "chrome_124",
++    .target = "chrome124",
 +    .alias = "chrome124",
 +    .httpversion = CURL_HTTP_VERSION_2_0,
 +    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
@@ -2028,7 +2028,7 @@ index 000000000..b32869f82
 +    .tls_grease = true
 +  },
 +  {
-+    .target = "chrome_131",
++    .target = "chrome131",
 +    .alias = "chrome131",
 +    .httpversion = CURL_HTTP_VERSION_2_0,
 +    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
@@ -2081,7 +2081,7 @@ index 000000000..b32869f82
 +    .tls_grease = true
 +  },
 +  {
-+    .target = "chrome_131_android",
++    .target = "chrome131_android",
 +    .alias = "chrome131_android",
 +    .httpversion = CURL_HTTP_VERSION_2_0,
 +    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
@@ -2134,7 +2134,7 @@ index 000000000..b32869f82
 +    .tls_grease = true
 +  },
 +  {
-+    .target = "chrome_133a",
++    .target = "chrome133a",
 +    .alias = "chrome133a",
 +    .httpversion = CURL_HTTP_VERSION_2_0,
 +    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
@@ -2187,7 +2187,7 @@ index 000000000..b32869f82
 +    .tls_grease = true
 +  },
 +  {
-+    .target = "chrome_99",
++    .target = "chrome99",
 +    .alias = "chrome99",
 +    .httpversion = CURL_HTTP_VERSION_2_0,
 +    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
@@ -2236,7 +2236,7 @@ index 000000000..b32869f82
 +    .tls_grease = true
 +  },
 +  {
-+    .target = "chrome_99_android",
++    .target = "chrome99_android",
 +    .alias = "chrome99_android",
 +    .httpversion = CURL_HTTP_VERSION_2_0,
 +    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
@@ -2285,7 +2285,7 @@ index 000000000..b32869f82
 +    .tls_grease = true
 +  },
 +  {
-+    .target = "edge_101",
++    .target = "edge101",
 +    .alias = "edge101",
 +    .httpversion = CURL_HTTP_VERSION_2_0,
 +    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
@@ -2334,7 +2334,7 @@ index 000000000..b32869f82
 +    .tls_grease = true
 +  },
 +  {
-+    .target = "edge_99",
++    .target = "edge99",
 +    .alias = "edge99",
 +    .httpversion = CURL_HTTP_VERSION_2_0,
 +    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
@@ -2383,7 +2383,7 @@ index 000000000..b32869f82
 +    .tls_grease = true
 +  },
 +  {
-+    .target = "firefox_133",
++    .target = "firefox133",
 +    .target = "firefox133",
 +    .httpversion = CURL_HTTP_VERSION_2_0,
 +    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
@@ -2447,7 +2447,7 @@ index 000000000..b32869f82
 +    .use_firefox_tls13_ciphers = true
 +  },
 +  {
-+    .target = "firefox_135",
++    .target = "firefox135",
 +    .alias = "firefox135",
 +    .httpversion = CURL_HTTP_VERSION_2_0,
 +    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
@@ -2573,7 +2573,7 @@ index 000000000..b32869f82
 +    .tls_grease = true
 +  },
 +  {
-+    .target = "safari_153",
++    .target = "safari153",
 +    .alias = "safari15_3",
 +    .httpversion = CURL_HTTP_VERSION_2_0,
 +    .ssl_version = CURL_SSLVERSION_TLSv1_0 | CURL_SSLVERSION_MAX_DEFAULT,
@@ -2638,7 +2638,7 @@ index 000000000..b32869f82
 +    .tls_grease = true
 +  },
 +  {
-+    .target = "safari_155",
++    .target = "safari155",
 +    .alias = "safari15_5",
 +    .httpversion = CURL_HTTP_VERSION_2_0,
 +    .ssl_version = CURL_SSLVERSION_TLSv1_0 | CURL_SSLVERSION_MAX_DEFAULT,
@@ -2698,7 +2698,7 @@ index 000000000..b32869f82
 +    .tls_grease = true
 +  },
 +  {
-+    .target = "safari_170",
++    .target = "safari170",
 +    .alias = "safari17_0",
 +    .httpversion = CURL_HTTP_VERSION_2_0,
 +    .ssl_version = CURL_SSLVERSION_TLSv1_0 | CURL_SSLVERSION_MAX_DEFAULT,
@@ -2761,7 +2761,7 @@ index 000000000..b32869f82
 +    .tls_grease = true
 +  },
 +  {
-+    .target = "safari_172_ios",
++    .target = "safari172_ios",
 +    .alias = "safari17_2_ios",
 +    .httpversion = CURL_HTTP_VERSION_2_0,
 +    .ssl_version = CURL_SSLVERSION_TLSv1_0 | CURL_SSLVERSION_MAX_DEFAULT,
@@ -2824,7 +2824,7 @@ index 000000000..b32869f82
 +    .tls_grease = true
 +  },
 +  {
-+    .target = "safari_180",
++    .target = "safari180",
 +    .alias = "safari18_0",
 +    .httpversion = CURL_HTTP_VERSION_2_0,
 +    .ssl_version = CURL_SSLVERSION_TLSv1_0 | CURL_SSLVERSION_MAX_DEFAULT,
@@ -2887,7 +2887,7 @@ index 000000000..b32869f82
 +    .tls_grease = true
 +  },
 +  {
-+    .target = "safari_180_ios",
++    .target = "safari180_ios",
 +    .alias = "safari18_0_ios",
 +    .httpversion = CURL_HTTP_VERSION_2_0,
 +    .ssl_version = CURL_SSLVERSION_TLSv1_0 | CURL_SSLVERSION_MAX_DEFAULT,
