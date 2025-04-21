@@ -91,6 +91,10 @@
   - null
   - null
   - firefox_135.0.1_macOS
+- - curl_tor145
+  - null
+  - null
+  - tor_14.5_macOS
 
 # Test libcurl-impersonate by loading it with LD_PRELOAD to an app
 # linked against the regular libcurl and setting the
@@ -195,3 +199,7 @@
   - CURL_IMPERSONATE: firefox135
   - libcurl-impersonate
   - firefox_135.0.1_macOS
+- - minicurl
+  - CURL_IMPERSONATE: tor145
+  - libcurl-impersonate
+  - tor_14.5_macOS

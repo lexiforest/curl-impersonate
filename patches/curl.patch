@@ -1514,10 +1514,10 @@ index 93cc2d44f..52e80ce9c 100644
   * Store nghttp2 version info in this buffer.
 diff --git a/lib/impersonate.c b/lib/impersonate.c
 new file mode 100644
-index 000000000..e2cb10a9a
+index 000000000..0ce4c3be5
 --- /dev/null
 +++ b/lib/impersonate.c
-@@ -0,0 +1,1434 @@
+@@ -0,0 +1,1502 @@
 +#include "curl_setup.h"
 +
 +#include <curl/curl.h>
@@ -2435,6 +2435,7 @@ index 000000000..e2cb10a9a
 +    .http2_settings = "1:65536;2:0;4:131072;5:16384",
 +    .http2_window_update = 12517377,
 +    .http2_pseudo_headers_order = "mpas",
++    .http2_stream_exclusive = 0,
 +    .cert_compression = "zlib,brotli,zstd",
 +    .ech = "grease",
 +    .tls_session_ticket = true,
@@ -2499,6 +2500,7 @@ index 000000000..e2cb10a9a
 +    .http2_settings = "1:65536;2:0;4:131072;5:16384",
 +    .http2_window_update = 12517377,
 +    .http2_pseudo_headers_order = "mpas",
++    .http2_stream_exclusive = 0,
 +    .cert_compression = "zlib,brotli,zstd",
 +    .ech = "grease",
 +    .tls_session_ticket = true,
@@ -2948,6 +2950,72 @@ index 000000000..e2cb10a9a
 +    .tls_use_new_alps_codepoint = false,
 +    .tls_signed_cert_timestamps = true,
 +    .tls_grease = true
++  },
++  {
++    .target = "tor145",  // tor 14.5, based on firefox 128
++    .alias = "tor145",
++    .httpversion = CURL_HTTP_VERSION_2_0,
++    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
++    .ciphers =
++      "TLS_AES_128_GCM_SHA256,"
++      "TLS_CHACHA20_POLY1305_SHA256,"
++      "TLS_AES_256_GCM_SHA384,"
++      "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,"
++      "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,"
++      "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,"
++      "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,"
++      "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,"
++      "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,"
++      "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,"
++      "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,"
++      "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,"
++      "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,"
++      "TLS_RSA_WITH_AES_128_GCM_SHA256,"
++      "TLS_RSA_WITH_AES_256_GCM_SHA384,"
++      "TLS_RSA_WITH_AES_128_CBC_SHA,"
++      "TLS_RSA_WITH_AES_256_CBC_SHA",
++    .http_headers = {
++      "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:128.0) Gecko/20100101 Firefox/128.0",
++      "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
++      "Accept-Language: en-US,en;q=0.5",
++      "Accept-Encoding: gzip, deflate, br, zstd",
++      "Sec-GPC: 1",
++      "Upgrade-Insecure-Requests: 1",
++      "Sec-Fetch-Dest: document",
++      "Sec-Fetch-Mode: navigate",
++      "Sec-Fetch-Site: none",
++      "Sec-Fetch-User: ?1",
++      "Priority: u=0, i",
++      "Te: trailers"
++    },
++    .curves = "X25519:P-256:P-384:P-521:ffdhe2048:ffdhe3072",
++    .sig_hash_algs =
++      "ecdsa_secp256r1_sha256,"
++      "ecdsa_secp384r1_sha384,"
++      "ecdsa_secp521r1_sha512,"
++      "rsa_pss_rsae_sha256,"
++      "rsa_pss_rsae_sha384,"
++      "rsa_pss_rsae_sha512,"
++      "rsa_pkcs1_sha256,"
++      "rsa_pkcs1_sha384,"
++      "rsa_pkcs1_sha512,"
++      "ecdsa_sha1,"
++      "rsa_pkcs1_sha1",
++    .alpn = true,
++    .http2_settings = "1:65536;2:0;4:131072;5:16384",
++    .http2_window_update = 12517377,
++    .http2_pseudo_headers_order = "mpas",
++    .http2_stream_exclusive = 0,
++    .cert_compression = "zlib,brotli,zstd",
++    .ech = "grease",
++    .tls_session_ticket = true,
++    .tls_extension_order = "0-23-65281-10-11-16-5-34-51-43-13-28-65037",
++    .tls_delegated_credentials = "ecdsa_secp256r1_sha256:ecdsa_secp384r1_sha384:ecdsa_secp521r1_sha512:ecdsa_sha1",
++    .tls_record_size_limit = 4001,
++    .tls_grease = false,
++    .tls_signed_cert_timestamps = true,
++    .tls_key_shares_limit = 3,
++    .use_firefox_tls13_ciphers = true
 +  }
 +};
 +
