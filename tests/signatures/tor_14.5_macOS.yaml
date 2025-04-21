@@ -95,13 +95,11 @@ signature:
       - 515
       type: delegated_credentials
     - key_shares:
-      - group: 4588
-        length: 1216
       - group: 29
         length: 32
       - group: 23
         length: 65
-      length: 1327
+      length: 208
       type: keyshare
     - length: 5
       supported_versions:
