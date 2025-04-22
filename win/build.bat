@@ -66,7 +66,7 @@ set "BORINGSSL_LIBRARIES=%packages:\=/%/lib/ssl.lib;%packages:\=/%/lib/crypto.li
 cmake %cmake_common_args% -DENABLE_SHARED_LIB=OFF -DENABLE_STATIC_LIB=ON -DENABLE_LIB_ONLY=ON^
   -DENABLE_BORINGSSL=ON -DENABLE_OPENSSL=OFF^
   -DBORINGSSL_INCLUDE_DIR="%BORINGSSL_INCLUDE_DIR%"^
-  -DBORINGSSL_LIBRARIES="ssl.lib;crypto.lib"^
+  -DBORINGSSL_LIBRARIES="packages:\=/%/lib"^
   -DCMAKE_LIBRARY_PATH="%packages:\=/%/lib/"^
   -S . -B "%build%\ngtcp2"
 cmake --build "%build%\ngtcp2" --config %configuration% --target install
