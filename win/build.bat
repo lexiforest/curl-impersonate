@@ -54,10 +54,10 @@ cmake --build "%build%\nghttp3" --config %configuration% --target install
 popd
 
 :: Build & Install boringssl
-REM pushd "%deps%\boringssl"
-REM cmake %cmake_common_args% -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DBUILD_SHARED_LIBS=OFF -S . -B "%build%\boringssl"
-REM cmake --build "%build%\boringssl" --config %configuration% --target install
-REM popd
+pushd "%deps%\boringssl"
+cmake %cmake_common_args% -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DBUILD_SHARED_LIBS=OFF -S . -B "%build%\boringssl"
+cmake --build "%build%\boringssl" --config %configuration% --target install
+popd
 
 :: Build & Install ngtcp2
 REM pushd "%deps%\ngtcp2"
