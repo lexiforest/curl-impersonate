@@ -54,23 +54,23 @@ cmake --build "%build%\nghttp3" --config %configuration% --target install
 popd
 
 :: Build & Install boringssl
-pushd "%deps%\boringssl"
-cmake %cmake_common_args% -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DBUILD_SHARED_LIBS=OFF -S . -B "%build%\boringssl"
-cmake --build "%build%\boringssl" --config %configuration% --target install
-popd
+REM pushd "%deps%\boringssl"
+REM cmake %cmake_common_args% -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DBUILD_SHARED_LIBS=OFF -S . -B "%build%\boringssl"
+REM cmake --build "%build%\boringssl" --config %configuration% --target install
+REM popd
 
 :: Build & Install ngtcp2
-pushd "%deps%\ngtcp2"
-set "BORINGSSL_INCLUDE_DIR=%packages:\=/%/include"
-set "BORINGSSL_LIBRARIES=%packages:\=/%/lib/ssl.lib;%packages:\=/%/lib/crypto.lib"
-cmake %cmake_common_args% -DENABLE_SHARED_LIB=OFF -DENABLE_STATIC_LIB=ON -DENABLE_LIB_ONLY=ON^
-  -DENABLE_BORINGSSL=ON -DENABLE_OPENSSL=OFF^
-  -DBORINGSSL_INCLUDE_DIR="%BORINGSSL_INCLUDE_DIR%"^
-  -DBORINGSSL_LIBRARIES="%packages:\=/%/lib/ssl.lib"^
-  -DCMAKE_LIBRARY_PATH="%packages:\=/%/lib"^
-  -S . -B "%build%\ngtcp2"
-cmake --build "%build%\ngtcp2" --config %configuration% --target install
-popd
+REM pushd "%deps%\ngtcp2"
+REM set "BORINGSSL_INCLUDE_DIR=%packages:\=/%/include"
+REM set "BORINGSSL_LIBRARIES=%packages:\=/%/lib/ssl.lib;%packages:\=/%/lib/crypto.lib"
+REM cmake %cmake_common_args% -DENABLE_SHARED_LIB=OFF -DENABLE_STATIC_LIB=ON -DENABLE_LIB_ONLY=ON^
+REM   -DENABLE_BORINGSSL=ON -DENABLE_OPENSSL=OFF^
+REM   -DBORINGSSL_INCLUDE_DIR="%BORINGSSL_INCLUDE_DIR%"^
+REM   -DBORINGSSL_LIBRARIES="%packages:\=/%/lib/ssl.lib"^
+REM   -DCMAKE_LIBRARY_PATH="%packages:\=/%/lib"^
+REM   -S . -B "%build%\ngtcp2"
+REM cmake --build "%build%\ngtcp2" --config %configuration% --target install
+REM popd
 
 
 :: Build & Install curl
@@ -84,8 +84,6 @@ cmake %cmake_common_args% -DBUILD_SHARED_LIBS=ON^
   -DUSE_ZLIB=ON^
   -DUSE_WIN32_IDN=ON^
   -DUSE_NGHTTP2=ON^
-  -DUSE_NGHTTP3=ON^
-  -DUSE_NGTCP2=ON^
   -DHAVE_ECH=1^
   -DUSE_ECH=ON^
   -DENABLE_WEBSOCKETS=ON^
