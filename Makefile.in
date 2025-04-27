@@ -256,7 +256,7 @@ $(ngtcp2_static_libs): ngtcp2-$(NGTCP2_VERSION).tar.bz2 $(boringssl_static_libs)
 	}
 
 	./configure PKG_CONFIG_PATH=$(nghttp3_install_dir)/lib/pkgconfig \
-		BORINGSSL_LIBS="-L$(boringssl_install_dir)/ssl -lssl -L$(boringssl_install_dir)/crypto -lcrypto" \
+		BORINGSSL_LIBS="-L$(boringssl_install_dir)/ssl -lssl -L$(boringssl_install_dir)/crypto -lcrypto -lpthread" \
 		BORINGSSL_CFLAGS="-I$(boringssl_dir)/include" \
 		--with-boringssl \
 		$$config_flags
