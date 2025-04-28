@@ -2,7 +2,7 @@
 
 get_dep() {
 	git clone $1 "$PWD/deps/$2"
-	if [[ -n "$3" && "$3" =~ ^[0-9a-f]{40}$ ]]; then
+	if [[ -n "$3" ]]; then
 		git -C "$PWD/deps/$2" checkout "$3"
 	fi
 }
