@@ -55,19 +55,19 @@ popd
 
 :: Build & Install boringssl
 pushd "%deps%\boringssl"
-cmake %cmake_common_args% -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DBUILD_SHARED_LIBS=OFF -S . -B "%build%\boringssl"
+cmake %cmake_common_args% -DCMAKE_POSITION_INDEPENDENT_CODE=ON -S . -B "%build%\boringssl"
 cmake --build "%build%\boringssl" --config %configuration% --target install
 popd
 
-:: Build & Install ngtcp2
-pushd "%deps%\ngtcp2"
-set "BORINGSSL_INCLUDE_DIR=%packages:\=/%/include"
-set "BORINGSSL_LIBRARIES=%packages:\=/%/lib/ssl.lib;%packages:\=/%/lib/crypto.lib"
-cmake %cmake_common_args% -DENABLE_SHARED_LIB=OFF -DENABLE_STATIC_LIB=ON -DENABLE_LIB_ONLY=ON^
-  -DENABLE_BORINGSSL=ON -DENABLE_OPENSSL=OFF^
-  -S . -B "%build%\ngtcp2"
-cmake --build "%build%\ngtcp2" --config %configuration% --target install
-popd
+:: Build & Install ngtcp2 (DOES NOT WORK)
+:: pushd "%deps%\ngtcp2"
+:: set "BORINGSSL_INCLUDE_DIR=%packages:\=/%/include"
+:: set "BORINGSSL_LIBRARIES=%packages:\=/%/lib/ssl.lib;%packages:\=/%/lib/crypto.lib"
+:: cmake %cmake_common_args% -DENABLE_SHARED_LIB=OFF -DENABLE_STATIC_LIB=ON -DENABLE_LIB_ONLY=ON^
+::   -DENABLE_BORINGSSL=ON -DENABLE_OPENSSL=OFF^
+::   -S . -B "%build%\ngtcp2"
+:: cmake --build "%build%\ngtcp2" --config %configuration% --target install
+:: popd
 
 
 :: Build & Install curl
