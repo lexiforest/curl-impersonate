@@ -450,7 +450,7 @@ jobs:
         run: |
           mkdir ${{ runner.temp }}/install
           ./configure --prefix=${{ runner.temp }}/install \
-                      --host=${{ matrix.host }} \
+                      --host=${{ env.ARCH }} \
                       --with-zlib=${{ runner.temp }}/zlib \
                       --with-zstd=${{ runner.temp }}/zstd \
                       --with-ca-path=/etc/ssl/certs \
@@ -464,14 +464,14 @@ jobs:
         uses: actions/cache@v4
         with:
           path: boringssl.zip
-          key: ${{ runner.os }}-mingw64-boring-source-${{ env.BORING_SSL_COMMIT }}
+          key: ${{ runner.os }}-${{ env.ARCH }}-boring-source-${{ env.BORING_SSL_COMMIT }}
 
       - name: Cache BoringSSL build
         id: cache-boringssl
         uses: actions/cache@v4
         with:
           path: boringssl/build
-          key: ${{ runner.os }}-mingw64-boring-build-${{ env.BORING_SSL_COMMIT }}-${{ hashFiles('patches/boringssl.patch') }}
+          key: ${{ runner.os }}-${{ env.ARCH }}-boring-build-${{ env.BORING_SSL_COMMIT }}-${{ hashFiles('patches/boringssl.patch') }}
 
       # Trick the Makefile into skipping the BoringSSL build step
       # if it was found in the cache. See Makefile.in
@@ -502,16 +502,16 @@ jobs:
           cd ${{ runner.temp }}/install/lib
           ls -lah .
           if [[ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]]; then
-            tar -c -z -f ${{ runner.temp }}/libcurl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz lib*
+            tar -c -z -f ${{ runner.temp }}/libcurl-impersonate-${{ github.ref_name }}.${{ env.ARCH }}.tar.gz lib*
           else
-            tar -c -z -f ${{ runner.temp }}/libcurl-impersonate.${{ matrix.host }}.tar.gz lib*
+            tar -c -z -f ${{ runner.temp }}/libcurl-impersonate.${{ env.ARCH }}.tar.gz lib*
           fi
-          echo "release_file_lib=${{ runner.temp }}/libcurl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz" >> $GITHUB_ENV
+          echo "release_file_lib=${{ runner.temp }}/libcurl-impersonate-${{ github.ref_name }}.${{ env.ARCH }}.tar.gz" >> $GITHUB_ENV
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: libcurl-impersonate.${{ matrix.host }}.tar.gz
+          name: libcurl-impersonate.${{ env.ARCH }}.tar.gz
           path: ${{ runner.temp }}/libcurl-impersonate*.tar.gz
 
       - name: Clean build
@@ -526,7 +526,7 @@ jobs:
         run: |
           set -e
           ./configure --prefix=${{ runner.temp }}/install --enable-static \
-                      --host=${{ matrix.host }} \
+                      --host=${{ env.ARCH }} \
                       --with-zlib=${{ runner.temp }}/zlib \
                       --with-zstd=${{ runner.temp }}/zstd \
                       --with-ca-path=/etc/ssl/certs \
@@ -537,26 +537,22 @@ jobs:
           set -e
           make build
           make checkbuild
-          if [[ "${{ endsWith(matrix.host, 'musl') }}" == "true" ]]; then
-            make install
-          else
-            make install-strip
-          fi
+          make install-strip
 
       - name: Create tar release files for curl-impersonate
         run: |
           cd ${{ runner.temp }}/install/bin
           if [[ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]]; then
-            tar -c -z -f ${{ runner.temp }}/curl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz curl-impersonate curl_*
+            tar -c -z -f ${{ runner.temp }}/curl-impersonate-${{ github.ref_name }}.${{ env.ARCH }}.tar.gz curl-impersonate curl_*
           else
-            tar -c -z -f ${{ runner.temp }}/curl-impersonate.${{ matrix.host }}.tar.gz curl-impersonate curl_*
+            tar -c -z -f ${{ runner.temp }}/curl-impersonate.${{ env.ARCH }}.tar.gz curl-impersonate curl_*
           fi
-          echo "release_file_bin=${{ runner.temp }}/curl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz" >> $GITHUB_ENV
+          echo "release_file_bin=${{ runner.temp }}/curl-impersonate-${{ github.ref_name }}.${{ env.ARCH }}.tar.gz" >> $GITHUB_ENV
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: curl-impersonate.${{ matrix.host }}.tar.gz
+          name: curl-impersonate.${{ env.ARCH }}.tar.gz
           path: ${{ runner.temp }}/curl-impersonate*.tar.gz
 
       - name: Upload release files
