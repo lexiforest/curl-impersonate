@@ -140,6 +140,9 @@ $(brotli_static_libs): brotli-$(BROTLI_VERSION).tar.gz
 		darwin*)                     \
 			system_name=Darwin       \
 			;;                       \
+		mingw*)                      \
+			system_name=Windows      \
+			;;                       \
 		*)                           \
 			system_name=$(host_os)   \
 			;;                       \
@@ -182,6 +185,9 @@ $(boringssl_static_libs): boringssl-$(BORING_SSL_COMMIT).zip boringssl-$(BORING_
 			;;                  \
 		darwin*)                \
 			system_name=Darwin  \
+			;;                  \
+		mingw*)                 \
+			system_name=Windows \
 			;;                  \
 		*)                      \
 			system_name=Linux   \
