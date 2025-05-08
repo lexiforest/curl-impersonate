@@ -113,6 +113,8 @@ Notes:
 The simplest way is to download the prebuilt binaries from the [release page](https://github.com/lexiforest/curl-impersonate/releases).
 If you want to build by yourself, please refer to the [INSTALL.md](INSTALL.md) and [docs/install.md](docs/02_install.md).
 
+For Windows, we provide both `MSVC` and `mingw-w64` build. HTTP/3 support is only enabled in the `mingw-w64` build. If you know how to build ngtcp2 with MSVC, please help.
+
 ## Basic usage
 
 For each supported browser there is a wrapper script that launches `curl-impersonate` with all the needed headers and flags. For example:

@@ -17,6 +17,8 @@ permissions:
 
 env:
   BORING_SSL_COMMIT: 673e61fc215b178a90c0e67858bbf162c8158993
+  ZLIB_VERSION: "1.3"
+  ZSTD_VERSION: "1.5.6"
 
 jobs:
   build-and-test-linux:
@@ -83,27 +85,27 @@ jobs:
           # More dependencies for the tests
           sudo apt-get install tcpdump nghttp2-server
 
-      - name: Build zlib
+      - name: Build zlib ${{ env.ZLIB_VERSION }}
         run: |
-          curl -LO https://zlib.net/fossils/zlib-1.3.tar.gz
-          tar xf zlib-1.3.tar.gz
-          cd zlib-1.3
+          curl -LO https://zlib.net/fossils/zlib-${{ env.ZLIB_VERSION }}.tar.gz
+          tar xf zlib-${{ env.ZLIB_VERSION }}.tar.gz
+          cd zlib-${{ env.ZLIB_VERSION }}
           CHOST=${{ matrix.host }} ./configure --prefix=${{ runner.temp }}/zlib
           make
           make install
           # Make sure curl will link with libz.so.1 and not libz.so
           rm -f ${{ runner.temp }}/zlib/lib/libz.so
 
-      - name: Build libzstd
+      - name: Build libzstd ${{ env.ZSTD_VERSION }}
         run: |
-          curl -LO https://github.com/facebook/zstd/releases/download/v1.5.6/zstd-1.5.6.tar.gz
-          tar xf zstd-1.5.6.tar.gz
-          cd zstd-1.5.6
+          curl -LO https://github.com/facebook/zstd/releases/download/v${{ env.ZSTD_VERSION }}/zstd-${{ env.ZSTD_VERSION }}.tar.gz
+          tar xf zstd-${{ env.ZSTD_VERSION }}.tar.gz
+          cd zstd-${{ env.ZSTD_VERSION }}
           make
           mkdir -p ${{ runner.temp }}/zstd/lib
           mkdir -p ${{ runner.temp }}/zstd/include
           # move libzstd to runner.temp
-          cp lib/libzstd.a lib/libzstd.so.1.5.6 lib/libzstd.mk lib/libzstd.pc lib/libzstd.pc.in ${{ runner.temp }}/zstd/lib/
+          cp lib/libzstd.a lib/libzstd.so.${{ env.ZSTD_VERSION }} lib/libzstd.mk lib/libzstd.pc lib/libzstd.pc.in ${{ runner.temp }}/zstd/lib/
           cp lib/zstd.h ${{ runner.temp }}/zstd/include/
 
       - name: Run configure script
@@ -142,7 +144,7 @@ jobs:
           touch boringssl/.patched
           find boringssl/build -type f | xargs touch
 
-      - name: Build the Chrome version of curl-impersonate
+      - name: Build curl-impersonate
         run: |
           make build
           make checkbuild
@@ -398,3 +400,185 @@ jobs:
           files: |
               ${{ env.release_file_lib }}
               ${{ env.release_file_bin }}
+
+  build-and-test-windows:
+    name: (Windows mingw-w64) Build curl-impersonate
+    runs-on: ubuntu-latest
+    env:
+      CC: x86_64-w64-mingw32-gcc
+      CXX: x86_64-w64-mingw32-g++
+    steps:
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install macOS dependencies
+        run: |
+          brew install pkg-config make cmake ninja autoconf automake libtool gpatch
+          # Chrome version dependencies, install only not installed.
+          which go || brew install go
+          # Needed to compile 'minicurl'
+          brew install curl
+          # More dependencies for the tests
+          brew install tcpdump nghttp2
+          # zstd
+          brew install zstd
+
+      - name: Install Windows dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install build-essential pkg-config cmake ninja-build curl autoconf automake libtool
+          sudo apt-get install mingw-w64
+          sudo apt-get install golang-go
+          # Needed to compile 'minicurl'
+          sudo apt-get install libcurl4-openssl-dev
+          # More dependencies for the tests
+          sudo apt-get install tcpdump nghttp2-server
+
+      - name: Check out the repo
+        uses: actions/checkout@v2
+
+      - name: Build zlib ${{ env.ZLIB_VERSION }}
+        run: |
+          curl -LO https://zlib.net/fossils/zlib-${{ env.ZLIB_VERSION }}.tar.gz
+          tar xf zlib-${{ env.ZLIB_VERSION }}.tar.gz
+          cd zlib-${{ env.ZLIB_VERSION }}
+          CHOST=${{ matrix.host }} ./configure --prefix=${{ runner.temp }}/zlib
+          make
+          make install
+          # Make sure curl will link with libz.so.1 and not libz.so
+          rm -f ${{ runner.temp }}/zlib/lib/libz.so
+
+      - name: Build libzstd ${{ env.ZSTD_VERSION }}
+        run: |
+          curl -LO https://github.com/facebook/zstd/releases/download/v${{ env.ZSTD_VERSION }}/zstd-${{ env.ZSTD_VERSION }}.tar.gz
+          tar xf zstd-${{ env.ZSTD_VERSION }}.tar.gz
+          cd zstd-${{ env.ZSTD_VERSION }}
+          make
+          mkdir -p ${{ runner.temp }}/zstd/lib
+          mkdir -p ${{ runner.temp }}/zstd/include
+          # move libzstd to runner.temp
+          cp lib/libzstd.a lib/libzstd.so.${{ env.ZSTD_VERSION }} lib/libzstd.mk lib/libzstd.pc lib/libzstd.pc.in ${{ runner.temp }}/zstd/lib/
+          cp lib/zstd.h ${{ runner.temp }}/zstd/include/
+
+      - name: Run configure script
+        run: |
+          mkdir ${{ runner.temp }}/install
+          ./configure --prefix=${{ runner.temp }}/install \
+                      --host=${{ matrix.host }} \
+                      --with-zlib=${{ runner.temp }}/zlib \
+                      --with-zstd=${{ runner.temp }}/zstd \
+                      --with-ca-path=/etc/ssl/certs \
+                      --with-ca-bundle=/etc/ssl/certs/ca-certificates.crt \
+
+      # Cache the build of BoringSSL, which is the longest part of the build
+      # We must cache the .zip as well, otherwise the Makefile will
+      # rebuild BoringSSL. This whole thing is a bit hacky, but necessary to
+      # reduce the insanely long build times.
+      - name: Cache BoringSSL source
+        uses: actions/cache@v4
+        with:
+          path: boringssl.zip
+          key: ${{ runner.os }}-mingw64-boring-source-${{ env.BORING_SSL_COMMIT }}
+
+      - name: Cache BoringSSL build
+        id: cache-boringssl
+        uses: actions/cache@v4
+        with:
+          path: boringssl/build
+          key: ${{ runner.os }}-mingw64-boring-build-${{ env.BORING_SSL_COMMIT }}-${{ hashFiles('patches/boringssl.patch') }}
+
+      # Trick the Makefile into skipping the BoringSSL build step
+      # if it was found in the cache. See Makefile.in
+      - name: Post BoringSSL cache restore
+        if: ${{ steps.cache-boringssl.outputs.cache-hit != false }}
+        run: |
+          touch boringssl.zip
+          touch boringssl/.patched
+          find boringssl/build -type f | xargs touch
+
+      - name: Build curl-impersonate
+        run: |
+          make build
+          make checkbuild
+          make install
+
+      # Upload pre-compiled binaries to GitHub releases page and Github actions archives.
+      - name: Create tar release files for libcurl-impersonate
+        run: |
+          cp ${{ runner.temp }}/zlib/lib/lib*.a ${{ runner.temp }}/install/lib
+          cp ${{ runner.temp }}/zstd/lib/lib*.a ${{ runner.temp }}/install/lib
+          cp nghttp2*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
+          cp nghttp3*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
+          cp ngtcp2*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
+          cp brotli*/out/installed/lib/lib*.a ${{ runner.temp }}/install/lib
+          cp boringssl*/lib/lib*.a ${{ runner.temp }}/install/lib
+
+          cd ${{ runner.temp }}/install/lib
+          ls -lah .
+          if [[ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]]; then
+            tar -c -z -f ${{ runner.temp }}/libcurl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz lib*
+          else
+            tar -c -z -f ${{ runner.temp }}/libcurl-impersonate.${{ matrix.host }}.tar.gz lib*
+          fi
+          echo "release_file_lib=${{ runner.temp }}/libcurl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz" >> $GITHUB_ENV
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: libcurl-impersonate.${{ matrix.host }}.tar.gz
+          path: ${{ runner.temp }}/libcurl-impersonate*.tar.gz
+
+      - name: Clean build
+        run: |
+          set -e
+          make clean
+          rm -Rf ${{ runner.temp }}/install
+          mkdir ${{ runner.temp }}/install
+
+       # Recompile curl-impersonate statically when doing a release.
+      - name: Reconfigure statically
+        run: |
+          set -e
+          ./configure --prefix=${{ runner.temp }}/install --enable-static \
+                      --host=${{ matrix.host }} \
+                      --with-zlib=${{ runner.temp }}/zlib \
+                      --with-zstd=${{ runner.temp }}/zstd \
+                      --with-ca-path=/etc/ssl/certs \
+                      --with-ca-bundle=/etc/ssl/certs/ca-certificates.crt \
+
+      - name: Rebuild statically
+        run: |
+          set -e
+          make build
+          make checkbuild
+          if [[ "${{ endsWith(matrix.host, 'musl') }}" == "true" ]]; then
+            make install
+          else
+            make install-strip
+          fi
+
+      - name: Create tar release files for curl-impersonate
+        run: |
+          cd ${{ runner.temp }}/install/bin
+          if [[ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]]; then
+            tar -c -z -f ${{ runner.temp }}/curl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz curl-impersonate curl_*
+          else
+            tar -c -z -f ${{ runner.temp }}/curl-impersonate.${{ matrix.host }}.tar.gz curl-impersonate curl_*
+          fi
+          echo "release_file_bin=${{ runner.temp }}/curl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz" >> $GITHUB_ENV
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: curl-impersonate.${{ matrix.host }}.tar.gz
+          path: ${{ runner.temp }}/curl-impersonate*.tar.gz
+
+      - name: Upload release files
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+              ${{ env.release_file_lib }}
+              ${{ env.release_file_bin }}
+
