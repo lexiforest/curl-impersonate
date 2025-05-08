@@ -416,7 +416,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install build-essential pkg-config cmake ninja-build curl autoconf automake libtool
-          sudo apt-get install mingw-w64 gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64 binutils-mingw-w64-x86-64 libgcc-mingw-w64-x86-64-dev libstdc++-mingw-w64-x86-64-dev
+          sudo apt-get install mingw-w64 gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64 binutils-mingw-w64-x86-64
           sudo apt-get install golang-go
           # Needed to compile 'minicurl'
           sudo apt-get install libcurl4-openssl-dev
