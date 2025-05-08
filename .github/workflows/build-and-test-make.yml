@@ -412,18 +412,6 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Install macOS dependencies
-        run: |
-          brew install pkg-config make cmake ninja autoconf automake libtool gpatch
-          # Chrome version dependencies, install only not installed.
-          which go || brew install go
-          # Needed to compile 'minicurl'
-          brew install curl
-          # More dependencies for the tests
-          brew install tcpdump nghttp2
-          # zstd
-          brew install zstd
-
       - name: Install Windows dependencies
         run: |
           sudo apt-get update
