@@ -407,6 +407,7 @@ jobs:
     env:
       CC: x86_64-w64-mingw32-gcc
       CXX: x86_64-w64-mingw32-g++
+      ARCH: x86_64-w64-mingw32
     steps:
       - uses: actions/setup-python@v4
         with:
@@ -418,10 +419,6 @@ jobs:
           sudo apt-get install build-essential pkg-config cmake ninja-build curl autoconf automake libtool
           sudo apt-get install mingw-w64 gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64 binutils-mingw-w64-x86-64
           sudo apt-get install golang-go
-          # Needed to compile 'minicurl'
-          sudo apt-get install libcurl4-openssl-dev
-          # More dependencies for the tests
-          sudo apt-get install tcpdump nghttp2-server
 
       - name: Check out the repo
         uses: actions/checkout@v2
@@ -431,7 +428,7 @@ jobs:
           curl -LO https://zlib.net/fossils/zlib-${{ env.ZLIB_VERSION }}.tar.gz
           tar xf zlib-${{ env.ZLIB_VERSION }}.tar.gz
           cd zlib-${{ env.ZLIB_VERSION }}
-          CHOST=${{ matrix.host }} ./configure --prefix=${{ runner.temp }}/zlib
+          CHOST=${{ env.ARCH }} ./configure --prefix=${{ runner.temp }}/zlib
           make
           make install
           # Make sure curl will link with libz.so.1 and not libz.so
