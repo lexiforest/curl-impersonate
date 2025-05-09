@@ -407,7 +407,7 @@ jobs:
     env:
       CC: x86_64-w64-mingw32-gcc
       CXX: x86_64-w64-mingw32-g++
-      ARCH: x86_64-w64-mingw32
+      ARCH: x86_64-w64-mingw32  # https://github.com/madler/zlib/issues/683
     steps:
       - uses: actions/setup-python@v4
         with:
