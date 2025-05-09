@@ -288,7 +288,7 @@ $(ngtcp2_static_libs): ngtcp2-$(NGTCP2_VERSION).tar.bz2 $(boringssl_static_libs)
 			;;                  \
 	esac
 
-	build_dir = "./build"
+	build_dir="./build"
 
 	@cmake@ -B $$build_dir -DCMAKE_BUILD_TYPE=Release \
 		-DLIBEV_INCLUDE_DIR= \
