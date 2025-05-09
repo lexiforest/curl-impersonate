@@ -1514,10 +1514,10 @@ index 93cc2d44f..52e80ce9c 100644
   * Store nghttp2 version info in this buffer.
 diff --git a/lib/impersonate.c b/lib/impersonate.c
 new file mode 100644
-index 000000000..f4454d060
+index 000000000..d05dcbf19
 --- /dev/null
 +++ b/lib/impersonate.c
-@@ -0,0 +1,1502 @@
+@@ -0,0 +1,1501 @@
 +#include "curl_setup.h"
 +
 +#include <curl/curl.h>
@@ -2383,7 +2383,6 @@ index 000000000..f4454d060
 +    .tls_grease = true
 +  },
 +  {
-+    .target = "firefox133",
 +    .target = "firefox133",
 +    .httpversion = CURL_HTTP_VERSION_2_0,
 +    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,

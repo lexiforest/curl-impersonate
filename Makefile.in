@@ -15,7 +15,9 @@ BROTLI_VERSION := 1.1.0
 BORING_SSL_COMMIT := 673e61fc215b178a90c0e67858bbf162c8158993
 NGHTTP2_VERSION := 1.63.0
 NGHTTP2_URL := https://github.com/nghttp2/nghttp2/releases/download/v$(NGHTTP2_VERSION)/nghttp2-$(NGHTTP2_VERSION).tar.bz2
-NGTCP2_VERSION := 1.11.0
+LIBEV_VERSION := 4.33
+LIBEV_URL := http://dist.schmorp.de/libev/libev-$(LIBEV_VERSION).tar.gz
+NGTCP2_VERSION := 1.12.0  # minimum version to support ENABLE_LIB_ONLY
 NGTCP2_URL := https://github.com/ngtcp2/ngtcp2/releases/download/v$(NGTCP2_VERSION)/ngtcp2-$(NGTCP2_VERSION).tar.bz2
 NGHTTP3_VERSION := 1.9.0
 NGHTTP3_URL := https://github.com/ngtcp2/nghttp3/releases/download/v$(NGHTTP3_VERSION)/nghttp3-$(NGHTTP3_VERSION).tar.bz2
@@ -31,6 +33,8 @@ nghttp2_install_dir := $(abspath nghttp2-$(NGHTTP2_VERSION)/installed)
 nghttp2_static_libs := $(nghttp2_install_dir)/lib/libnghttp2.a
 ngtcp2_install_dir := $(abspath ngtcp2-$(NGTCP2_VERSION)/installed)
 ngtcp2_static_libs := $(ngtcp2_install_dir)/lib/libngtcp2.a
+libev_install_dir := $(abspath libev-$(LIBEV_VERSION)/installed)
+libev_static_libs := $(libev_install_dir)/lib/libev.a
 nghttp3_install_dir := $(abspath nghttp3-$(NGHTTP3_VERSION)/installed)
 nghttp3_static_libs := $(nghttp3_install_dir)/lib/libnghttp3.a
 
@@ -243,7 +247,7 @@ $(nghttp2_static_libs): nghttp2-$(NGHTTP2_VERSION).tar.bz2
 ngtcp2-$(NGTCP2_VERSION).tar.bz2:
 	curl -L $(NGTCP2_URL) -o ngtcp2-$(NGTCP2_VERSION).tar.bz2
 
-$(ngtcp2_static_libs): ngtcp2-$(NGTCP2_VERSION).tar.bz2 $(boringssl_static_libs) $(nghttp3_static_libs)
+$(ngtcp2_static_libs): ngtcp2-$(NGTCP2_VERSION).tar.bz2 $(boringssl_static_libs) $(nghttp3_static_libs) $(libev_static_libs)
 	tar -xf ngtcp2-$(NGTCP2_VERSION).tar.bz2
 	cd ngtcp2-$(NGTCP2_VERSION)
 
@@ -290,27 +294,47 @@ $(ngtcp2_static_libs): ngtcp2-$(NGTCP2_VERSION).tar.bz2 $(boringssl_static_libs)
 
 	build_dir="./build"
 
-	@cmake@ -B $$build_dir -DCMAKE_BUILD_TYPE=Release \
-		-DLIBEV_INCLUDE_DIR= \
+	@cmake@ -B $$build_dir \
+		-DENABLE_LIB_ONLY=ON \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DENABLE_STATIC_LIB=ON \
+		-DENABLE_SHARED_LIB=OFF \
 		-DENABLE_OPENSSL=OFF \
 		-DENABLE_BORINGSSL=ON \
 		-DBORINGSSL_INCLUDE_DIR="$(boringssl_dir)/include" \
 		-DBORINGSSL_LIBRARIES="$(boringssl_install_dir)/ssl/libssl.a;$(boringssl_install_dir)/crypto/libcrypto.a;-lpthread$$extra_ld" \
-		-DLIBNGHTTP3_INCLUDE_DIR=../nghttp3/${_PP}/include \
-		-DLIBNGHTTP3_LIBRARY=$(nghttp3_install_dir)/lib \
-		-DENABLE_STATIC_LIB=ON \
-		-DENABLE_SHARED_LIB=OFF \
 		-DBUILD_TESTING=OFF \
 		-DCMAKE_POSITION_INDEPENDENT_CODE=on \
 		-DCMAKE_C_FLAGS="$(CFLAGS) -Wno-unknown-warning-option -Wno-stringop-overflow -Wno-array-bounds -Wno-macro-redefined" \
 		-DCMAKE_CXX_FLAGS="$(CXX_FLAGS) -DNDEBUG -D_CLANG_DISABLE_CRT_DEPRECATION_WARNINGS -DNOCRYPT -Wno-macro-redefined" \
 		-DCMAKE_CXX_COMPILER=$(CXX) \
+		-DCMAKE_INSTALL_PREFIX=$(ngtcp2_install_dir) \
 		-DCMAKE_C_COMPILER=$(CC) \
 		-DCMAKE_SYSTEM_NAME=$$system_name \
 		-DCMAKE_SYSTEM_PROCESSOR=$(host_cpu) \
 
 	@cmake@ --build $$build_dir
-	@cmake@ --install $$build_dir --prefix $(ngtcp2_install_dir)
+	@cmake@ --install $$build_dir
+
+libev-$(LIBEV_VERSION).tar.gz:
+	curl -L $(LIBEV_URL) -o libev-$(LIBEV_VERSION).tar.gz
+
+$(libev_static_libs): libev-$(LIBEV_VERSION).tar.gz
+	tar -xf libev-$(LIBEV_VERSION).tar.gz
+	cd libev-$(LIBEV_VERSION)
+
+	{ \
+		config_flags="--prefix=$(libev_install_dir)"; \
+		config_flags="$$config_flags --with-pic --enable-lib-only"; \
+		config_flags="$$config_flags --disable-shared"; \
+		if test -n "$(host_alias)"; then \
+			config_flags="$$config_flags --host=$(host_alias)"; \
+		fi; \
+	}
+
+	./configure $$config_flags
+	$(MAKE) MAKEFLAGS=-j$(SUBJOBS)
+	$(MAKE) install MAKEFLAGS=
 
 
 nghttp3-$(NGHTTP3_VERSION).tar.bz2:
@@ -404,7 +428,7 @@ $(CURL_VERSION)/.chrome: $(chrome_libs)	$(CURL_VERSION).tar.gz $(CURL_VERSION)/.
 			 ./configure \
 			 $$config_flags \
 			 LIBS="$$add_libs" \
-			 PKG_CONFIG_PATH="$(ngtcp2_install_dir)/crypto/boringssl/"
+			 PKG_CONFIG_PATH="$(ngtcp2_install_dir)/crypto/boringssl/;$(ngtcp2_install_dir)/lib/pkgconfig"
 
 	# Remove possible leftovers from a previous compilation
 	$(MAKE) clean MAKEFLAGS=
