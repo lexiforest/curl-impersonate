@@ -288,7 +288,9 @@ $(ngtcp2_static_libs): ngtcp2-$(NGTCP2_VERSION).tar.bz2 $(boringssl_static_libs)
 			;;                  \
 	esac
 
-	@cmake@ -B -DCMAKE_BUILD_TYPE=Release \
+	build_dir = "./build"
+
+	@cmake@ -B $$build_dir -DCMAKE_BUILD_TYPE=Release \
 		-DLIBEV_INCLUDE_DIR= \
 		-DENABLE_OPENSSL=OFF \
 		-DENABLE_BORINGSSL=ON \
@@ -301,14 +303,14 @@ $(ngtcp2_static_libs): ngtcp2-$(NGTCP2_VERSION).tar.bz2 $(boringssl_static_libs)
 		-DBUILD_TESTING=OFF \
 		-DCMAKE_POSITION_INDEPENDENT_CODE=on \
 		-DCMAKE_C_FLAGS="$(CFLAGS) -Wno-unknown-warning-option -Wno-stringop-overflow -Wno-array-bounds -Wno-macro-redefined" \
-		-DCMAKE_CXX_FLAGS="$(CXX_FLAGS) -DNOCRYPT -Wno-macro-redefined" \
+		-DCMAKE_CXX_FLAGS="$(CXX_FLAGS) -DNDEBUG -D_CLANG_DISABLE_CRT_DEPRECATION_WARNINGS -DNOCRYPT -Wno-macro-redefined" \
 		-DCMAKE_CXX_COMPILER=$(CXX) \
 		-DCMAKE_C_COMPILER=$(CC) \
 		-DCMAKE_SYSTEM_NAME=$$system_name \
 		-DCMAKE_SYSTEM_PROCESSOR=$(host_cpu) \
 
-	@cmake@ --build "./build"
-	@cmake@ --install "./build" --prefix $(ngtcp2_install_dir)
+	@cmake@ --build $$build_dir
+	@cmake@ --install $$build_dir --prefix $(ngtcp2_install_dir)
 
 
 nghttp3-$(NGHTTP3_VERSION).tar.bz2:
