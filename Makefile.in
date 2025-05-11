@@ -205,6 +205,7 @@ $(boringssl_static_libs): boringssl-$(BORING_SSL_COMMIT).zip boringssl-$(BORING_
 	# prevent clang from failing on them.
 	@cmake@ -DCMAKE_BUILD_TYPE=Release \
 			-DCMAKE_POSITION_INDEPENDENT_CODE=on \
+			-DBUILD_TESTING=OFF \
 			-DCMAKE_C_FLAGS="$(CFLAGS) -Wno-unknown-warning-option -Wno-stringop-overflow -Wno-array-bounds -Wno-macro-redefined -Wno-format -Wno-error=format" \
 			-DCMAKE_CXX_FLAGS="$(CXX_FLAGS) -Wno-macro-redefined -Wno-format -Wno-error=format" \
 			-DCMAKE_CXX_COMPILER=$(CXX) \

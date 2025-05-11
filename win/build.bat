@@ -17,6 +17,7 @@ set packages=%cd%\packages
 set configuration=Release
 
 set cmake_common_args=-GNinja -DCMAKE_BUILD_TYPE=%configuration%^
+  -DCMAKE_C_FLAGS="/D_USE_UCRT" -DCMAKE_CXX_FLAGS="/D_USE_UCRT" ^
   -DCMAKE_PREFIX_PATH="%packages%" -DCMAKE_INSTALL_PREFIX="%packages%"^
   -DCMAKE_POLICY_DEFAULT_CMP0091=NEW -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded^
   -DCMAKE_C_COMPILER=clang-cl.exe -DCMAKE_CXX_COMPILER=clang-cl.exe -DCMAKE_LINKER=link.exe
@@ -60,14 +61,14 @@ cmake --build "%build%\boringssl" --config %configuration% --target install
 popd
 
 :: Build & Install ngtcp2 (DOES NOT WORK)
-:: pushd "%deps%\ngtcp2"
-:: set "BORINGSSL_INCLUDE_DIR=%packages:\=/%/include"
-:: set "BORINGSSL_LIBRARIES=%packages:\=/%/lib/ssl.lib;%packages:\=/%/lib/crypto.lib"
-:: cmake %cmake_common_args% -DENABLE_SHARED_LIB=OFF -DENABLE_STATIC_LIB=ON -DENABLE_LIB_ONLY=ON^
-::   -DENABLE_BORINGSSL=ON -DENABLE_OPENSSL=OFF^
-::   -S . -B "%build%\ngtcp2"
-:: cmake --build "%build%\ngtcp2" --config %configuration% --target install
-:: popd
+REM :: pushd "%deps%\ngtcp2"
+REM :: set "BORINGSSL_INCLUDE_DIR=%packages:\=/%/include"
+REM :: set "BORINGSSL_LIBRARIES=%packages:\=/%/lib/ssl.lib;%packages:\=/%/lib/crypto.lib"
+REM :: cmake %cmake_common_args% -DENABLE_SHARED_LIB=OFF -DENABLE_STATIC_LIB=ON -DENABLE_LIB_ONLY=ON^
+REM ::   -DENABLE_BORINGSSL=ON -DENABLE_OPENSSL=OFF^
+REM ::   -S . -B "%build%\ngtcp2"
+REM :: cmake --build "%build%\ngtcp2" --config %configuration% --target install
+REM :: popd
 
 
 :: Build & Install curl
@@ -87,7 +88,7 @@ cmake %cmake_common_args% -DBUILD_SHARED_LIBS=ON^
   -DENABLE_UNICODE=ON^
   -DCURL_ENABLE_SSL=ON^
   -DCURL_USE_LIBSSH2=OFF^
-  "-DCMAKE_C_FLAGS=/DNGHTTP2_STATICLIB=1 /Dstrtok_r=strtok_s"^
+  "-DCMAKE_C_FLAGS=/D_USE_UCRT /DNGHTTP2_STATICLIB=1 /Dstrtok_r=strtok_s"^
   -S . -B "%build%\curl"
 cmake --build "%build%\curl" --config %configuration% --target install
 popd
