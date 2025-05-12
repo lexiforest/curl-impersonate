@@ -405,13 +405,22 @@ jobs:
     name: (Windows mingw-w64) Build curl-impersonate
     runs-on: ubuntu-latest
     env:
-      CC: x86_64-w64-mingw32-gcc
-      CXX: x86_64-w64-mingw32-g++
       ARCH: x86_64-w64-mingw32  # https://github.com/madler/zlib/issues/683
+      CXXFLAGS: -D_UCRT
+      LD_FLAGS: -Wl,-lucrt
+      LLVM_MINGW_VER: 20250430-ucrt-ubuntu-22.04-x86_64
     steps:
       - uses: actions/setup-python@v4
         with:
           python-version: '3.10'
+
+      - name: Setup llvm-mingw toolchain
+        run: |
+          curl -LO https://github.com/mstorsjo/llvm-mingw/releases/download/20250430/llvm-mingw-20250430-ucrt-ubuntu-22.04-x86_64.tar.xz
+          tar xf llvm-mingw-${{ env.LLVM_MINGW_VER }}.tar.xz -C ${{ runner.temp }}
+          echo "CC=${{ runner.temp }}/llvm-mingw-${{ env.LLVM_MINGW_VER }}/bin/x86_64-w64-mingw32-clang" >> $GITHUB_ENV
+          echo "CXX=${{ runner.temp }}/llvm-mingw-${{ env.LLVM_MINGW_VER }}/bin/x86_64-w64-mingw32-clang++" >> $GITHUB_ENV
+          echo "AR=${{ runner.temp }}/llvm-mingw-${{ env.LLVM_MINGW_VER }}/bin/x86_64-w64-mingw32-ar" >> $GITHUB_ENV
 
       - name: Install Windows dependencies
         run: |

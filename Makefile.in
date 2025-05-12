@@ -204,7 +204,9 @@ $(boringssl_static_libs): boringssl-$(BORING_SSL_COMMIT).zip boringssl-$(BORING_
 	# In addition, guard these options with -Wno-unknown-warning-option to
 	# prevent clang from failing on them.
 	@cmake@ -DCMAKE_BUILD_TYPE=Release \
+			-DBUILD_TESTING=OFF \
 			-DCMAKE_POSITION_INDEPENDENT_CODE=on \
+			-DCMAKE_ASM_NASM_FLAGS=--reproducible \
 			-DBUILD_TESTING=OFF \
 			-DCMAKE_C_FLAGS="$(CFLAGS) -Wno-unknown-warning-option -Wno-stringop-overflow -Wno-array-bounds -Wno-macro-redefined -Wno-format -Wno-error=format" \
 			-DCMAKE_CXX_FLAGS="$(CXX_FLAGS) -Wno-macro-redefined -Wno-format -Wno-error=format" \
@@ -426,7 +428,7 @@ $(CURL_VERSION)/.chrome: $(chrome_libs)	$(CURL_VERSION).tar.gz $(CURL_VERSION)/.
 
 	echo "Configuring curl with: $$config_flags"
 
-	CXXFLAGS="-stdlib=libc++" LDFLAGS="-lc++ -Wl,-rpath,$(ngtcp2_install_dir)/lib" \
+	CXXFLAGS="$$CXXFLAGS -stdlib=libc++" LDFLAGS="$$LDFLAGS -lc++ -Wl,-rpath,$(ngtcp2_install_dir)/lib" \
 			 ./configure \
 			 $$config_flags \
 			 LIBS="$$add_libs" \
