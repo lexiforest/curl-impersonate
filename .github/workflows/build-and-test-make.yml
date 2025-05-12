@@ -410,9 +410,9 @@ jobs:
     name: (Windows mingw-w64) Build curl-impersonate
     runs-on: ubuntu-latest
     env:
-      CC: ${{ github.workspace }}/llvm-mingw-20250430-ucrt-ubuntu-22.04-x86_64/bin/clang
-      CXX: ${{ github.workspace }}/llvm-mingw-20250430-ucrt-ubuntu-22.04-x86_64/bin/clang++
-      AR: ${{ github.workspace }}/llvm-mingw-20250430-ucrt-ubuntu-22.04-x86_64/bin/ar
+      CC: ${{ github.workspace }}/llvm-mingw-20250430-ucrt-ubuntu-22.04-x86_64/bin/x86_64-w64-mingw32-clang
+      CXX: ${{ github.workspace }}/llvm-mingw-20250430-ucrt-ubuntu-22.04-x86_64/bin/x86_64-w64-mingw32-clang++
+      AR: ${{ github.workspace }}/llvm-mingw-20250430-ucrt-ubuntu-22.04-x86_64/bin/x86_64-w64-mingw32-ar
       ARCH: x86_64-w64-mingw32  # https://github.com/madler/zlib/issues/683
       CXXFLAGS: -D_UCRT
       LD_FLAGS: -Wl,-lucrt
