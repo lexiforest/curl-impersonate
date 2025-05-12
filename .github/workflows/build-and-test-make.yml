@@ -29,6 +29,8 @@ jobs:
       CXX: ${{ github.workspace }}/zigshim/cxx
       AR: ${{ github.workspace }}/zigshim/ar
       ZIG_FLAGS: ${{ matrix.zigflags }}
+      CXXFLAGS: ""
+      LDFLAGS: ""
     strategy:
       fail-fast: false
       matrix:
@@ -258,6 +260,9 @@ jobs:
   build-and-test-macos:
     name: (macOS ${{ matrix.arch }}) Build curl-impersonate and run the tests
     runs-on: ${{ matrix.os }}
+    env:
+      CXXFLAGS: ""
+      LDFLAGS: ""
     strategy:
       matrix:
         os: [macos-13, macos-14]
@@ -405,10 +410,14 @@ jobs:
     name: (Windows mingw-w64) Build curl-impersonate
     runs-on: ubuntu-latest
     env:
+      CC: ${{ github.workspace }}/llvm-mingw-20250430-ucrt-ubuntu-22.04-x86_64/bin/clang
+      CXX: ${{ github.workspace }}/llvm-mingw-20250430-ucrt-ubuntu-22.04-x86_64/bin/clang++
+      AR: ${{ github.workspace }}/llvm-mingw-20250430-ucrt-ubuntu-22.04-x86_64/bin/ar
       ARCH: x86_64-w64-mingw32  # https://github.com/madler/zlib/issues/683
       CXXFLAGS: -D_UCRT
       LD_FLAGS: -Wl,-lucrt
       LLVM_MINGW_VER: 20250430-ucrt-ubuntu-22.04-x86_64
+
     steps:
       - uses: actions/setup-python@v4
         with:
@@ -416,18 +425,14 @@ jobs:
 
       - name: Setup llvm-mingw toolchain
         run: |
-          curl -LO https://github.com/mstorsjo/llvm-mingw/releases/download/20250430/llvm-mingw-20250430-ucrt-ubuntu-22.04-x86_64.tar.xz
-          tar xf llvm-mingw-${{ env.LLVM_MINGW_VER }}.tar.xz -C ${{ runner.temp }}
-          echo "CC=${{ runner.temp }}/llvm-mingw-${{ env.LLVM_MINGW_VER }}/bin/x86_64-w64-mingw32-clang" >> $GITHUB_ENV
-          echo "CXX=${{ runner.temp }}/llvm-mingw-${{ env.LLVM_MINGW_VER }}/bin/x86_64-w64-mingw32-clang++" >> $GITHUB_ENV
-          echo "AR=${{ runner.temp }}/llvm-mingw-${{ env.LLVM_MINGW_VER }}/bin/x86_64-w64-mingw32-ar" >> $GITHUB_ENV
+          curl -LO https://github.com/mstorsjo/llvm-mingw/releases/download/20250430/llvm-mingw-${{ env.LLVM_MINGW_VER }}.tar.xz
+          tar xf llvm-mingw-${{ env.LLVM_MINGW_VER }}.tar.xz
 
       - name: Install Windows dependencies
         run: |
           sudo apt-get update
           sudo apt-get install build-essential pkg-config cmake ninja-build curl autoconf automake libtool
           sudo apt-get install mingw-w64 gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64 binutils-mingw-w64-x86-64 nasm wine64 wine
-          sudo apt-get install gcc-mingw-w64-ucrt64
           sudo apt-get install golang-go
 
       - name: Check out the repo
