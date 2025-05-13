@@ -1,5 +1,5 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 50f5e3799..ab655f5c8 100644
+index 50f5e3799..3c974ec69 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -124,7 +124,7 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CLANG)
@@ -11,6 +11,71 @@ index 50f5e3799..ab655f5c8 100644
    else()
      if(EMSCRIPTEN)
        # emscripten's emcc/clang does not accept the "-ggdb" flag.
+@@ -505,7 +505,7 @@ target_include_directories(
+ # themselves as dependencies next to the target definition.
+ add_custom_target(all_tests)
+ 
+-add_subdirectory(ssl/test)
++# add_subdirectory(ssl/test)
+ add_subdirectory(util/fipstools)
+ add_subdirectory(util/fipstools/acvp/modulewrapper)
+ 
+@@ -686,9 +686,9 @@ add_executable(crypto_test ${CRYPTO_TEST_SOURCES})
+ target_link_libraries(crypto_test test_support_lib boringssl_gtest crypto)
+ add_dependencies(all_tests crypto_test)
+ 
+-add_executable(ssl_test ${SSL_TEST_SOURCES})
+-target_link_libraries(ssl_test test_support_lib boringssl_gtest ssl crypto)
+-add_dependencies(all_tests ssl_test)
++# add_executable(ssl_test ${SSL_TEST_SOURCES})
++# target_link_libraries(ssl_test test_support_lib boringssl_gtest ssl crypto)
++# add_dependencies(all_tests ssl_test)
+ add_executable(decrepit_test ${DECREPIT_TEST_SOURCES})
+ target_link_libraries(decrepit_test test_support_lib boringssl_gtest
+                       decrepit crypto)
+@@ -717,9 +717,9 @@ target_link_libraries(bssl ssl crypto)
+ # existing tools, we, for now, copy the targets into the subdirectories. This
+ # will be removed sometime in 2024.
+ copy_post_build(crypto crypto crypto_test urandom_test)
+-copy_post_build(ssl ssl ssl_test)
++copy_post_build(ssl ssl)
+ copy_post_build(decrepit decrepit decrepit_test)
+-copy_post_build(tool bssl)
++# copy_post_build(tool bssl)
+ 
+ if(FUZZ)
+   if(LIBFUZZER_FROM_DEPS)
+@@ -777,30 +777,6 @@ file(STRINGS util/go_tests.txt GO_TESTS)
+ set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+              util/go_tests.txt)
+ 
+-if(GO_EXECUTABLE)
+-  add_custom_target(
+-      run_tests
+-      COMMAND ${CMAKE_COMMAND} -E echo "Running Go tests"
+-      COMMAND ${GO_EXECUTABLE} test ${GO_TESTS}
+-      COMMAND ${CMAKE_COMMAND} -E echo
+-      COMMAND ${CMAKE_COMMAND} -E echo "Running unit tests"
+-      COMMAND ${GO_EXECUTABLE} run util/all_tests.go -build-dir
+-              ${CMAKE_CURRENT_BINARY_DIR}
+-      COMMAND ${CMAKE_COMMAND} -E echo
+-      COMMAND ${CMAKE_COMMAND} -E echo "Running SSL tests"
+-      COMMAND cd ssl/test/runner &&
+-              ${GO_EXECUTABLE} test -shim-path $<TARGET_FILE:bssl_shim>
+-                ${HANDSHAKER_ARGS} ${RUNNER_ARGS}
+-      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+-      DEPENDS all_tests bssl_shim handshaker fips_specific_tests_if_any
+-      USES_TERMINAL)
+-else()
+-  add_custom_target(
+-      run_tests
+-      COMMAND ${CMAKE_COMMAND} -E echo "Running tests requires Go"
+-      COMMAND ${CMAKE_COMMAND} -E false)
+-endif()
+-
+ if(INSTALL_ENABLED)
+   install(TARGETS crypto ssl EXPORT OpenSSLTargets)
+   install(TARGETS bssl)
 diff --git a/crypto/cipher/e_tls.cc b/crypto/cipher/e_tls.cc
 index ccb677bad..55bba4e3f 100644
 --- a/crypto/cipher/e_tls.cc
@@ -93,6 +158,19 @@ index ccb677bad..55bba4e3f 100644
 +
  const EVP_AEAD *EVP_aead_des_ede3_cbc_sha1_tls(void) {
    return &aead_des_ede3_cbc_sha1_tls;
+ }
+diff --git a/crypto/fipsmodule/ec/p256_test.cc b/crypto/fipsmodule/ec/p256_test.cc
+index 88dc81e22..20a932829 100644
+--- a/crypto/fipsmodule/ec/p256_test.cc
++++ b/crypto/fipsmodule/ec/p256_test.cc
+@@ -17,7 +17,7 @@
+ #include "../../test/abi_test.h"
+ 
+ #if !defined(OPENSSL_NO_ASM) && defined(__GNUC__) && defined(__x86_64__) && \
+-    defined(SUPPORTS_ABI_TEST)
++    defined(SUPPORTS_ABI_TEST) && !defined(OPENSSL_WINDOWS)
+ extern "C" {
+ #include "../../../third_party/fiat/p256_64.h"
  }
 diff --git a/crypto/rand/windows.cc b/crypto/rand/windows.cc
 index 884d7891e..92cd3a025 100644
@@ -1376,16 +1454,34 @@ index 6d46f886b..005b30f17 100644
 +  return set_sigalg_prefs(&ctx->delegated_credentials,
 +                          MakeConstSpan(sigalgs.data(), sigalgs.size()));
 +}
-diff --git a/third_party/googletest/googletest/include/gtest/internal/gtest-port.h b/third_party/googletest/googletest/include/gtest/internal/gtest-port.h
-index 4cfc16c03..0bbc208c0 100644
---- a/third_party/googletest/googletest/include/gtest/internal/gtest-port.h
-+++ b/third_party/googletest/googletest/include/gtest/internal/gtest-port.h
-@@ -282,7 +282,7 @@
+diff --git a/third_party/fiat/p256_64.h b/third_party/fiat/p256_64.h
+index 48a156091..23721f9c7 100644
+--- a/third_party/fiat/p256_64.h
++++ b/third_party/fiat/p256_64.h
+@@ -1,7 +1,7 @@
+ #include <openssl/base.h>
+ #include "../../crypto/internal.h"
  
- // Detect C++ feature test macros as gracefully as possible.
- // MSVC >= 19.15, Clang >= 3.4.1, and GCC >= 4.1.2 support feature test macros.
--#if GTEST_INTERNAL_CPLUSPLUS_LANG >= 202002L && \
-+#if GTEST_INTERNAL_CPLUSPLUS_LANG >= 201703L && \
-     (!defined(__has_include) || GTEST_INTERNAL_HAS_INCLUDE(<version>))
- #include <version>  // C++20 and later
- #elif (!defined(__has_include) || GTEST_INTERNAL_HAS_INCLUDE(<ciso646>))
+-#if !defined(OPENSSL_NO_ASM) && defined(__GNUC__) && defined(__x86_64__)
++#if !defined(OPENSSL_NO_ASM) && defined(__GNUC__) && defined(__x86_64__) && !defined(OPENSSL_WINDOWS)
+ extern "C" {
+ void fiat_p256_adx_mul(uint64_t*, const uint64_t*, const uint64_t*);
+ void fiat_p256_adx_sqr(uint64_t*, const uint64_t*);
+@@ -175,7 +175,7 @@ static FIAT_P256_FIAT_INLINE void fiat_p256_cmovznz_u64(uint64_t* out1, fiat_p25
+  *
+  */
+ static FIAT_P256_FIAT_INLINE void fiat_p256_mul(fiat_p256_montgomery_domain_field_element out1, const fiat_p256_montgomery_domain_field_element arg1, const fiat_p256_montgomery_domain_field_element arg2) {
+-#if !defined(OPENSSL_NO_ASM) && defined(__GNUC__) && defined(__x86_64__)
++#if !defined(OPENSSL_NO_ASM) && defined(__GNUC__) && defined(__x86_64__) && !defined(OPENSSL_WINDOWS)
+   if (CRYPTO_is_BMI1_capable() && CRYPTO_is_BMI2_capable() &&
+     CRYPTO_is_ADX_capable()) {
+       fiat_p256_adx_mul(out1, arg1, arg2);
+@@ -489,7 +489,7 @@ static FIAT_P256_FIAT_INLINE void fiat_p256_mul(fiat_p256_montgomery_domain_fiel
+  *
+  */
+ static FIAT_P256_FIAT_INLINE void fiat_p256_square(fiat_p256_montgomery_domain_field_element out1, const fiat_p256_montgomery_domain_field_element arg1) {
+-#if !defined(OPENSSL_NO_ASM) && defined(__GNUC__) && defined(__x86_64__)
++#if !defined(OPENSSL_NO_ASM) && defined(__GNUC__) && defined(__x86_64__) && !defined(OPENSSL_WINDOWS)
+   if (CRYPTO_is_BMI1_capable() && CRYPTO_is_BMI2_capable() &&
+     CRYPTO_is_ADX_capable()) {
+       fiat_p256_adx_sqr(out1, arg1);

@@ -5,8 +5,7 @@ name: Publish Docker image
 on:
   push:
     tags:
-      - disabled
-      # - 'v*'
+      - 'v*'
 
 jobs:
   push-docker-image:
@@ -26,7 +25,7 @@ jobs:
         id: meta_chrome_alpine
         uses: docker/metadata-action@v3
         with:
-          images: yifeikong/curl-impersonate
+          images: lexiforest/curl-impersonate
           tags: |
             type=semver,pattern={{version}},suffix=-chrome-alpine
             type=semver,pattern={{version}},suffix=-chrome
@@ -46,7 +45,7 @@ jobs:
         id: meta_chrome_debian
         uses: docker/metadata-action@v3
         with:
-          images: yifeikong/curl-impersonate
+          images: lexiforest/curl-impersonate
           tags: |
             type=semver,pattern={{version}},suffix=-chrome-slim-bullseye
             type=semver,pattern={{major}}.{{minor}},suffix=-chrome-slim-bullseye
