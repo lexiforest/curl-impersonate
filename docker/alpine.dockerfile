@@ -3,9 +3,15 @@ FROM alpine:3.21 as builder
 WORKDIR /build
 
 RUN apk update && \
-    apk add git bash build-base make cmake ninja curl zlib-dev patch linux-headers python3 python3-dev \
+    apk add git ninja bash make cmake build-base patch linux-headers python3 python3-dev \
     autoconf automake pkgconfig libtool \
+    curl \
+    zlib-dev zstd-dev  \
     go unzip
+
+COPY . /build
+
+ENV CC=clang CXX=clang++
 
 
 # Copy libcurl-impersonate and symbolic links
@@ -28,4 +34,5 @@ RUN chmod +x out/curl_*
 FROM alpine:3.21
 
 COPY --from=builder /build/install /usr/local
+
 RUN sed -i 's@/usr/bin/env bash@/usr/bin/env ash@' out/curl_*

@@ -7,7 +7,7 @@ on:
       - feature/*
       - bugfix/*
     tags:
-      - "v*.*.*"
+      - "v*"
   pull_request:
     branches:
       - main
