@@ -13,26 +13,38 @@ COPY . /build
 
 ENV CC=clang CXX=clang++
 
+# dynamic build
+RUN mkdir /build/install && \
+    ./configure --prefix=/build/install \
+        --with-zlib --with-zstd \
+        --with-ca-path=/etc/ssl/certs \
+        --with-ca-bundle=/etc/ssl/certs/ca-certificates.crt && \
+    make build && \
+    make checkbuild && \
+    make install
 
-# Copy libcurl-impersonate and symbolic links
-RUN cp -d /build/install/lib/libcurl-impersonate* /build/out
+# static build
+RUN ./configure --prefix=/build/install \
+        --enable-static \
+        --with-zlib --with-zstd \
+        --with-ca-path=/etc/ssl/certs \
+        --with-ca-bundle=/etc/ssl/certs/ca-certificates.crt && \
+    make build && \
+    make checkbuild && \
+    make install
 
-RUN ver=$(readlink -f ${CURL_VERSION}/lib/.libs/libcurl-impersonate.so | sed 's/.*so\.//') && \
-    major=$(echo -n $ver | cut -d'.' -f1) && \
-    ln -s "libcurl-impersonate.so.$ver" "out/libcurl-impersonate.so.$ver" && \
-    ln -s "libcurl-impersonate.so.$ver" "out/libcurl-impersonate.so" && \
-    strip "out/libcurl-impersonate.so.$ver"
-
-# Verify that the resulting 'libcurl' is really statically compiled against its
-# dependencies.
-RUN ! (ldd ./out/curl-impersonate | grep -q -e nghttp2 -e brotli -e ssl -e crypto)
-
-# Wrapper scripts
-# Replace /usr/bin/env bash with /usr/bin/env ash
-RUN chmod +x out/curl_*
 
 FROM alpine:3.21
 
+RUN apt-get update && \
+    apt-get install -y ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY --from=builder /build/install /usr/local
 
+RUN ldconfig
+
+# Replace /usr/bin/env bash with /usr/bin/env ash
 RUN sed -i 's@/usr/bin/env bash@/usr/bin/env ash@' out/curl_*
+
+CMD ["curl", "--version"]
