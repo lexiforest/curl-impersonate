@@ -3,11 +3,12 @@ FROM alpine:3.21 as builder
 WORKDIR /build
 
 RUN apk update && \
-    apk add git ninja bash make cmake build-base patch linux-headers python3 python3-dev \
-    autoconf automake pkgconfig libtool \
-    curl \
+    apk add git ninja cmake build-base linux-headers autoconf automake pkgconfig libtool \
+    clang llvm lld libc++-dev \
+    ca-certificates curl bash \
+    python3 python3-dev \
     zlib-dev zstd-dev  \
-    go unzip
+    go bzip2 xz unzip
 
 COPY . /build
 
@@ -36,15 +37,16 @@ RUN ./configure --prefix=/build/install \
 
 FROM alpine:3.21
 
-RUN apt-get update && \
-    apt-get install -y ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+RUN apk update && \
+    apk add ca-certificates \
+    && m -rf /var/cache/apk/*
 
 COPY --from=builder /build/install /usr/local
 
+# Update the loader's cache
 RUN ldconfig
 
 # Replace /usr/bin/env bash with /usr/bin/env ash
-RUN sed -i 's@/usr/bin/env bash@/usr/bin/env ash@' out/curl_*
+RUN sed -i 's@/usr/bin/env bash@/usr/bin/env ash@' /usr/local/bin/curl_*
 
 CMD ["curl", "--version"]
