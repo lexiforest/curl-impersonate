@@ -1,4 +1,4 @@
-FROM python:3.12-slim-bookworm as builder
+FROM python:3.12-slim-bookworm AS builder
 
 WORKDIR /build
 

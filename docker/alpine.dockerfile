@@ -1,10 +1,10 @@
-FROM alpine:3.21 as builder
+FROM alpine:3.21 AS builder
 
 WORKDIR /build
 
 RUN apk update && \
-    apk add git ninja cmake build-base linux-headers autoconf automake pkgconfig libtool \
-    clang llvm lld libc++-dev \
+    apk add git ninja cmake make linux-headers autoconf automake pkgconfig libtool \
+    clang llvm lld libc-dev libc++-dev \
     ca-certificates curl bash \
     python3 python3-dev \
     zlib-dev zstd-dev  \

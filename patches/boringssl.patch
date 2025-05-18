@@ -1,5 +1,5 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 50f5e3799..3c974ec69 100644
+index 50f5e3799..00866966e 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -124,7 +124,7 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CLANG)
@@ -11,29 +11,25 @@ index 50f5e3799..3c974ec69 100644
    else()
      if(EMSCRIPTEN)
        # emscripten's emcc/clang does not accept the "-ggdb" flag.
-@@ -505,7 +505,7 @@ target_include_directories(
+@@ -505,7 +505,6 @@ target_include_directories(
  # themselves as dependencies next to the target definition.
  add_custom_target(all_tests)
  
 -add_subdirectory(ssl/test)
-+# add_subdirectory(ssl/test)
  add_subdirectory(util/fipstools)
  add_subdirectory(util/fipstools/acvp/modulewrapper)
  
-@@ -686,9 +686,9 @@ add_executable(crypto_test ${CRYPTO_TEST_SOURCES})
+@@ -686,9 +685,6 @@ add_executable(crypto_test ${CRYPTO_TEST_SOURCES})
  target_link_libraries(crypto_test test_support_lib boringssl_gtest crypto)
  add_dependencies(all_tests crypto_test)
  
 -add_executable(ssl_test ${SSL_TEST_SOURCES})
 -target_link_libraries(ssl_test test_support_lib boringssl_gtest ssl crypto)
 -add_dependencies(all_tests ssl_test)
-+# add_executable(ssl_test ${SSL_TEST_SOURCES})
-+# target_link_libraries(ssl_test test_support_lib boringssl_gtest ssl crypto)
-+# add_dependencies(all_tests ssl_test)
  add_executable(decrepit_test ${DECREPIT_TEST_SOURCES})
  target_link_libraries(decrepit_test test_support_lib boringssl_gtest
                        decrepit crypto)
-@@ -717,9 +717,9 @@ target_link_libraries(bssl ssl crypto)
+@@ -717,9 +713,8 @@ target_link_libraries(bssl ssl crypto)
  # existing tools, we, for now, copy the targets into the subdirectories. This
  # will be removed sometime in 2024.
  copy_post_build(crypto crypto crypto_test urandom_test)
@@ -41,11 +37,10 @@ index 50f5e3799..3c974ec69 100644
 +copy_post_build(ssl ssl)
  copy_post_build(decrepit decrepit decrepit_test)
 -copy_post_build(tool bssl)
-+# copy_post_build(tool bssl)
  
  if(FUZZ)
    if(LIBFUZZER_FROM_DEPS)
-@@ -777,30 +777,6 @@ file(STRINGS util/go_tests.txt GO_TESTS)
+@@ -777,30 +772,6 @@ file(STRINGS util/go_tests.txt GO_TESTS)
  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
               util/go_tests.txt)
  

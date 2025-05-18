@@ -13,6 +13,8 @@ BROTLI_VERSION := 1.1.0
 # Chrome 135.0.7049.41
 # In case this is changed, update build-and-test-make.yml and build-win as well
 BORING_SSL_COMMIT := 673e61fc215b178a90c0e67858bbf162c8158993
+# We need to pin to 1.64 or lower, since the priority flag was removed.
+# See: https://nghttp2.org/blog/2025/03/02/nghttp2-v1-65-0/
 NGHTTP2_VERSION := 1.63.0
 NGHTTP2_URL := https://github.com/nghttp2/nghttp2/releases/download/v$(NGHTTP2_VERSION)/nghttp2-$(NGHTTP2_VERSION).tar.bz2
 NGTCP2_VERSION := 1.11.0
