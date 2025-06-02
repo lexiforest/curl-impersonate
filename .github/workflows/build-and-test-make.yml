@@ -17,8 +17,6 @@ permissions:
 
 env:
   BORING_SSL_COMMIT: 673e61fc215b178a90c0e67858bbf162c8158993
-  ZLIB_VERSION: "1.3"
-  ZSTD_VERSION: "1.5.6"
 
 jobs:
   build-and-test-linux:
@@ -87,36 +85,12 @@ jobs:
           # More dependencies for the tests
           sudo apt-get install tcpdump nghttp2-server
 
-      - name: Build zlib ${{ env.ZLIB_VERSION }}
-        run: |
-          curl -LO https://zlib.net/fossils/zlib-${{ env.ZLIB_VERSION }}.tar.gz
-          tar xf zlib-${{ env.ZLIB_VERSION }}.tar.gz
-          cd zlib-${{ env.ZLIB_VERSION }}
-          CHOST=${{ matrix.host }} ./configure --prefix=${{ runner.temp }}/zlib
-          make
-          make install
-          # Make sure curl will link with libz.so.1 and not libz.so
-          rm -f ${{ runner.temp }}/zlib/lib/libz.so
-
-      - name: Build libzstd ${{ env.ZSTD_VERSION }}
-        run: |
-          curl -LO https://github.com/facebook/zstd/releases/download/v${{ env.ZSTD_VERSION }}/zstd-${{ env.ZSTD_VERSION }}.tar.gz
-          tar xf zstd-${{ env.ZSTD_VERSION }}.tar.gz
-          cd zstd-${{ env.ZSTD_VERSION }}
-          make
-          mkdir -p ${{ runner.temp }}/zstd/lib
-          mkdir -p ${{ runner.temp }}/zstd/include
-          # move libzstd to runner.temp
-          cp lib/libzstd.a lib/libzstd.so.${{ env.ZSTD_VERSION }} lib/libzstd.mk lib/libzstd.pc lib/libzstd.pc.in ${{ runner.temp }}/zstd/lib/
-          cp lib/zstd.h ${{ runner.temp }}/zstd/include/
-
       - name: Run configure script
         run: |
           mkdir ${{ runner.temp }}/install
+          autoreconf -i
           ./configure --prefix=${{ runner.temp }}/install \
                       --host=${{ matrix.host }} \
-                      --with-zlib=${{ runner.temp }}/zlib \
-                      --with-zstd=${{ runner.temp }}/zstd \
                       --with-ca-path=/etc/ssl/certs \
                       --with-ca-bundle=/etc/ssl/certs/ca-certificates.crt \
 
@@ -181,8 +155,8 @@ jobs:
        # Upload pre-compiled binaries to GitHub releases page and Github actions archives.
       - name: Create tar release files for libcurl-impersonate
         run: |
-          cp ${{ runner.temp }}/zlib/lib/lib*.a ${{ runner.temp }}/install/lib
-          cp ${{ runner.temp }}/zstd/lib/lib*.a ${{ runner.temp }}/install/lib
+          cp zlib*/lib/lib*.a ${{ runner.temp }}/install/lib
+          cp zstd*/lib/lib*.a ${{ runner.temp }}/install/lib
           cp nghttp2*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
           cp nghttp3*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
           cp ngtcp2*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
@@ -217,8 +191,6 @@ jobs:
           set -e
           ./configure --prefix=${{ runner.temp }}/install --enable-static \
                       --host=${{ matrix.host }} \
-                      --with-zlib=${{ runner.temp }}/zlib \
-                      --with-zstd=${{ runner.temp }}/zstd \
                       --with-ca-path=/etc/ssl/certs \
                       --with-ca-bundle=/etc/ssl/certs/ca-certificates.crt \
 
@@ -291,8 +263,6 @@ jobs:
           brew install curl
           # More dependencies for the tests
           brew install tcpdump nghttp2
-          # zstd
-          brew install zstd
 
       - name: Check out the repo
         uses: actions/checkout@v2
@@ -301,21 +271,11 @@ jobs:
         run: |
           pip3 install -r tests/requirements.txt
 
-      - name: Build zlib
-        run: |
-          curl -LO https://zlib.net/fossils/zlib-1.3.tar.gz
-          tar xf zlib-1.3.tar.gz
-          cd zlib-1.3
-          CHOST=${{ matrix.host }} ./configure --prefix=${{ runner.temp }}/zlib
-          make
-          make install
-          # Make sure curl will link with libz.so.1 and not libz.so
-          rm -f ${{ runner.temp }}/zlib/lib/libz.so
-
       - name: Run configure script
         run: |
           mkdir ${{ runner.temp }}/install
-          ./configure LDFLAGS="-L$(brew --prefix zstd)/lib" CPPFLAGS="-I$(brew --prefix zstd)/include" --prefix=${{ runner.temp }}/install
+          autoreconf -i
+          ./configure --prefix=${{ runner.temp }}/install
 
       # Cache the build of BoringSSL, which is the longest part of the build
       # We must cache the .zip as well, otherwise the Makefile will
@@ -382,7 +342,7 @@ jobs:
       - name: Reconfigure statically
         if: startsWith(github.ref, 'refs/tags/')
         run: |
-          ./configure LDFLAGS="-L$(brew --prefix zstd)/lib" CPPFLAGS="-I$(brew --prefix zstd)/include" --prefix=${{ runner.temp }}/install --enable-static
+          ./configure --prefix=${{ runner.temp }}/install --enable-static
 
       - name: Rebuild statically
         if: startsWith(github.ref, 'refs/tags/')
@@ -410,13 +370,21 @@ jobs:
     name: (Windows mingw-w64) Build curl-impersonate
     runs-on: ubuntu-latest
     env:
-      CC: ${{ github.workspace }}/llvm-mingw-20250430-ucrt-ubuntu-22.04-x86_64/bin/x86_64-w64-mingw32-clang
-      CXX: ${{ github.workspace }}/llvm-mingw-20250430-ucrt-ubuntu-22.04-x86_64/bin/x86_64-w64-mingw32-clang++
       AR: ${{ github.workspace }}/llvm-mingw-20250430-ucrt-ubuntu-22.04-x86_64/bin/x86_64-w64-mingw32-ar
       ARCH: x86_64-w64-mingw32  # https://github.com/madler/zlib/issues/683
       CXXFLAGS: -D_UCRT
       LD_FLAGS: -Wl,-lucrt
       LLVM_MINGW_VER: 20250430-ucrt-ubuntu-22.04-x86_64
+      CC="${ARCH}-w64-mingw32-clang" 
+      CXX="${ARCH}-w64-mingw32-clang++" 
+      LD="${mingw_path}/bin/${ARCH}-w64-mingw32-ld" 
+      STRIP="${mingw_path}/bin/${ARCH}-w64-mingw32-strip" 
+      CFLAGS="-O3" 
+      CPPFLAGS="-I${mingw_path}/${ARCH}-w64-mingw32/include" 
+      CPPFLAGS="-I${mingw_path}/generic-w64-mingw32/include ${CPPFLAGS}" 
+      LDFLAGS="--ld-path=${mingw_path}/bin/${ARCH}-w64-mingw32-ld ${LDFLAGS}" 
+      LDFLAGS="-L${mingw_path}/${ARCH}-w64-mingw32/lib ${LDFLAGS}"
+
 
     steps:
       - uses: actions/setup-python@v4
@@ -438,36 +406,12 @@ jobs:
       - name: Check out the repo
         uses: actions/checkout@v2
 
-      - name: Build zlib ${{ env.ZLIB_VERSION }}
-        run: |
-          curl -LO https://zlib.net/fossils/zlib-${{ env.ZLIB_VERSION }}.tar.gz
-          tar xf zlib-${{ env.ZLIB_VERSION }}.tar.gz
-          cd zlib-${{ env.ZLIB_VERSION }}
-          CHOST=${{ env.ARCH }} ./configure --prefix=${{ runner.temp }}/zlib
-          make
-          make install
-          # Make sure curl will link with libz.so.1 and not libz.so
-          rm -f ${{ runner.temp }}/zlib/lib/libz.so
-
-      - name: Build libzstd ${{ env.ZSTD_VERSION }}
-        run: |
-          curl -LO https://github.com/facebook/zstd/releases/download/v${{ env.ZSTD_VERSION }}/zstd-${{ env.ZSTD_VERSION }}.tar.gz
-          tar xf zstd-${{ env.ZSTD_VERSION }}.tar.gz
-          cd zstd-${{ env.ZSTD_VERSION }}
-          make
-          mkdir -p ${{ runner.temp }}/zstd/lib
-          mkdir -p ${{ runner.temp }}/zstd/include
-          # move libzstd to runner.temp
-          cp lib/libzstd.a lib/libzstd.so.${{ env.ZSTD_VERSION }} lib/libzstd.mk lib/libzstd.pc lib/libzstd.pc.in ${{ runner.temp }}/zstd/lib/
-          cp lib/zstd.h ${{ runner.temp }}/zstd/include/
-
       - name: Run configure script
         run: |
           mkdir ${{ runner.temp }}/install
+          autoreconf -i
           ./configure --prefix=${{ runner.temp }}/install \
                       --host=${{ env.ARCH }} \
-                      --with-zlib=${{ runner.temp }}/zlib \
-                      --with-zstd=${{ runner.temp }}/zstd \
                       --with-ca-path=/etc/ssl/certs \
                       --with-ca-bundle=/etc/ssl/certs/ca-certificates.crt \
 
@@ -506,8 +450,8 @@ jobs:
       # Upload pre-compiled binaries to GitHub releases page and Github actions archives.
       - name: Create tar release files for libcurl-impersonate
         run: |
-          cp ${{ runner.temp }}/zlib/lib/lib*.a ${{ runner.temp }}/install/lib
-          cp ${{ runner.temp }}/zstd/lib/lib*.a ${{ runner.temp }}/install/lib
+          cp zlib*/lib/lib*.a ${{ runner.temp }}/install/lib
+          cp zstd*/lib/lib*.a ${{ runner.temp }}/install/lib
           cp nghttp2*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
           cp nghttp3*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
           cp ngtcp2*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
@@ -542,8 +486,6 @@ jobs:
           set -e
           ./configure --prefix=${{ runner.temp }}/install --enable-static \
                       --host=${{ env.ARCH }} \
-                      --with-zlib=${{ runner.temp }}/zlib \
-                      --with-zstd=${{ runner.temp }}/zstd \
                       --with-ca-path=/etc/ssl/certs \
                       --with-ca-bundle=/etc/ssl/certs/ca-certificates.crt \
 
