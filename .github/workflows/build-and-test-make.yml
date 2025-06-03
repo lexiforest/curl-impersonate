@@ -361,8 +361,7 @@ jobs:
       - name: Install Windows dependencies
         run: |
           apt-get update
-          apt-get install cmake ninja-build curl
-          apt-get install nasm wine64 wine 
+          # apt-get install nasm wine64 wine 
           apt-get install golang-go
 
       - name: Run configure script
