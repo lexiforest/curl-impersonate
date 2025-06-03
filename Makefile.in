@@ -482,7 +482,6 @@ $(CURL_VERSION)/.chrome: $(chrome_libs)	$(CURL_VERSION).tar.gz $(CURL_VERSION)/.
 	  if test -n "$(with_ca_path)"; then \
 		config_flags="$$config_flags --with-ca-path=$(with_ca_path)"; \
 	  fi; \
-	  add_libs="-pthread -lc++"; \
 	}
 
 	echo "Configuring curl with: $$config_flags"
@@ -490,7 +489,7 @@ $(CURL_VERSION)/.chrome: $(chrome_libs)	$(CURL_VERSION).tar.gz $(CURL_VERSION)/.
 	CXXFLAGS="$$CXXFLAGS -stdlib=libc++" LDFLAGS="$$LDFLAGS -lc++ -Wl,-rpath,$(ngtcp2_install_dir)/lib" \
 			 ./configure \
 			 $$config_flags \
-			 LIBS="$$add_libs" \
+			 LIBS="-pthread -lc++ $$LIBS" \
 			 PKG_CONFIG_PATH="$(ngtcp2_install_dir)/crypto/boringssl/;$(ngtcp2_install_dir)/lib/pkgconfig"
 
 	# Remove possible leftovers from a previous compilation
