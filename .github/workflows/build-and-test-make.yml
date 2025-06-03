@@ -372,6 +372,7 @@ jobs:
           autoreconf -if
           ./configure --prefix=${{ runner.temp }}/install \
                       --host=${{ env.ARCH }} \
+                      --build=x86_64-pc-linux-gnu \
                       --with-ca-path=/etc/ssl/certs \
                       --with-ca-bundle=/etc/ssl/certs/ca-certificates.crt \
 
@@ -446,6 +447,7 @@ jobs:
           set -e
           ./configure --prefix=${{ runner.temp }}/install --enable-static \
                       --host=${{ env.ARCH }} \
+                      --build=x86_64-pc-linux-gnu \
                       --with-ca-path=/etc/ssl/certs \
                       --with-ca-bundle=/etc/ssl/certs/ca-certificates.crt \
 
