@@ -361,8 +361,8 @@ jobs:
       - name: Install Windows dependencies
         run: |
           apt-get update
-          # apt-get install nasm wine64 wine 
-          apt-get install golang-go
+          # apt-get install wine64 wine 
+          apt-get -y install golang-go
 
       - name: Run configure script
         run: |
