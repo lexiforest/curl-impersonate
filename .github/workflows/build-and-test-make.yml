@@ -349,13 +349,13 @@ jobs:
     container: mstorsjo/llvm-mingw:20250514
     env:
       ARCH: x86_64-w64-mingw32  # https://github.com/madler/zlib/issues/683
-      CC: x86_64-w64-mingw32-clang
-      CXX: x86_64-w64-mingw32-clang++
-      LD: x86_64-w64-mingw32-ld
-      STRIP: x86_64-w64-mingw32-strip
+      CC: /opt/llvm-mingw/bin/x86_64-w64-mingw32-clang
+      CXX: /opt/llvm-mingw/bin/x86_64-w64-mingw32-clang++
+      LD: /opt/llvm-mingw/bin/x86_64-w64-mingw32-ld
+      STRIP: /opt/llvm-mingw/bin/x86_64-w64-mingw32-strip
       CFLAGS: "-O3"
-      CPPFLAGS: "-D_UCRT -std=c++11"
-      LDFLAGS: "-Wl,-lucrt"
+      CPPFLAGS: "-D_UCRT -std=c++11 -I/opt/llvm-mingw/generic-w64-mingw32/include -I/opt/llvm-mingw/x86_64-w64-mingw32/include"
+      LDFLAGS: "-Wl,-lucrt -L/opt/llvm-mingw/x86_64-w64-mingw32/lib --ld-path=/opt/llvm-mingw/bin/x86_64-w64-mingw32-ld"
 
     steps:
       - uses: actions/checkout@v2
