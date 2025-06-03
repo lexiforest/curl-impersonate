@@ -53,7 +53,7 @@ nghttp3_static_libs := $(nghttp3_install_dir)/lib/libnghttp3.a
 zlib_install_dir := $(abspath zlib-$(ZLIB_VERSION)/installed)
 zlib_static_libs := $(zlib_install_dir)/lib/libz.a
 
-zstd_install_dir := $(abspath zstd-$(ZSTD_VERSION)/installed)
+zstd_install_dir := $(abspath zstd-$(ZSTD_VERSION)/build/cmake/installed)
 zstd_static_libs := $(zstd_install_dir)/lib/libzstd.a
 
 # Dependencies needed to compile the Chrome version
@@ -219,6 +219,8 @@ $(zstd_static_libs): zstd-$(ZSTD_VERSION).tar.gz
 			system_name=Linux   \
 			;;                  \
 	esac
+
+	mkdir -p $(zstd_install_dir) && cd $(zstd_install_dir)
 
 	@cmake@ -DCMAKE_BUILD_TYPE=Release \
 		-DCMAKE_SYSTEM_NAME=$$system_name \
