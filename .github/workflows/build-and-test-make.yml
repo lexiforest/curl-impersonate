@@ -354,7 +354,8 @@ jobs:
       LD: /opt/llvm-mingw/bin/x86_64-w64-mingw32-ld
       STRIP: /opt/llvm-mingw/bin/x86_64-w64-mingw32-strip
       CFLAGS: "-O3"
-      CPPFLAGS: "-D_UCRT -std=c++11 -I/opt/llvm-mingw/generic-w64-mingw32/include -I/opt/llvm-mingw/x86_64-w64-mingw32/include"
+      CPPFLAGS: "-I/opt/llvm-mingw/generic-w64-mingw32/include -I/opt/llvm-mingw/x86_64-w64-mingw32/include"
+      CXXFLAGS: "-D_UCRT -std=c++11"
       LDFLAGS: "-Wl,-lucrt -L/opt/llvm-mingw/x86_64-w64-mingw32/lib --ld-path=/opt/llvm-mingw/bin/x86_64-w64-mingw32-ld"
 
     steps:
@@ -375,7 +376,6 @@ jobs:
           autoreconf -if
           ./configure --prefix=${{ runner.temp }}/install \
                       --host=${{ env.ARCH }} \
-                      --build=x86_64-pc-linux-gnu \
                       --with-ca-path=/etc/ssl/certs \
                       --with-ca-bundle=/etc/ssl/certs/ca-certificates.crt \
 
@@ -451,7 +451,6 @@ jobs:
           set -e
           ./configure --prefix=${{ runner.temp }}/install --enable-static \
                       --host=${{ env.ARCH }} \
-                      --build=x86_64-pc-linux-gnu \
                       --with-ca-path=/etc/ssl/certs \
                       --with-ca-bundle=/etc/ssl/certs/ca-certificates.crt \
 
