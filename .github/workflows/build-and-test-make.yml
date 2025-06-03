@@ -366,6 +366,9 @@ jobs:
           # apt-get install wine64 wine 
           apt-get -y install golang-go automake cmake autoconf libtool pkg-config curl wget git jq xz-utils grep sed groff gnupg libcunit1-dev libgpg-error-dev mingw-w64-tools
 
+      - name: Setup tmate session for debugging
+        uses: mxschmitt/action-tmate@v3
+
       - name: Run configure script
         run: |
           mkdir -p ${{ runner.temp }}/install
@@ -440,6 +443,7 @@ jobs:
           make clean
           rm -Rf ${{ runner.temp }}/install
           mkdir -p ${{ runner.temp }}/install
+
 
        # Recompile curl-impersonate statically when doing a release.
       - name: Reconfigure statically
