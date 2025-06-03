@@ -204,11 +204,33 @@ zstd-$(ZSTD_VERSION).tar.gz:
 $(zstd_static_libs): zstd-$(ZSTD_VERSION).tar.gz
 	tar xf zstd-$(ZSTD_VERSION).tar.gz
 	cd zstd-$(ZSTD_VERSION)
-	$(MAKE)
-	mkdir -p $(zstd_install_dir)/lib
-	mkdir -p $(zstd_install_dir)/include
-	cp lib/libzstd.a lib/libzstd.mk lib/libzstd.pc lib/libzstd.pc.in $(zstd_install_dir)/lib/
-	cp lib/zstd.h $(zstd_install_dir)/include/
+
+	case $(host_os) in          \
+		linux*)                 \
+			system_name=Linux   \
+			;;                  \
+		darwin*)                \
+			system_name=Darwin  \
+			;;                  \
+		mingw*)                 \
+			system_name=Windows \
+			;;                  \
+		*)                      \
+			system_name=Linux   \
+			;;                  \
+	esac
+
+    @cmake@ -DCMAKE_BUILD_TYPE=Release \
+		-DCMAKE_SYSTEM_NAME=$$system_name \
+		-DCMAKE_INSTALL_PREFIX="$(zstd_install_dir)" \
+		-DCMAKE_CXX_COMPILER="$(CXX)" \
+		-DCMAKE_C_COMPILER="$(CC)" \
+		-DCMAKE_C_FLAGS="$(CFLAGS)" \
+		-DZSTD_BUILD_STATIC=ON \
+		-DZSTD_BUILD_SHARED=OFF \
+		..
+
+    @cmake@ --build . --config Release --target install --parallel $(SUBJOBS)
 
 boringssl-$(BORING_SSL_COMMIT).zip:
 	curl -L https://github.com/google/boringssl/archive/$(BORING_SSL_COMMIT).zip \
@@ -312,19 +334,6 @@ $(ngtcp2_static_libs): ngtcp2-$(NGTCP2_VERSION).tar.bz2 $(boringssl_static_libs)
 			config_flags="$$config_flags --host=$(host_alias)"; \
 		fi; \
 	}
-
-	case $(host_os) in          \
-		linux*)                 \
-			;;                  \
-		darwin*)                \
-			;;                  \
-		mingw*)                 \
-			export LIBS="-lws2_32" \
-			export CXXFLAGS="-std=c++17" \
-			;;                  \
-		*)                      \
-			;;                  \
-	esac
 
 	./configure PKG_CONFIG_PATH=$(nghttp3_install_dir)/lib/pkgconfig \
 		BORINGSSL_LIBS="-L$(boringssl_install_dir)/ssl -lssl -L$(boringssl_install_dir)/crypto -lcrypto -lpthread" \
