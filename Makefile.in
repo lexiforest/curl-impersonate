@@ -298,70 +298,70 @@ $(ngtcp2_static_libs): ngtcp2-$(NGTCP2_VERSION).tar.bz2 $(boringssl_static_libs)
 	tar -xf ngtcp2-$(NGTCP2_VERSION).tar.bz2
 	cd ngtcp2-$(NGTCP2_VERSION)
 
-	# autoreconf -i
+	autoreconf -i
 
 	# Set up the configure flags to ngtcp2.
 	# If the user provided the --host flag to our configure script
 	# (for cross compilation), then pass it on to ngtcp2.
 	# PKG_CONFIG_PATH=<somewhere1>/lib/pkgconfig:<somewhere2>/lib/pkgconfig LDFLAGS="-Wl,-rpath,<somewhere1>/lib"
-	# { \
-	# 	config_flags="--prefix=$(ngtcp2_install_dir)"; \
-	# 	config_flags="$$config_flags --with-pic --enable-lib-only"; \
-	# 	config_flags="$$config_flags --disable-shared --disable-python-bindings"; \
-	# 	if test -n "$(host_alias)"; then \
-	# 		config_flags="$$config_flags --host=$(host_alias)"; \
-	# 	fi; \
-	# }
-	#
-	# ./configure PKG_CONFIG_PATH=$(nghttp3_install_dir)/lib/pkgconfig \
-	# 	BORINGSSL_LIBS="-L$(boringssl_install_dir)/ssl -lssl -L$(boringssl_install_dir)/crypto -lcrypto -lpthread" \
-	# 	BORINGSSL_CFLAGS="-I$(boringssl_dir)/include" \
-	# 	--with-boringssl \
-	# 	$$config_flags
-	# $(MAKE) MAKEFLAGS=-j$(SUBJOBS)
-	# $(MAKE) install MAKEFLAGS=
+	{ \
+		config_flags="--prefix=$(ngtcp2_install_dir)"; \
+		config_flags="$$config_flags --with-pic --enable-lib-only"; \
+		config_flags="$$config_flags --disable-shared --disable-python-bindings"; \
+		if test -n "$(host_alias)"; then \
+			config_flags="$$config_flags --host=$(host_alias)"; \
+		fi; \
+	}
+
+	./configure PKG_CONFIG_PATH=$(nghttp3_install_dir)/lib/pkgconfig \
+		BORINGSSL_LIBS="-L$(boringssl_install_dir)/ssl -lssl -L$(boringssl_install_dir)/crypto -lcrypto -lpthread" \
+		BORINGSSL_CFLAGS="-I$(boringssl_dir)/include" \
+		--with-boringssl \
+		$$config_flags
+	$(MAKE) MAKEFLAGS=-j$(SUBJOBS)
+	$(MAKE) install MAKEFLAGS=
 	
-	case $(host_os) in          \
-		linux*)                 \
-			system_name=Linux   \
-			extra_ld=""         \
-			;;                  \
-		darwin*)                \
-			system_name=Darwin  \
-			extra_ld=""         \
-			;;                  \
-		mingw*)                 \
-			system_name=Windows \
-			extra_ld=";lws2_32" \
-			;;                  \
-		*)                      \
-			system_name=Linux   \
-			;;                  \
-	esac
-
-	build_dir="./build"
-
-	@cmake@ -B $$build_dir \
-		-DENABLE_LIB_ONLY=ON \
-		-DCMAKE_BUILD_TYPE=Release \
-		-DENABLE_STATIC_LIB=ON \
-		-DENABLE_SHARED_LIB=OFF \
-		-DENABLE_OPENSSL=OFF \
-		-DENABLE_BORINGSSL=ON \
-		-DBORINGSSL_INCLUDE_DIR="$(boringssl_dir)/include" \
-		-DBORINGSSL_LIBRARIES="$(boringssl_install_dir)/ssl/libssl.a;$(boringssl_install_dir)/crypto/libcrypto.a;-lpthread$$extra_ld" \
-		-DBUILD_TESTING=OFF \
-		-DCMAKE_POSITION_INDEPENDENT_CODE=on \
-		-DCMAKE_C_FLAGS="$(CFLAGS) -Wno-unknown-warning-option -Wno-stringop-overflow -Wno-array-bounds -Wno-macro-redefined" \
-		-DCMAKE_CXX_FLAGS="$(CXX_FLAGS) -DNDEBUG -D_CLANG_DISABLE_CRT_DEPRECATION_WARNINGS -DNOCRYPT -Wno-macro-redefined" \
-		-DCMAKE_CXX_COMPILER="$(CXX)" \
-		-DCMAKE_INSTALL_PREFIX="$(ngtcp2_install_dir)" \
-		-DCMAKE_C_COMPILER="$(CC)" \
-		-DCMAKE_SYSTEM_NAME=$$system_name \
-		-DCMAKE_SYSTEM_PROCESSOR=$(host_cpu) \
-
-	@cmake@ --build $$build_dir
-	@cmake@ --install $$build_dir
+	# case $(host_os) in          \
+	# 	linux*)                 \
+	# 		system_name=Linux   \
+	# 		extra_ld=""         \
+	# 		;;                  \
+	# 	darwin*)                \
+	# 		system_name=Darwin  \
+	# 		extra_ld=""         \
+	# 		;;                  \
+	# 	mingw*)                 \
+	# 		system_name=Windows \
+	# 		extra_ld=";lws2_32" \
+	# 		;;                  \
+	# 	*)                      \
+	# 		system_name=Linux   \
+	# 		;;                  \
+	# esac
+	#
+	# build_dir="./build"
+	#
+	# @cmake@ -B $$build_dir \
+	# 	-DENABLE_LIB_ONLY=ON \
+	# 	-DCMAKE_BUILD_TYPE=Release \
+	# 	-DENABLE_STATIC_LIB=ON \
+	# 	-DENABLE_SHARED_LIB=OFF \
+	# 	-DENABLE_OPENSSL=OFF \
+	# 	-DENABLE_BORINGSSL=ON \
+	# 	-DBORINGSSL_INCLUDE_DIR="$(boringssl_dir)/include" \
+	# 	-DBORINGSSL_LIBRARIES="$(boringssl_install_dir)/ssl/libssl.a;$(boringssl_install_dir)/crypto/libcrypto.a;-lpthread$$extra_ld" \
+	# 	-DBUILD_TESTING=OFF \
+	# 	-DCMAKE_POSITION_INDEPENDENT_CODE=on \
+	# 	-DCMAKE_C_FLAGS="$(CFLAGS) -Wno-unknown-warning-option -Wno-stringop-overflow -Wno-array-bounds -Wno-macro-redefined" \
+	# 	-DCMAKE_CXX_FLAGS="$(CXX_FLAGS) -DNDEBUG -D_CLANG_DISABLE_CRT_DEPRECATION_WARNINGS -DNOCRYPT -Wno-macro-redefined" \
+	# 	-DCMAKE_CXX_COMPILER="$(CXX)" \
+	# 	-DCMAKE_INSTALL_PREFIX="$(ngtcp2_install_dir)" \
+	# 	-DCMAKE_C_COMPILER="$(CC)" \
+	# 	-DCMAKE_SYSTEM_NAME=$$system_name \
+	# 	-DCMAKE_SYSTEM_PROCESSOR=$(host_cpu) \
+	#
+	# @cmake@ --build $$build_dir
+	# @cmake@ --install $$build_dir
 
 libev-$(LIBEV_VERSION).tar.gz:
 	curl -L $(LIBEV_URL) -o libev-$(LIBEV_VERSION).tar.gz
