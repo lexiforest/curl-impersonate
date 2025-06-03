@@ -174,8 +174,8 @@ $(brotli_static_libs): brotli-$(BROTLI_VERSION).tar.gz
 	@cmake@ -DCMAKE_BUILD_TYPE=Release \
 		-DCMAKE_INSTALL_PREFIX=./installed \
 		-DCMAKE_INSTALL_LIBDIR=lib \
-		-DCMAKE_CXX_COMPILER=$(CXX) \
-		-DCMAKE_C_COMPILER=$(CC) \
+		-DCMAKE_CXX_COMPILER="$(CXX)" \
+		-DCMAKE_C_COMPILER="$(CC)" \
 		-DCMAKE_C_FLAGS="$(CFLAGS)" \
 		-DCMAKE_SYSTEM_NAME=$$system_name \
 		-DCMAKE_SYSTEM_PROCESSOR=$(host_cpu) \
@@ -192,6 +192,7 @@ $(zlib_static_libs): zlib-$(ZLIB_VERSION).tar.gz
 	  tar xf zlib-$(ZLIB_VERSION).tar.gz
 	  cd zlib-$(ZLIB_VERSION)
 	  CHOST=$(host) ./configure --prefix=$(zlib_install_dir)
+	  mkdir -p $(zlib_install_dir)
 	  $(MAKE)
 	  $(MAKE) install
 	  # Make sure curl will link with libz.so.1 and not libz.so
@@ -252,8 +253,8 @@ $(boringssl_static_libs): boringssl-$(BORING_SSL_COMMIT).zip boringssl-$(BORING_
 			-DBUILD_TESTING=OFF \
 			-DCMAKE_C_FLAGS="$(CFLAGS) -Wno-unknown-warning-option -Wno-stringop-overflow -Wno-array-bounds -Wno-macro-redefined -Wno-format -Wno-error=format" \
 			-DCMAKE_CXX_FLAGS="$(CXX_FLAGS) -Wno-macro-redefined -Wno-format -Wno-error=format" \
-			-DCMAKE_CXX_COMPILER=$(CXX) \
-			-DCMAKE_C_COMPILER=$(CC) \
+			-DCMAKE_CXX_COMPILER="$(CXX)" \
+			-DCMAKE_C_COMPILER="$(CC)" \
 			-DCMAKE_SYSTEM_NAME=$$system_name \
 			-DCMAKE_SYSTEM_PROCESSOR=$(host_cpu) \
 			-GNinja \
@@ -353,9 +354,9 @@ $(ngtcp2_static_libs): ngtcp2-$(NGTCP2_VERSION).tar.bz2 $(boringssl_static_libs)
 		-DCMAKE_POSITION_INDEPENDENT_CODE=on \
 		-DCMAKE_C_FLAGS="$(CFLAGS) -Wno-unknown-warning-option -Wno-stringop-overflow -Wno-array-bounds -Wno-macro-redefined" \
 		-DCMAKE_CXX_FLAGS="$(CXX_FLAGS) -DNDEBUG -D_CLANG_DISABLE_CRT_DEPRECATION_WARNINGS -DNOCRYPT -Wno-macro-redefined" \
-		-DCMAKE_CXX_COMPILER=$(CXX) \
-		-DCMAKE_INSTALL_PREFIX=$(ngtcp2_install_dir) \
-		-DCMAKE_C_COMPILER=$(CC) \
+		-DCMAKE_CXX_COMPILER="$(CXX)" \
+		-DCMAKE_INSTALL_PREFIX="$(ngtcp2_install_dir)" \
+		-DCMAKE_C_COMPILER="$(CC)" \
 		-DCMAKE_SYSTEM_NAME=$$system_name \
 		-DCMAKE_SYSTEM_PROCESSOR=$(host_cpu) \
 

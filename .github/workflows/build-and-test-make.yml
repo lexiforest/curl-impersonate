@@ -87,8 +87,8 @@ jobs:
 
       - name: Run configure script
         run: |
-          mkdir ${{ runner.temp }}/install
-          autoreconf -i
+          mkdir -p ${{ runner.temp }}/install
+          autoreconf -if
           ./configure --prefix=${{ runner.temp }}/install \
                       --host=${{ matrix.host }} \
                       --with-ca-path=/etc/ssl/certs \
@@ -155,8 +155,8 @@ jobs:
        # Upload pre-compiled binaries to GitHub releases page and Github actions archives.
       - name: Create tar release files for libcurl-impersonate
         run: |
-          cp zlib*/lib/lib*.a ${{ runner.temp }}/install/lib
-          cp zstd*/lib/lib*.a ${{ runner.temp }}/install/lib
+          cp zlib*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
+          cp zstd*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
           cp nghttp2*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
           cp nghttp3*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
           cp ngtcp2*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
@@ -183,7 +183,7 @@ jobs:
           set -e
           make clean
           rm -Rf ${{ runner.temp }}/install
-          mkdir ${{ runner.temp }}/install
+          mkdir -p ${{ runner.temp }}/install
 
        # Recompile curl-impersonate statically when doing a release.
       - name: Reconfigure statically
@@ -233,7 +233,9 @@ jobs:
     name: (macOS ${{ matrix.arch }}) Build curl-impersonate and run the tests
     runs-on: ${{ matrix.os }}
     env:
-      CXXFLAGS: ""
+      CC: clang
+      CXX: clang++
+      CXXFLAGS: "-std=c++11"
       LDFLAGS: ""
     strategy:
       matrix:
@@ -262,8 +264,8 @@ jobs:
 
       - name: Run configure script
         run: |
-          mkdir ${{ runner.temp }}/install
-          autoreconf -i
+          mkdir -p ${{ runner.temp }}/install
+          autoreconf -if
           ./configure --prefix=${{ runner.temp }}/install
 
       # Cache the build of BoringSSL, which is the longest part of the build
@@ -311,7 +313,7 @@ jobs:
         run: |
           ${{ matrix.make }} clean
           rm -Rf ${{ runner.temp }}/install
-          mkdir ${{ runner.temp }}/install
+          mkdir -p ${{ runner.temp }}/install
 
        # Recompile curl-impersonate statically when doing a release.
       - name: Reconfigure statically
@@ -352,7 +354,7 @@ jobs:
       LD: x86_64-w64-mingw32-ld
       STRIP: x86_64-w64-mingw32-strip
       CFLAGS: "-O3"
-      CPPFLAGS: "-D_UCRT"
+      CPPFLAGS: "-D_UCRT -std=c++11"
       LDFLAGS: "-Wl,-lucrt"
 
     steps:
@@ -366,8 +368,8 @@ jobs:
 
       - name: Run configure script
         run: |
-          mkdir ${{ runner.temp }}/install
-          autoreconf -i
+          mkdir -p ${{ runner.temp }}/install
+          autoreconf -if
           ./configure --prefix=${{ runner.temp }}/install \
                       --host=${{ env.ARCH }} \
                       --with-ca-path=/etc/ssl/certs \
@@ -408,8 +410,8 @@ jobs:
       # Upload pre-compiled binaries to GitHub releases page and Github actions archives.
       - name: Create tar release files for libcurl-impersonate
         run: |
-          cp zlib*/lib/lib*.a ${{ runner.temp }}/install/lib
-          cp zstd*/lib/lib*.a ${{ runner.temp }}/install/lib
+          cp zlib*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
+          cp zstd*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
           cp nghttp2*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
           cp nghttp3*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
           cp ngtcp2*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
@@ -436,7 +438,7 @@ jobs:
           set -e
           make clean
           rm -Rf ${{ runner.temp }}/install
-          mkdir ${{ runner.temp }}/install
+          mkdir -p ${{ runner.temp }}/install
 
        # Recompile curl-impersonate statically when doing a release.
       - name: Reconfigure statically
