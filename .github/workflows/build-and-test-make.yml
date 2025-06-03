@@ -250,9 +250,6 @@ jobs:
             capture_interface: en0
             make: gmake
     steps:
-      - uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
 
       - name: Install macOS dependencies
         run: |
@@ -369,42 +366,26 @@ jobs:
   build-and-test-windows:
     name: (Windows mingw-w64) Build curl-impersonate
     runs-on: ubuntu-latest
+    container: mstorsjo/llvm-mingw:20250514
     env:
-      AR: ${{ github.workspace }}/llvm-mingw-20250430-ucrt-ubuntu-22.04-x86_64/bin/x86_64-w64-mingw32-ar
       ARCH: x86_64-w64-mingw32  # https://github.com/madler/zlib/issues/683
-      CXXFLAGS: -D_UCRT
-      LD_FLAGS: -Wl,-lucrt
-      LLVM_MINGW_VER: 20250430-ucrt-ubuntu-22.04-x86_64
-      CC="${ARCH}-w64-mingw32-clang" 
-      CXX="${ARCH}-w64-mingw32-clang++" 
-      LD="${mingw_path}/bin/${ARCH}-w64-mingw32-ld" 
-      STRIP="${mingw_path}/bin/${ARCH}-w64-mingw32-strip" 
-      CFLAGS="-O3" 
-      CPPFLAGS="-I${mingw_path}/${ARCH}-w64-mingw32/include" 
-      CPPFLAGS="-I${mingw_path}/generic-w64-mingw32/include ${CPPFLAGS}" 
-      LDFLAGS="--ld-path=${mingw_path}/bin/${ARCH}-w64-mingw32-ld ${LDFLAGS}" 
-      LDFLAGS="-L${mingw_path}/${ARCH}-w64-mingw32/lib ${LDFLAGS}"
-
+      CC: x86_64-w64-mingw32-clang
+      CXX: x86_64-w64-mingw32-clang++
+      LD: x86_64-w64-mingw32-ld
+      STRIP: x86_64-w64-mingw32-strip
+      CFLAGS: "-O3"
+      CPPFLAGS: "-D_UCRT"
+      LDFLAGS: "-Wl,-lucrt"
 
     steps:
-      - uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-
-      - name: Setup llvm-mingw toolchain
-        run: |
-          curl -LO https://github.com/mstorsjo/llvm-mingw/releases/download/20250430/llvm-mingw-${{ env.LLVM_MINGW_VER }}.tar.xz
-          tar xf llvm-mingw-${{ env.LLVM_MINGW_VER }}.tar.xz
+      - uses: actions/checkout@v2
 
       - name: Install Windows dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install build-essential pkg-config cmake ninja-build curl autoconf automake libtool
-          sudo apt-get install mingw-w64 gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64 binutils-mingw-w64-x86-64 nasm wine64 wine
+          sudo apt-get install cmake ninja-build curl
+          sudo apt-get install nasm wine64 wine 
           sudo apt-get install golang-go
-
-      - name: Check out the repo
-        uses: actions/checkout@v2
 
       - name: Run configure script
         run: |
