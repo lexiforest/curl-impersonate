@@ -364,7 +364,7 @@ jobs:
         run: |
           apt-get update
           # apt-get install wine64 wine 
-          apt-get -y install golang-go
+          apt-get -y install golang-go automake cmake autoconf libtool pkg-config curl wget git jq xz-utils grep sed groff gnupg libcunit1-dev libgpg-error-dev mingw-w64-tools
 
       - name: Run configure script
         run: |
