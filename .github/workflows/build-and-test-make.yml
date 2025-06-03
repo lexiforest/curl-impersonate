@@ -25,6 +25,7 @@ jobs:
     env:
       CC: ${{ github.workspace }}/zigshim/cc
       CXX: ${{ github.workspace }}/zigshim/cxx
+      LIBS: ""
       AR: ${{ github.workspace }}/zigshim/ar
       ZIG_FLAGS: ${{ matrix.zigflags }}
       CXXFLAGS: ""
@@ -235,6 +236,7 @@ jobs:
     env:
       CC: clang
       CXX: clang++
+      LIBS: ""
       CXXFLAGS: "-std=c++17"
       LDFLAGS: ""
     strategy:
