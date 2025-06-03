@@ -235,7 +235,7 @@ jobs:
     env:
       CC: clang
       CXX: clang++
-      CXXFLAGS: "-std=c++11"
+      CXXFLAGS: "-std=c++17"
       LDFLAGS: ""
     strategy:
       matrix:
@@ -353,10 +353,10 @@ jobs:
       CXX: /opt/llvm-mingw/bin/x86_64-w64-mingw32-clang++
       LD: /opt/llvm-mingw/bin/x86_64-w64-mingw32-ld
       STRIP: /opt/llvm-mingw/bin/x86_64-w64-mingw32-strip
-      LIBS: "-lws2_32"
+      # LIBS: "-lws2_32"
       CFLAGS: "-O3"
       CPPFLAGS: "-I/opt/llvm-mingw/generic-w64-mingw32/include -I/opt/llvm-mingw/x86_64-w64-mingw32/include"
-      CXXFLAGS: "-D_UCRT -std=c++17"
+      # CXXFLAGS: "-std=c++17"
       LDFLAGS: "-Wl,-lucrt -L/opt/llvm-mingw/x86_64-w64-mingw32/lib --ld-path=/opt/llvm-mingw/bin/x86_64-w64-mingw32-ld -lws2_32"
 
     steps:
