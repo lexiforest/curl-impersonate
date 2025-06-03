@@ -256,17 +256,9 @@ jobs:
           brew install pkg-config make cmake ninja autoconf automake libtool gpatch
           # Chrome version dependencies, install only not installed.
           which go || brew install go
-          # Needed to compile 'minicurl'
-          brew install curl
-          # More dependencies for the tests
-          brew install tcpdump nghttp2
 
       - name: Check out the repo
         uses: actions/checkout@v2
-
-      - name: Install dependencies for the tests script
-        run: |
-          pip3 install -r tests/requirements.txt
 
       - name: Run configure script
         run: |
@@ -305,20 +297,6 @@ jobs:
           ${{ matrix.make }} build
           ${{ matrix.make }} checkbuild
           ${{ matrix.make }} install
-
-      - name: Prepare the tests
-        run: |
-          # Compile 'minicurl' which is used by the tests
-          gcc -Wall -Werror -o ${{ runner.temp }}/install/bin/minicurl tests/minicurl.c `curl-config --libs`
-
-      # For now we can only run the tests when not cross compiling, since the
-      # tests run the curl-impersonate binary locally.
-      # - name: Run the tests
-      #   run: |
-      #     cd tests
-      #     # sudo is needed for capturing packets
-      #     python_bin=$(which python3)
-      #     sudo $python_bin -m pytest . --log-cli-level DEBUG --install-dir ${{ runner.temp }}/install --capture-interface ${{ matrix.capture_interface }}
 
        # Upload pre-compiled binaries to GitHub releases page.
       - name: Create tar release files for libcurl-impersonate
@@ -382,10 +360,10 @@ jobs:
 
       - name: Install Windows dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install cmake ninja-build curl
-          sudo apt-get install nasm wine64 wine 
-          sudo apt-get install golang-go
+          apt-get update
+          apt-get install cmake ninja-build curl
+          apt-get install nasm wine64 wine 
+          apt-get install golang-go
 
       - name: Run configure script
         run: |
