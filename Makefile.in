@@ -306,7 +306,7 @@ $(nghttp2_static_libs): nghttp2-$(NGHTTP2_VERSION).tar.bz2
 	{ \
 		config_flags="--prefix=$(nghttp2_install_dir)"; \
 		config_flags="$$config_flags --with-pic --enable-lib-only"; \
-		config_flags="$$config_flags --disable-shared --disable-python-bindings"; \
+		config_flags="$$config_flags --enable-http3 --enable-static --disable-shared --disable-python-bindings"; \
 		if test -n "$(host_alias)"; then \
 			config_flags="$$config_flags --host=$(host_alias)"; \
 		fi; \
@@ -332,7 +332,7 @@ $(ngtcp2_static_libs): ngtcp2-$(NGTCP2_VERSION).tar.bz2 $(boringssl_static_libs)
 	{ \
 		config_flags="--prefix=$(ngtcp2_install_dir)"; \
 		config_flags="$$config_flags --with-pic --enable-lib-only"; \
-		config_flags="$$config_flags --disable-shared --disable-python-bindings"; \
+		config_flags="$$config_flags --enable-static --disable-shared --disable-python-bindings"; \
 		if test -n "$(host_alias)"; then \
 			config_flags="$$config_flags --host=$(host_alias)"; \
 		fi; \
@@ -422,7 +422,7 @@ $(nghttp3_static_libs): nghttp3-$(NGHTTP3_VERSION).tar.bz2
 	{ \
 		config_flags="--prefix=$(nghttp3_install_dir)"; \
 		config_flags="$$config_flags --with-pic --enable-lib-only"; \
-		config_flags="$$config_flags --disable-shared --disable-python-bindings"; \
+		config_flags="$$config_flags --enable-static --disable-shared --disable-python-bindings"; \
 		if test -n "$(host_alias)"; then \
 			config_flags="$$config_flags --host=$(host_alias)"; \
 		fi; \
@@ -488,10 +488,11 @@ $(CURL_VERSION)/.chrome: $(chrome_libs)	$(CURL_VERSION).tar.gz $(CURL_VERSION)/.
 	echo "Configuring curl with: $$config_flags"
 
 	CXXFLAGS="$$CXXFLAGS -stdlib=libc++ -pthread" LDFLAGS="$$LDFLAGS -Wl,-rpath,$(ngtcp2_install_dir)/lib -pthread" \
-			 ./configure \
-			 $$config_flags \
-			 LIBS="$$LIBS -lc++" \
-			 PKG_CONFIG_PATH="$(ngtcp2_install_dir)/crypto/boringssl/;$(ngtcp2_install_dir)/lib/pkgconfig"
+		 ./configure \
+		 $$config_flags \
+		 CPPFLAGS="$$CPPFLAGS -DCURL_STATICLIB -DNGHTTP2_STATICLIB -DNGTCP2_STATICLIB -DNGHTTP3_STATICLIB" \
+		 LIBS="$$LIBS -lc++" \
+		 PKG_CONFIG_PATH="$(ngtcp2_install_dir)/crypto/boringssl/;$(ngtcp2_install_dir)/lib/pkgconfig"
 
 	# Remove possible leftovers from a previous compilation
 	$(MAKE) clean MAKEFLAGS=

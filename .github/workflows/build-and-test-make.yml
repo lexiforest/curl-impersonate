@@ -358,8 +358,8 @@ jobs:
       LIBS: "-lws2_32"
       CFLAGS: "-O3"
       CPPFLAGS: "-I/opt/llvm-mingw/generic-w64-mingw32/include -I/opt/llvm-mingw/x86_64-w64-mingw32/include"
-      CXXFLAGS: "-D_UCRT -std=c++17"
-      LDFLAGS: "-Wl,-lucrt -L/opt/llvm-mingw/x86_64-w64-mingw32/lib --ld-path=/opt/llvm-mingw/bin/x86_64-w64-mingw32-ld"
+      CXXFLAGS: "-D_UCRT -std=c++17 -static"
+      LDFLAGS: "-Wl,-lucrt -L/opt/llvm-mingw/x86_64-w64-mingw32/lib --ld-path=/opt/llvm-mingw/bin/x86_64-w64-mingw32-ld -static"
 
     steps:
       - uses: actions/checkout@v2
@@ -408,12 +408,11 @@ jobs:
                       --with-ca-path=/etc/ssl/certs \
                       --with-ca-bundle=/etc/ssl/certs/ca-certificates.crt \
 
-      - name: Rebuild statically
+      - name: Build statically
         run: |
           set -e
           make build
           make checkbuild
-          make install-strip
 
       - name: Create tar release files for curl-impersonate
         run: |
