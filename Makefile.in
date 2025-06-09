@@ -352,7 +352,7 @@ $(CURL_VERSION)/.chrome: $(chrome_libs)	$(CURL_VERSION).tar.gz $(CURL_VERSION)/.
 
 	echo "Configuring curl with: $$config_flags"
 
-	CXXFLAGS="-stdlib=libc++" LDFLAGS="-Wl,-rpath,$(ngtcp2_install_dir)/lib" \
+	LDFLAGS="-Wl,-rpath,$(ngtcp2_install_dir)/lib" \
 			 ./configure \
 			 $$config_flags \
 			 LIBS="$$add_libs" \
