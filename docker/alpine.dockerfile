@@ -5,7 +5,7 @@ WORKDIR /build
 RUN apk update && \
     apk add git ninja cmake make patch linux-headers autoconf automake pkgconfig libtool \
     clang llvm lld libc-dev libc++-dev \
-    llvm-libunwind libunwind-static xz-libs xz-dev xz-static \
+    llvm-libunwind llvm-libunwind-static xz-libs xz-dev xz-static \
     ca-certificates curl bash \
     python3 python3-dev \
     zlib-dev zstd-dev  \
