@@ -44,9 +44,6 @@ RUN apk update && \
 
 COPY --from=builder /build/install /usr/local
 
-# Update the loader's cache
-RUN ldconfig
-
 # Replace /usr/bin/env bash with /usr/bin/env ash
 RUN sed -i 's@/usr/bin/env bash@/usr/bin/env ash@' /usr/local/bin/curl_*
 
