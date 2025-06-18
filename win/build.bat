@@ -59,15 +59,16 @@ cmake %cmake_common_args% -DCMAKE_POSITION_INDEPENDENT_CODE=ON -S . -B "%build%\
 cmake --build "%build%\boringssl" --config %configuration% --target install
 popd
 
-:: Build & Install ngtcp2 (DOES NOT WORK)
-:: pushd "%deps%\ngtcp2"
-:: set "BORINGSSL_INCLUDE_DIR=%packages:\=/%/include"
-:: set "BORINGSSL_LIBRARIES=%packages:\=/%/lib/ssl.lib;%packages:\=/%/lib/crypto.lib"
-:: cmake %cmake_common_args% -DENABLE_SHARED_LIB=OFF -DENABLE_STATIC_LIB=ON -DENABLE_LIB_ONLY=ON^
-::   -DENABLE_BORINGSSL=ON -DENABLE_OPENSSL=OFF^
-::   -S . -B "%build%\ngtcp2"
-:: cmake --build "%build%\ngtcp2" --config %configuration% --target install
-:: popd
+:: Build & Install ngtcp2
+pushd "%deps%\ngtcp2"
+cmake %cmake_common_args% -DENABLE_SHARED_LIB=OFF -DENABLE_STATIC_LIB=ON -DENABLE_LIB_ONLY=ON^
+  -DENABLE_BORINGSSL=ON -DENABLE_OPENSSL=OFF^
+  -DCMAKE_CXX_STANDARD=17 -DCMAKE_CXX_STANDARD_REQUIRED=ON^
+  -DBORINGSSL_INCLUDE_DIR:PATH="%packages:\=/%/include"^
+  -DBORINGSSL_LIBRARIES:STRING="%packages:\=/%/lib/ssl.lib;%packages:\=/%/lib/crypto.lib"^
+  -S . -B "%build%\ngtcp2"
+cmake --build "%build%\ngtcp2" --config %configuration% --target install
+popd
 
 
 :: Build & Install curl
@@ -80,6 +81,8 @@ cmake %cmake_common_args% -DBUILD_SHARED_LIBS=ON^
   -DCURL_ZSTD=ON^
   -DUSE_WIN32_IDN=ON^
   -DUSE_NGHTTP2=ON^
+  -DUSE_NGHTTP3=ON^
+  -DUSE_NGTCP2=ON^
   -DCURL_USE_LIBPSL=OFF^
   -DHAVE_ECH=1^
   -DUSE_ECH=ON^
@@ -87,7 +90,7 @@ cmake %cmake_common_args% -DBUILD_SHARED_LIBS=ON^
   -DENABLE_UNICODE=ON^
   -DCURL_ENABLE_SSL=ON^
   -DCURL_USE_LIBSSH2=OFF^
-  "-DCMAKE_C_FLAGS=/DNGHTTP2_STATICLIB=1 /Dstrtok_r=strtok_s"^
+  "-DCMAKE_C_FLAGS=/DNGHTTP2_STATICLIB=1 /DNGTCP2_STATICLIB=1 /DNGHTTP3_STATICLIB=1 /Dstrtok_r=strtok_s"^
   -S . -B "%build%\curl"
 cmake --build "%build%\curl" --config %configuration% --target install
 popd
