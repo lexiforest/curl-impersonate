@@ -90,6 +90,7 @@ cmake %cmake_common_args% -DBUILD_SHARED_LIBS=ON^
   -DENABLE_UNICODE=ON^
   -DCURL_ENABLE_SSL=ON^
   -DCURL_USE_LIBSSH2=OFF^
+  -DOPENSSL_ROOT_DIR="%packages%"^
   "-DCMAKE_C_FLAGS=/DNGHTTP2_STATICLIB=1 /DNGTCP2_STATICLIB=1 /DNGHTTP3_STATICLIB=1 /Dstrtok_r=strtok_s"^
   -S . -B "%build%\curl"
 cmake --build "%build%\curl" --config %configuration% --target install
