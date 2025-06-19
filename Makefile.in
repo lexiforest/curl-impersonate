@@ -14,6 +14,8 @@ BROTLI_URL := https://github.com/google/brotli/archive/refs/tags/v${BROTLI_VERSI
 # Chrome 135.0.7049.41
 # In case this is changed, update build-and-test-make.yml and build-win as well
 BORING_SSL_COMMIT := 673e61fc215b178a90c0e67858bbf162c8158993
+# We need to pin to 1.64 or lower, since the priority flag was removed.
+# See: https://nghttp2.org/blog/2025/03/02/nghttp2-v1-65-0/
 NGHTTP2_VERSION := 1.63.0
 NGHTTP2_URL := https://github.com/nghttp2/nghttp2/releases/download/v$(NGHTTP2_VERSION)/nghttp2-$(NGHTTP2_VERSION).tar.bz2
 LIBEV_VERSION := 4.33
@@ -487,11 +489,11 @@ $(CURL_VERSION)/.chrome: $(chrome_libs)	$(CURL_VERSION).tar.gz $(CURL_VERSION)/.
 
 	echo "Configuring curl with: $$config_flags"
 
-	CXXFLAGS="$$CXXFLAGS -stdlib=libc++ -pthread" LDFLAGS="$$LDFLAGS -Wl,-rpath,$(ngtcp2_install_dir)/lib -pthread" \
+	CXXFLAGS="$$CXXFLAGS -pthread" LDFLAGS="$$LDFLAGS -Wl,-rpath,$(ngtcp2_install_dir)/lib -pthread" \
 		 ./configure \
 		 $$config_flags \
 		 CPPFLAGS="$$CPPFLAGS -DCURL_STATICLIB -DNGHTTP2_STATICLIB -DNGTCP2_STATICLIB -DNGHTTP3_STATICLIB" \
-		 LIBS="$$LIBS -lc++" \
+		 LIBS="$$LIBS" \
 		 PKG_CONFIG_PATH="$(ngtcp2_install_dir)/crypto/boringssl/;$(ngtcp2_install_dir)/lib/pkgconfig"
 
 	# Remove possible leftovers from a previous compilation

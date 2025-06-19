@@ -1,5 +1,5 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 50f5e3799..ab655f5c8 100644
+index 50f5e3799..00866966e 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -124,7 +124,7 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CLANG)
@@ -11,6 +11,66 @@ index 50f5e3799..ab655f5c8 100644
    else()
      if(EMSCRIPTEN)
        # emscripten's emcc/clang does not accept the "-ggdb" flag.
+@@ -505,7 +505,6 @@ target_include_directories(
+ # themselves as dependencies next to the target definition.
+ add_custom_target(all_tests)
+ 
+-add_subdirectory(ssl/test)
+ add_subdirectory(util/fipstools)
+ add_subdirectory(util/fipstools/acvp/modulewrapper)
+ 
+@@ -686,9 +685,6 @@ add_executable(crypto_test ${CRYPTO_TEST_SOURCES})
+ target_link_libraries(crypto_test test_support_lib boringssl_gtest crypto)
+ add_dependencies(all_tests crypto_test)
+ 
+-add_executable(ssl_test ${SSL_TEST_SOURCES})
+-target_link_libraries(ssl_test test_support_lib boringssl_gtest ssl crypto)
+-add_dependencies(all_tests ssl_test)
+ add_executable(decrepit_test ${DECREPIT_TEST_SOURCES})
+ target_link_libraries(decrepit_test test_support_lib boringssl_gtest
+                       decrepit crypto)
+@@ -717,9 +713,8 @@ target_link_libraries(bssl ssl crypto)
+ # existing tools, we, for now, copy the targets into the subdirectories. This
+ # will be removed sometime in 2024.
+ copy_post_build(crypto crypto crypto_test urandom_test)
+-copy_post_build(ssl ssl ssl_test)
++copy_post_build(ssl ssl)
+ copy_post_build(decrepit decrepit decrepit_test)
+-copy_post_build(tool bssl)
+ 
+ if(FUZZ)
+   if(LIBFUZZER_FROM_DEPS)
+@@ -777,30 +772,6 @@ file(STRINGS util/go_tests.txt GO_TESTS)
+ set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+              util/go_tests.txt)
+ 
+-if(GO_EXECUTABLE)
+-  add_custom_target(
+-      run_tests
+-      COMMAND ${CMAKE_COMMAND} -E echo "Running Go tests"
+-      COMMAND ${GO_EXECUTABLE} test ${GO_TESTS}
+-      COMMAND ${CMAKE_COMMAND} -E echo
+-      COMMAND ${CMAKE_COMMAND} -E echo "Running unit tests"
+-      COMMAND ${GO_EXECUTABLE} run util/all_tests.go -build-dir
+-              ${CMAKE_CURRENT_BINARY_DIR}
+-      COMMAND ${CMAKE_COMMAND} -E echo
+-      COMMAND ${CMAKE_COMMAND} -E echo "Running SSL tests"
+-      COMMAND cd ssl/test/runner &&
+-              ${GO_EXECUTABLE} test -shim-path $<TARGET_FILE:bssl_shim>
+-                ${HANDSHAKER_ARGS} ${RUNNER_ARGS}
+-      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+-      DEPENDS all_tests bssl_shim handshaker fips_specific_tests_if_any
+-      USES_TERMINAL)
+-else()
+-  add_custom_target(
+-      run_tests
+-      COMMAND ${CMAKE_COMMAND} -E echo "Running tests requires Go"
+-      COMMAND ${CMAKE_COMMAND} -E false)
+-endif()
+-
+ if(INSTALL_ENABLED)
+   install(TARGETS crypto ssl EXPORT OpenSSLTargets)
+   install(TARGETS bssl)
 diff --git a/crypto/cipher/e_tls.cc b/crypto/cipher/e_tls.cc
 index ccb677bad..55bba4e3f 100644
 --- a/crypto/cipher/e_tls.cc

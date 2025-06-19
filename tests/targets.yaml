@@ -51,6 +51,10 @@
   - null
   - null
   - chrome_133.0.6943.55_macOS
+- - curl_chrome136
+  - null
+  - null
+  - chrome_136.0.7103.93_macOS
 - - curl_chrome131_android
   - null
   - null
@@ -83,6 +87,14 @@
   - null
   - null
   - safari_18.0_iOS
+- - curl_safari184
+  - null
+  - null
+  - safari_18.4_macOS
+- - curl_safari184_ios
+  - null
+  - null
+  - safari_18.4_iOS
 - - curl_firefox133
   - null
   - null
@@ -152,6 +164,10 @@
   - libcurl-impersonate
   - chrome_133.0.6943.55_macOS
 - - minicurl
+  - CURL_IMPERSONATE: chrome136
+  - libcurl-impersonate
+  - chrome_136.0.7103.93_macOS
+- - minicurl
   - CURL_IMPERSONATE: chrome131_android
   - libcurl-impersonate
   - chrome_131.0.6778.81_android14
@@ -191,6 +207,14 @@
   - CURL_IMPERSONATE: safari180_ios
   - libcurl-impersonate
   - safari_18.0_iOS
+- - minicurl
+  - CURL_IMPERSONATE: safari184
+  - libcurl-impersonate
+  - safari_18.4_macOS
+- - minicurl
+  - CURL_IMPERSONATE: safari184_ios
+  - libcurl-impersonate
+  - safari_18.4_iOS
 - - minicurl
   - CURL_IMPERSONATE: firefox133
   - libcurl-impersonate

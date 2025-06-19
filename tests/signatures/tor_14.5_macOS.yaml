@@ -50,8 +50,6 @@ signature:
     - 52392
     - 49196
     - 49200
-    - 49162
-    - 49161
     - 49171
     - 49172
     - 156
@@ -121,7 +119,7 @@ signature:
       - 513
       type: signature_algorithms
     - length: 2
-      record_size_limit: 4001
+      record_size_limit: 16385
       type: record_size_limit
     - length: 0
       type: encrypted_client_hello
