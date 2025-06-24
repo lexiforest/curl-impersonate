@@ -323,6 +323,7 @@ $(CURL_VERSION)/.chrome: $(chrome_libs)	$(CURL_VERSION).tar.gz $(CURL_VERSION)/.
 	  config_flags="$$config_flags --without-libpsl"; \
 	  config_flags="$$config_flags --enable-websockets"; \
 	  config_flags="$$config_flags --enable-ech"; \
+	  config_flags="$$config_flags --enable-ssls-export"; \
 	  config_flags="$$config_flags --enable-ipv6"; \
 	  config_flags="$$config_flags USE_CURL_SSLKEYLOGFILE=true"; \
 	  if test "$(static_build)" = "yes"; then \
