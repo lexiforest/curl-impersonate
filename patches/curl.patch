@@ -1,8 +1,8 @@
 diff --git a/Makefile.am b/Makefile.am
-index d63ef632c..9471f8a52 100644
+index dbb0f0c6d..31774f63a 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -90,13 +90,13 @@ EXTRA_DIST = CHANGES.md COPYING RELEASE-NOTES Dockerfile \
+@@ -89,13 +89,13 @@ EXTRA_DIST = CHANGES.md COPYING RELEASE-NOTES Dockerfile \
  
  DISTCLEANFILES = buildinfo.txt
  
@@ -19,10 +19,10 @@ index d63ef632c..9471f8a52 100644
  dist-hook:
  	rm -rf $(top_builddir)/tests/log
 diff --git a/configure.ac b/configure.ac
-index 7f5a2bff5..781dcf336 100644
+index 9a5dd60f6..a24d69ab4 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -1500,7 +1500,8 @@ if test X"$OPT_BROTLI" != Xno; then
+@@ -1514,7 +1514,8 @@ if test X"$OPT_BROTLI" != Xno; then
  
    dnl if given with a prefix, we set -L and -I based on that
    if test -n "$PREFIX_BROTLI"; then
@@ -32,7 +32,7 @@ index 7f5a2bff5..781dcf336 100644
      LD_BROTLI=-L${PREFIX_BROTLI}/lib$libsuff
      CPP_BROTLI=-I${PREFIX_BROTLI}/include
      DIR_BROTLI=${PREFIX_BROTLI}/lib$libsuff
-@@ -1511,7 +1512,11 @@ if test X"$OPT_BROTLI" != Xno; then
+@@ -1525,7 +1526,11 @@ if test X"$OPT_BROTLI" != Xno; then
    CPPFLAGS="$CPPFLAGS $CPP_BROTLI"
    LIBS="$LIB_BROTLI $LIBS"
  
@@ -45,7 +45,7 @@ index 7f5a2bff5..781dcf336 100644
  
    AC_CHECK_HEADERS(brotli/decode.h,
      curl_brotli_msg="enabled (libbrotlidec)"
-@@ -5362,6 +5367,8 @@ SUPPORT_PROTOCOLS=`echo $SUPPORT_PROTOCOLS | tr ' ' '\012' | sort | tr '\012' '
+@@ -5443,6 +5448,8 @@ SUPPORT_PROTOCOLS=`echo $SUPPORT_PROTOCOLS | tr ' ' '\012' | sort | tr '\012' '
  
  AC_SUBST(SUPPORT_PROTOCOLS)
  
@@ -54,7 +54,7 @@ index 7f5a2bff5..781dcf336 100644
  dnl squeeze whitespace out of some variables
  
  squeeze CFLAGS
-@@ -5415,8 +5422,8 @@ AC_CONFIG_FILES([\
+@@ -5497,8 +5504,8 @@ AC_CONFIG_FILES([\
    tests/http/clients/Makefile \
    packages/Makefile \
    packages/vms/Makefile \
@@ -92,7 +92,7 @@ index 55184167b..b0e592db0 100644
        exit 1
 diff --git a/export.sh b/export.sh
 new file mode 100755
-index 000000000..ebb7be9f8
+index 000000000..df0ce92ed
 --- /dev/null
 +++ b/export.sh
 @@ -0,0 +1,9 @@
@@ -103,21 +103,22 @@ index 000000000..ebb7be9f8
 +# 1. https://github.com/curl/curl/pull/13244/files
 +# 2. https://everything.curl.dev/build/windows.html
 +
-+git df curl-8_13_0 > chrome.patch
++git df curl-8_14_1 > chrome.patch
 +mv chrome.patch ../curl-impersonate/patches/curl.patch
 diff --git a/include/curl/curl.h b/include/curl/curl.h
-index 84966e81e..ab01b9487 100644
+index fb225c790..d5aee9958 100644
 --- a/include/curl/curl.h
 +++ b/include/curl/curl.h
-@@ -2258,6 +2258,86 @@ typedef enum {
- 
-   CURLOPT(CURLOPT_UPLOAD_FLAGS, CURLOPTTYPE_LONG, 327),
+@@ -2261,6 +2261,87 @@ typedef enum {
+   /* set TLS supported signature algorithms */
+   CURLOPT(CURLOPT_SSL_SIGNATURE_ALGORITHMS, CURLOPTTYPE_STRINGPOINT, 328),
  
 +  /* curl-impersonate: A list of headers used by the impersonated browser.
 +   * If given, merged with CURLOPT_HTTPHEADER. */
 +  CURLOPT(CURLOPT_HTTPBASEHEADER, CURLOPTTYPE_SLISTPOINT, 1000),
 +
 +  /* curl-impersonate: A list of TLS signature hash algorithms.
++   * This has been implemented by curl as option 328, but we will keep it for compatibility.
 +   * See https://datatracker.ietf.org/doc/html/rfc5246#section-7.4.1.4.1 */
 +  CURLOPT(CURLOPT_SSL_SIG_HASH_ALGS, CURLOPTTYPE_STRINGPOINT, 1001),
 +
@@ -197,15 +198,15 @@ index 84966e81e..ab01b9487 100644
  } CURLoption;
  
 diff --git a/include/curl/curlver.h b/include/curl/curlver.h
-index a0d7309d3..95bcb3ca5 100644
+index 38661a444..ffeeee461 100644
 --- a/include/curl/curlver.h
 +++ b/include/curl/curlver.h
 @@ -32,7 +32,7 @@
  
  /* This is the version number of the libcurl package from which this header
     file origins: */
--#define LIBCURL_VERSION "8.13.0-DEV"
-+#define LIBCURL_VERSION "8.13.0-IMPERSONATE"
+-#define LIBCURL_VERSION "8.14.1-DEV"
++#define LIBCURL_VERSION "8.14.1-IMPERSONATE"
  
  /* The numeric version number is also available "in parts" by using these
     defines: */
@@ -232,7 +233,7 @@ index 56f8060e0..1a348c502 100644
   * NAME curl_easy_getinfo()
   *
 diff --git a/lib/Makefile.am b/lib/Makefile.am
-index b8aaadab8..8ad9ce241 100644
+index 463b72ed8..b626d9e77 100644
 --- a/lib/Makefile.am
 +++ b/lib/Makefile.am
 @@ -32,7 +32,7 @@ EXTRA_DIST = config-mac.h config-os400.h config-plan9.h config-riscos.h \
@@ -244,7 +245,7 @@ index b8aaadab8..8ad9ce241 100644
  
  if BUILD_UNITTESTS
  noinst_LTLIBRARIES = libcurlu.la
-@@ -99,58 +99,58 @@ endif
+@@ -88,58 +88,58 @@ endif
  libcurl_unity.c: $(top_srcdir)/scripts/mk-unity.pl $(CSOURCES)
  	@PERL@ $(top_srcdir)/scripts/mk-unity.pl $(srcdir) $(CSOURCES) --exclude $(curl_EXCLUDE) > libcurl_unity.c
  
@@ -322,19 +323,19 @@ index b8aaadab8..8ad9ce241 100644
  libcurlu_la_CPPFLAGS = $(AM_CPPFLAGS) -DCURL_STATICLIB -DUNITTESTS
  libcurlu_la_LDFLAGS = $(AM_LDFLAGS) -static $(LIBCURL_PC_LIBS_PRIVATE)
 diff --git a/lib/Makefile.inc b/lib/Makefile.inc
-index a8e4da1cf..e3b315b50 100644
+index b384e0962..a255ff340 100644
 --- a/lib/Makefile.inc
 +++ b/lib/Makefile.inc
-@@ -185,6 +185,7 @@ LIB_CFILES =         \
+@@ -208,6 +208,7 @@ LIB_CFILES =         \
    idn.c              \
    if2ip.c            \
    imap.c             \
 +  impersonate.c      \
    inet_ntop.c        \
-   inet_pton.c        \
    krb5.c             \
+   ldap.c             \
 diff --git a/lib/dynhds.c b/lib/dynhds.c
-index 2c92ca63f..5694a8e07 100644
+index 5c52d7411..2cfa34044 100644
 --- a/lib/dynhds.c
 +++ b/lib/dynhds.c
 @@ -56,6 +56,9 @@ entry_new(const char *name, size_t namelen,
@@ -377,7 +378,7 @@ index 2c92ca63f..5694a8e07 100644
      goto out;
  
 diff --git a/lib/dynhds.h b/lib/dynhds.h
-index fb162a30d..f1429fe2f 100644
+index e533dcc36..84d8c5d70 100644
 --- a/lib/dynhds.h
 +++ b/lib/dynhds.h
 @@ -53,6 +53,7 @@ struct dynhds {
@@ -408,11 +409,11 @@ index fb162a30d..f1429fe2f 100644
  bool Curl_dynhds_contains(struct dynhds *dynhds,
                            const char *name, size_t namelen);
 diff --git a/lib/easy.c b/lib/easy.c
-index aa1bedec3..e88e8a3d0 100644
+index 3f8678625..0b275e385 100644
 --- a/lib/easy.c
 +++ b/lib/easy.c
-@@ -75,6 +75,8 @@
- #include "dynbuf.h"
+@@ -76,6 +76,8 @@
+ #include "curlx/dynbuf.h"
  #include "altsvc.h"
  #include "hsts.h"
 +#include "strcase.h"
@@ -420,7 +421,7 @@ index aa1bedec3..e88e8a3d0 100644
  
  #include "easy_lock.h"
  
-@@ -344,6 +346,281 @@ CURLsslset curl_global_sslset(curl_sslbackend id, const char *name,
+@@ -350,6 +352,281 @@ CURLsslset curl_global_sslset(curl_sslbackend id, const char *name,
    return rc;
  }
  
@@ -702,7 +703,7 @@ index aa1bedec3..e88e8a3d0 100644
  /*
   * curl_easy_init() is the external interface to alloc, setup and init an
   * easy handle that is returned. If anything goes wrong, NULL is returned.
-@@ -352,6 +629,8 @@ CURL *curl_easy_init(void)
+@@ -358,6 +635,8 @@ CURL *curl_easy_init(void)
  {
    CURLcode result;
    struct Curl_easy *data;
@@ -711,7 +712,7 @@ index aa1bedec3..e88e8a3d0 100644
  
    /* Make sure we inited the global SSL stuff */
    global_init_lock();
-@@ -374,6 +653,29 @@ CURL *curl_easy_init(void)
+@@ -380,6 +659,29 @@ CURL *curl_easy_init(void)
      return NULL;
    }
  
@@ -741,7 +742,7 @@ index aa1bedec3..e88e8a3d0 100644
    return data;
  }
  
-@@ -1010,6 +1312,13 @@ CURL *curl_easy_duphandle(CURL *d)
+@@ -1022,6 +1324,13 @@ CURL *curl_easy_duphandle(CURL *d)
      outcurl->state.referer_alloc = TRUE;
    }
  
@@ -755,7 +756,7 @@ index aa1bedec3..e88e8a3d0 100644
    /* Reinitialize an SSL engine for the new handle
     * note: the engine name has already been copied by dupset */
    if(outcurl->set.str[STRING_SSL_ENGINE]) {
-@@ -1096,6 +1405,9 @@ fail:
+@@ -1078,6 +1387,9 @@ fail:
   */
  void curl_easy_reset(CURL *d)
  {
@@ -764,12 +765,11 @@ index aa1bedec3..e88e8a3d0 100644
 +
    struct Curl_easy *data = d;
    Curl_req_hard_reset(&data->req, data);
- 
-@@ -1121,6 +1433,23 @@ void curl_easy_reset(CURL *d)
- #if !defined(CURL_DISABLE_HTTP) && !defined(CURL_DISABLE_DIGEST_AUTH)
+   Curl_hash_clean(&data->meta_hash);
+@@ -1111,6 +1423,22 @@ void curl_easy_reset(CURL *d)
    Curl_http_auth_cleanup_digest(data);
  #endif
-+
+   data->master_mid = UINT_MAX;
 +  /*
 +   * curl-impersonate: Hook into curl_easy_reset() to set the required options
 +   * from an environment variable, just like in curl_easy_init().
@@ -790,10 +790,10 @@ index aa1bedec3..e88e8a3d0 100644
  
  /*
 diff --git a/lib/easyoptions.c b/lib/easyoptions.c
-index be617b5d2..cecda8de7 100644
+index 03d676df0..25373a4bb 100644
 --- a/lib/easyoptions.c
 +++ b/lib/easyoptions.c
-@@ -134,7 +134,12 @@ struct curl_easyoption Curl_easyopts[] = {
+@@ -134,7 +134,12 @@ const struct curl_easyoption Curl_easyopts[] = {
    {"HSTS_CTRL", CURLOPT_HSTS_CTRL, CURLOT_LONG, 0},
    {"HTTP09_ALLOWED", CURLOPT_HTTP09_ALLOWED, CURLOT_LONG, 0},
    {"HTTP200ALIASES", CURLOPT_HTTP200ALIASES, CURLOT_SLIST, 0},
@@ -806,7 +806,7 @@ index be617b5d2..cecda8de7 100644
    {"HTTPGET", CURLOPT_HTTPGET, CURLOT_LONG, 0},
    {"HTTPHEADER", CURLOPT_HTTPHEADER, CURLOT_SLIST, 0},
    {"HTTPPOST", CURLOPT_HTTPPOST, CURLOT_OBJECT, 0},
-@@ -308,21 +313,27 @@ struct curl_easyoption Curl_easyopts[] = {
+@@ -308,23 +313,29 @@ const struct curl_easyoption Curl_easyopts[] = {
    {"SSLKEYTYPE", CURLOPT_SSLKEYTYPE, CURLOT_STRING, 0},
    {"SSLKEY_BLOB", CURLOPT_SSLKEY_BLOB, CURLOT_BLOB, 0},
    {"SSLVERSION", CURLOPT_SSLVERSION, CURLOT_VALUES, 0},
@@ -823,6 +823,8 @@ index be617b5d2..cecda8de7 100644
    {"SSL_OPTIONS", CURLOPT_SSL_OPTIONS, CURLOT_VALUES, 0},
 +  {"SSL_PERMUTE_EXTENSIONS", CURLOPT_SSL_PERMUTE_EXTENSIONS, CURLOT_LONG, 0},
    {"SSL_SESSIONID_CACHE", CURLOPT_SSL_SESSIONID_CACHE, CURLOT_LONG, 0},
+   {"SSL_SIGNATURE_ALGORITHMS", CURLOPT_SSL_SIGNATURE_ALGORITHMS,
+    CURLOT_STRING, 0},
 +  {"SSL_SIG_HASH_ALGS", CURLOPT_SSL_SIG_HASH_ALGS, CURLOT_STRING, 0},
    {"SSL_VERIFYHOST", CURLOPT_SSL_VERIFYHOST, CURLOT_LONG, 0},
    {"SSL_VERIFYPEER", CURLOPT_SSL_VERIFYPEER, CURLOT_LONG, 0},
@@ -834,7 +836,7 @@ index be617b5d2..cecda8de7 100644
    {"STREAM_WEIGHT", CURLOPT_STREAM_WEIGHT, CURLOT_LONG, 0},
    {"SUPPRESS_CONNECT_HEADERS", CURLOPT_SUPPRESS_CONNECT_HEADERS,
     CURLOT_LONG, 0},
-@@ -344,6 +355,16 @@ struct curl_easyoption Curl_easyopts[] = {
+@@ -346,6 +357,16 @@ const struct curl_easyoption Curl_easyopts[] = {
    {"TLSAUTH_PASSWORD", CURLOPT_TLSAUTH_PASSWORD, CURLOT_STRING, 0},
    {"TLSAUTH_TYPE", CURLOPT_TLSAUTH_TYPE, CURLOT_STRING, 0},
    {"TLSAUTH_USERNAME", CURLOPT_TLSAUTH_USERNAME, CURLOT_STRING, 0},
@@ -851,27 +853,27 @@ index be617b5d2..cecda8de7 100644
    {"TRAILERDATA", CURLOPT_TRAILERDATA, CURLOT_CBPTR, 0},
    {"TRAILERFUNCTION", CURLOPT_TRAILERFUNCTION, CURLOT_FUNCTION, 0},
    {"TRANSFERTEXT", CURLOPT_TRANSFERTEXT, CURLOT_LONG, 0},
-@@ -378,6 +399,6 @@ struct curl_easyoption Curl_easyopts[] = {
+@@ -380,6 +401,6 @@ const struct curl_easyoption Curl_easyopts[] = {
   */
  int Curl_easyopts_check(void)
  {
--  return (CURLOPT_LASTENTRY % 10000) != (327 + 1);
+-  return (CURLOPT_LASTENTRY % 10000) != (328 + 1);
 +  return ((CURLOPT_LASTENTRY%10000) != (1020 + 1));
  }
  #endif
 diff --git a/lib/http.c b/lib/http.c
-index 03d1959e2..e51b385f4 100644
+index 5942d313b..60ea7951b 100644
 --- a/lib/http.c
 +++ b/lib/http.c
-@@ -86,6 +86,7 @@
+@@ -85,6 +85,7 @@
+ #include "hsts.h"
  #include "ws.h"
  #include "curl_ctype.h"
- #include "strparse.h"
 +#include "slist.h"
+ #include "curlx/strparse.h"
  
  /* The last 3 #include files should be in this order */
- #include "curl_printf.h"
-@@ -1610,6 +1611,15 @@ CURLcode Curl_add_custom_headers(struct Curl_easy *data,
+@@ -1624,6 +1625,15 @@ CURLcode Curl_add_custom_headers(struct Curl_easy *data,
    int numlists = 1; /* by default */
    int i;
  
@@ -887,7 +889,7 @@ index 03d1959e2..e51b385f4 100644
  #ifndef CURL_DISABLE_PROXY
    enum Curl_proxy_use proxy;
  
-@@ -1621,10 +1631,11 @@ CURLcode Curl_add_custom_headers(struct Curl_easy *data,
+@@ -1635,10 +1645,11 @@ CURLcode Curl_add_custom_headers(struct Curl_easy *data,
  
    switch(proxy) {
    case HEADER_SERVER:
@@ -901,7 +903,7 @@ index 03d1959e2..e51b385f4 100644
      if(data->set.sep_headers) {
        h[1] = data->set.proxyheaders;
        numlists++;
-@@ -1634,12 +1645,12 @@ CURLcode Curl_add_custom_headers(struct Curl_easy *data,
+@@ -1648,12 +1659,12 @@ CURLcode Curl_add_custom_headers(struct Curl_easy *data,
      if(data->set.sep_headers)
        h[0] = data->set.proxyheaders;
      else
@@ -916,7 +918,7 @@ index 03d1959e2..e51b385f4 100644
  #endif
  
    /* loop through one or two lists */
-@@ -1846,6 +1857,109 @@ void Curl_http_method(struct Curl_easy *data, struct connectdata *conn,
+@@ -1860,6 +1871,109 @@ void Curl_http_method(struct Curl_easy *data, struct connectdata *conn,
    *reqp = httpreq;
  }
  
@@ -1026,7 +1028,7 @@ index 03d1959e2..e51b385f4 100644
  static CURLcode http_useragent(struct Curl_easy *data)
  {
    /* The User-Agent string might have been allocated in url.c already, because
-@@ -2701,6 +2815,11 @@ CURLcode Curl_http(struct Curl_easy *data, bool *done)
+@@ -2715,6 +2829,11 @@ CURLcode Curl_http(struct Curl_easy *data, bool *done)
    if(result)
      goto fail;
  
@@ -1038,16 +1040,7 @@ index 03d1959e2..e51b385f4 100644
    result = http_host(data, conn);
    if(result)
      goto fail;
-@@ -4445,7 +4564,7 @@ struct name_const {
- 
- /* keep them sorted by length! */
- static struct name_const H2_NON_FIELD[] = {
--  { STRCONST("TE") },
-+  // { STRCONST("TE") },
-   { STRCONST("Host") },
-   { STRCONST("Upgrade") },
-   { STRCONST("Connection") },
-@@ -4467,6 +4586,29 @@ static bool h2_non_field(const char *name, size_t namelen)
+@@ -4509,6 +4628,29 @@ static bool http_TE_has_token(const char *fvalue, const char *token)
    return FALSE;
  }
  
@@ -1077,7 +1070,7 @@ index 03d1959e2..e51b385f4 100644
  CURLcode Curl_http_req_to_h2(struct dynhds *h2_headers,
                               struct httpreq *req, struct Curl_easy *data)
  {
-@@ -4475,6 +4617,10 @@ CURLcode Curl_http_req_to_h2(struct dynhds *h2_headers,
+@@ -4517,6 +4659,10 @@ CURLcode Curl_http_req_to_h2(struct dynhds *h2_headers,
    size_t i;
    CURLcode result;
  
@@ -1088,7 +1081,7 @@ index 03d1959e2..e51b385f4 100644
    DEBUGASSERT(req);
    DEBUGASSERT(h2_headers);
  
-@@ -4505,25 +4651,56 @@ CURLcode Curl_http_req_to_h2(struct dynhds *h2_headers,
+@@ -4547,20 +4693,42 @@ CURLcode Curl_http_req_to_h2(struct dynhds *h2_headers,
  
    Curl_dynhds_reset(h2_headers);
    Curl_dynhds_set_opts(h2_headers, DYNHDS_OPT_LOWERCASE);
@@ -1142,14 +1135,9 @@ index 03d1959e2..e51b385f4 100644
 +
    for(i = 0; !result && i < Curl_dynhds_count(&req->headers); ++i) {
      e = Curl_dynhds_getn(&req->headers, i);
-     if(!h2_non_field(e->name, e->namelen)) {
-+      /* curl-impersonate:
-+       * Some HTTP/2 servers reject 'te' header value that is not lowercase (e.g. 'Trailers).
-+       * Convert to lowercase explicitly.
-+       */
-+      if(e->namelen == 2 && strcasecompare(e->name, "te"))
-+        Curl_dynhds_set_opt(h2_headers, DYNHDS_OPT_LOWERCASE_VAL);
-+
+     /* "TE" is special in that it is only permissible when it
+@@ -4573,6 +4741,8 @@ CURLcode Curl_http_req_to_h2(struct dynhds *h2_headers,
+     else if(h2_permissible_field(e)) {
        result = Curl_dynhds_add(h2_headers, e->name, e->namelen,
                                 e->value, e->valuelen);
 +      /* curl-impersonate: delete the option */
@@ -1158,10 +1146,10 @@ index 03d1959e2..e51b385f4 100644
    }
  
 diff --git a/lib/http2.c b/lib/http2.c
-index 88fbcceb7..94f7cd9b4 100644
+index dd82aa963..c357b90c9 100644
 --- a/lib/http2.c
 +++ b/lib/http2.c
-@@ -51,6 +51,7 @@
+@@ -52,6 +52,7 @@
  #include "curl_printf.h"
  #include "curl_memory.h"
  #include "memdebug.h"
@@ -1169,7 +1157,7 @@ index 88fbcceb7..94f7cd9b4 100644
  
  #if (NGHTTP2_VERSION_NUM < 0x010c00)
  #error too old nghttp2 version, upgrade!
-@@ -75,11 +76,13 @@
+@@ -76,11 +77,13 @@
  /* on send into TLS, we just want to accumulate small frames */
  #define H2_NW_SEND_CHUNKS       1
  /* this is how much we want "in flight" for a stream, unthrottled  */
@@ -1185,7 +1173,7 @@ index 88fbcceb7..94f7cd9b4 100644
  #else
  #define H2_STREAM_WINDOW_SIZE_INITIAL H2_STREAM_WINDOW_SIZE_MAX
  #endif
-@@ -93,24 +96,95 @@
+@@ -94,24 +97,95 @@
   * the overall connection. Streams might become PAUSED which will block their
   * received QUOTA in the connection window. If we run out of space, the server
   * is blocked from sending us any data. See #10988 for an issue with this. */
@@ -1210,20 +1198,17 @@ index 88fbcceb7..94f7cd9b4 100644
 +  // TODO check if the http2 settings is valid
 +  int i = 0;
 +  char *delimiter = ";";
- 
--  iv[1].settings_id = NGHTTP2_SETTINGS_INITIAL_WINDOW_SIZE;
--  iv[1].value = H2_STREAM_WINDOW_SIZE_INITIAL;
++
 +  // Use chrome's settings as default
 +  char *http2_settings = "1:65536;2:0;4:6291456;6:262144";
 +  if(data->set.str[STRING_HTTP2_SETTINGS]) {
 +    http2_settings = data->set.str[STRING_HTTP2_SETTINGS];
 +  }
- 
--  iv[2].settings_id = NGHTTP2_SETTINGS_ENABLE_PUSH;
--  iv[2].value = data->multi->push_cb != NULL;
++
 +  // printf("USING settings %s\n", http2_settings);
  
--  return 3;
+-  iv[1].settings_id = NGHTTP2_SETTINGS_INITIAL_WINDOW_SIZE;
+-  iv[1].value = H2_STREAM_WINDOW_SIZE_INITIAL;
 +  char *tmp = strdup(http2_settings);
 +  char *setting = strtok(tmp, delimiter);
 +
@@ -1278,19 +1263,22 @@ index 88fbcceb7..94f7cd9b4 100644
 +    setting = strtok(NULL, delimiter);
 +  }
 +  free(tmp);
-+
+ 
+-  iv[2].settings_id = NGHTTP2_SETTINGS_ENABLE_PUSH;
+-  iv[2].value = data->multi->push_cb != NULL;
 +  // curl-impersonate:
 +  // Up until Chrome 98, there was a randomly chosen setting number in the
 +  // HTTP2 SETTINGS frame. This might be something similar to TLS GREASE.
 +  // However, it seems to have been removed since.
 +  // Curl_rand(data, (unsigned char *)&iv[4].settings_id, sizeof(iv[4].settings_id));
 +  // Curl_rand(data, (unsigned char *)&iv[4].value, sizeof(iv[4].value));
-+
+ 
+-  return 3;
 +  return i;
  }
  
  static ssize_t populate_binsettings(uint8_t *binsettings,
-@@ -189,6 +263,76 @@ static void cf_h2_ctx_close(struct cf_h2_ctx *ctx)
+@@ -205,6 +279,76 @@ static void cf_h2_ctx_close(struct cf_h2_ctx *ctx)
    }
  }
  
@@ -1365,9 +1353,9 @@ index 88fbcceb7..94f7cd9b4 100644
 +
 +
  static CURLcode h2_progress_egress(struct Curl_cfilter *cf,
-                                   struct Curl_easy *data);
+                                    struct Curl_easy *data);
  
-@@ -314,8 +458,6 @@ static CURLcode cf_h2_update_local_win(struct Curl_cfilter *cf,
+@@ -346,8 +490,6 @@ static CURLcode cf_h2_update_local_win(struct Curl_cfilter *cf,
                    stream->id, dwsize - wsize);
      }
      else {
@@ -1376,7 +1364,7 @@ index 88fbcceb7..94f7cd9b4 100644
        if(rv) {
          failf(data, "[%d] nghttp2_session_set_local_window_size() failed: "
                "%s(%d)", stream->id, nghttp2_strerror(rv), rv);
-@@ -600,9 +742,23 @@ static CURLcode cf_h2_ctx_open(struct Curl_cfilter *cf,
+@@ -632,9 +774,23 @@ static CURLcode cf_h2_ctx_open(struct Curl_cfilter *cf,
        goto out;
      }
    }
@@ -1402,7 +1390,7 @@ index 88fbcceb7..94f7cd9b4 100644
    if(rc) {
      failf(data, "nghttp2_session_set_local_window_size() failed: %s(%d)",
            nghttp2_strerror(rc), rc);
-@@ -610,6 +766,17 @@ static CURLcode cf_h2_ctx_open(struct Curl_cfilter *cf,
+@@ -642,6 +798,17 @@ static CURLcode cf_h2_ctx_open(struct Curl_cfilter *cf,
      goto out;
    }
  
@@ -1420,7 +1408,7 @@ index 88fbcceb7..94f7cd9b4 100644
    /* all set, traffic will be send on connect */
    result = CURLE_OK;
    CURL_TRC_CF(data, cf, "[0] created h2 session%s",
-@@ -1925,11 +2092,19 @@ out:
+@@ -1957,11 +2124,19 @@ out:
    return rv;
  }
  
@@ -1441,7 +1429,7 @@ index 88fbcceb7..94f7cd9b4 100644
  }
  
  static int sweight_in_effect(const struct Curl_easy *data)
-@@ -1944,6 +2119,12 @@ static int sweight_in_effect(const struct Curl_easy *data)
+@@ -1976,6 +2151,12 @@ static int sweight_in_effect(const struct Curl_easy *data)
   * and dependency to the peer. It also stores the updated values in the state
   * struct.
   */
@@ -1454,7 +1442,7 @@ index 88fbcceb7..94f7cd9b4 100644
  
  static void h2_pri_spec(struct cf_h2_ctx *ctx,
                          struct Curl_easy *data,
-@@ -1952,6 +2133,11 @@ static void h2_pri_spec(struct cf_h2_ctx *ctx,
+@@ -1984,6 +2165,11 @@ static void h2_pri_spec(struct cf_h2_ctx *ctx,
    struct Curl_data_priority *prio = &data->set.priority;
    struct h2_stream_ctx *depstream = H2_STREAM_CTX(ctx, prio->parent);
    int32_t depstream_id = depstream ? depstream->id : 0;
@@ -1466,7 +1454,7 @@ index 88fbcceb7..94f7cd9b4 100644
    nghttp2_priority_spec_init(pri_spec, depstream_id,
                               sweight_wanted(data),
                               data->set.priority.exclusive);
-@@ -1971,20 +2157,24 @@ static CURLcode h2_progress_egress(struct Curl_cfilter *cf,
+@@ -2003,20 +2189,24 @@ static CURLcode h2_progress_egress(struct Curl_cfilter *cf,
    struct h2_stream_ctx *stream = H2_STREAM_CTX(ctx, data);
    int rv = 0;
  
@@ -1514,7 +1502,7 @@ index 93cc2d44f..52e80ce9c 100644
   * Store nghttp2 version info in this buffer.
 diff --git a/lib/impersonate.c b/lib/impersonate.c
 new file mode 100644
-index 000000000..f89825d1c
+index 000000000..15265af2e
 --- /dev/null
 +++ b/lib/impersonate.c
 @@ -0,0 +1,1678 @@
@@ -3276,11 +3264,11 @@ index 43e26f655..8537a108e 100644
  curl_easy_option_by_id
  curl_easy_option_by_name
 diff --git a/lib/multi.c b/lib/multi.c
-index 09afe804c..4bdc3eede 100644
+index 64eb1ae85..30e2bbf33 100644
 --- a/lib/multi.c
 +++ b/lib/multi.c
-@@ -254,7 +254,8 @@ struct Curl_multi *Curl_multi_handle(size_t ev_hashsize,  /* event hash */
-   Curl_llist_init(&multi->msgsent, NULL);
+@@ -241,7 +241,8 @@ struct Curl_multi *Curl_multi_handle(unsigned int xfer_table_size,
+   Curl_llist_init(&multi->msglist, NULL);
  
    multi->multiplexing = TRUE;
 -  multi->max_concurrent_streams = 100;
@@ -3288,12 +3276,12 @@ index 09afe804c..4bdc3eede 100644
 +  multi->max_concurrent_streams = 1000;
    multi->last_timeout_ms = -1;
  
- #ifdef USE_WINSOCK
+   if(Curl_uint_bset_resize(&multi->process, xfer_table_size) ||
 diff --git a/lib/setopt.c b/lib/setopt.c
-index 48332295e..88171030e 100644
+index d5ddf6d0c..8f135e6c2 100644
 --- a/lib/setopt.c
 +++ b/lib/setopt.c
-@@ -51,6 +51,7 @@
+@@ -52,6 +52,7 @@
  #include "altsvc.h"
  #include "hsts.h"
  #include "tftp.h"
@@ -3301,19 +3289,20 @@ index 48332295e..88171030e 100644
  #include "strdup.h"
  #include "escape.h"
  
-@@ -629,6 +630,11 @@ static CURLcode setopt_long(struct Curl_easy *data, CURLoption option,
-     }
-     data->set.httpwant = (unsigned char)arg;
-     break;
+@@ -722,6 +723,12 @@ static CURLcode setopt_long(struct Curl_easy *data, CURLoption option,
+   case CURLOPT_HTTP_VERSION:
+     return setopt_HTTP_VERSION(data, arg);
+ 
 +#ifdef USE_HTTP2
 +  case CURLOPT_STREAM_EXCLUSIVE:
 +    data->set.priority.exclusive = (int)arg;
 +    break;
 +#endif
- 
++
    case CURLOPT_EXPECT_100_TIMEOUT_MS:
      /*
-@@ -1314,6 +1320,35 @@ static CURLcode setopt_long(struct Curl_easy *data, CURLoption option,
+      * Time to wait for a response to an HTTP request containing an
+@@ -1329,6 +1336,35 @@ static CURLcode setopt_long(struct Curl_easy *data, CURLoption option,
    case CURLOPT_SSL_ENABLE_ALPN:
      data->set.ssl_enable_alpn = enabled;
      break;
@@ -3349,7 +3338,7 @@ index 48332295e..88171030e 100644
    case CURLOPT_PATH_AS_IS:
      data->set.path_as_is = enabled;
      break;
-@@ -1360,6 +1395,19 @@ static CURLcode setopt_long(struct Curl_easy *data, CURLoption option,
+@@ -1375,6 +1411,19 @@ static CURLcode setopt_long(struct Curl_easy *data, CURLoption option,
        return CURLE_BAD_FUNCTION_ARGUMENT;
      data->set.maxlifetime_conn = arg;
      break;
@@ -3369,7 +3358,7 @@ index 48332295e..88171030e 100644
  #ifndef CURL_DISABLE_HSTS
    case CURLOPT_HSTS_CTRL:
      if(arg & CURLHSTS_ENABLE) {
-@@ -1485,6 +1533,21 @@ static CURLcode setopt_slist(struct Curl_easy *data, CURLoption option,
+@@ -1501,6 +1550,21 @@ static CURLcode setopt_slist(struct Curl_easy *data, CURLoption option,
       */
      data->set.headers = slist;
      break;
@@ -3391,7 +3380,7 @@ index 48332295e..88171030e 100644
  #endif
  #ifndef CURL_DISABLE_TELNET
    case CURLOPT_TELNETOPTIONS:
-@@ -1680,6 +1743,39 @@ static CURLcode setopt_cptr(struct Curl_easy *data, CURLoption option,
+@@ -1690,6 +1754,39 @@ static CURLcode setopt_cptr(struct Curl_easy *data, CURLoption option,
      }
      else
        return CURLE_NOT_BUILT_IN;
@@ -3431,7 +3420,7 @@ index 48332295e..88171030e 100644
  #ifndef CURL_DISABLE_PROXY
    case CURLOPT_PROXY_TLS13_CIPHERS:
      if(Curl_ssl_supports(data, SSLSUPP_TLS13_CIPHERSUITES))
-@@ -3021,6 +3117,7 @@ CURLcode Curl_vsetopt(struct Curl_easy *data, CURLoption option, va_list param)
+@@ -3040,6 +3137,7 @@ CURLcode Curl_vsetopt(struct Curl_easy *data, CURLoption option, va_list param)
         way than being listed explicitly */
      switch(option) {
      case CURLOPT_HTTPHEADER:
@@ -3440,7 +3429,7 @@ index 48332295e..88171030e 100644
      case CURLOPT_POSTQUOTE:
      case CURLOPT_TELNETOPTIONS:
 diff --git a/lib/transfer.c b/lib/transfer.c
-index 754bc2cda..8ca633938 100644
+index ef7d7f19a..76bae23b5 100644
 --- a/lib/transfer.c
 +++ b/lib/transfer.c
 @@ -105,7 +105,15 @@ char *Curl_checkheaders(const struct Curl_easy *data,
@@ -3461,10 +3450,10 @@ index 754bc2cda..8ca633938 100644
         Curl_headersep(head->data[thislen]) )
        return head->data;
 diff --git a/lib/url.c b/lib/url.c
-index 2125a97af..644038cc9 100644
+index 10e37ec67..cd344d1f0 100644
 --- a/lib/url.c
 +++ b/lib/url.c
-@@ -325,6 +325,10 @@ CURLcode Curl_close(struct Curl_easy **datap)
+@@ -328,6 +328,10 @@ CURLcode Curl_close(struct Curl_easy **datap)
    Curl_safefree(data->state.aptr.proxyuser);
    Curl_safefree(data->state.aptr.proxypasswd);
  #endif
@@ -3485,7 +3474,7 @@ index 2125a97af..644038cc9 100644
    set->expect_100_timeout = 1000L; /* Wait for a second by default. */
    set->sep_headers = TRUE; /* separated header lists by default */
    set->buffer_size = READBUFFER_SIZE;
-@@ -3595,6 +3602,11 @@ static CURLcode create_conn(struct Curl_easy *data,
+@@ -3734,6 +3741,11 @@ static CURLcode create_conn(struct Curl_easy *data,
           (default) */
        if(data->set.ssl_enable_alpn)
          conn->bits.tls_enable_alpn = TRUE;
@@ -3496,21 +3485,21 @@ index 2125a97af..644038cc9 100644
 +        conn->bits.tls_enable_alps = TRUE;
      }
  
-     if(waitpipe)
+     if(waitpipe) {
 diff --git a/lib/urldata.h b/lib/urldata.h
-index e4487ba65..3c3f02419 100644
+index 45052e84b..b69430512 100644
 --- a/lib/urldata.h
 +++ b/lib/urldata.h
-@@ -283,6 +283,8 @@ struct ssl_primary_config {
+@@ -275,6 +275,8 @@ struct ssl_primary_config {
    char *password; /* TLS password (for, e.g., SRP) */
  #endif
    char *curves;          /* list of curves to use */
 +  char *sig_hash_algs;   /* List of signature hash algorithms to use */
 +  char *cert_compression;  /* List of certificate compression algorithms. */
-   unsigned char ssl_options;  /* the CURLOPT_SSL_OPTIONS bitmask */
    unsigned int version_max; /* max supported version the client wants to use */
+   unsigned char ssl_options;  /* the CURLOPT_SSL_OPTIONS bitmask */
    unsigned char version;    /* what version the client wants to use */
-@@ -508,6 +510,12 @@ struct ConnectBits {
+@@ -500,6 +502,12 @@ struct ConnectBits {
    BIT(multiplex); /* connection is multiplexed */
    BIT(tcp_fastopen); /* use TCP Fast Open */
    BIT(tls_enable_alpn); /* TLS ALPN extension? */
@@ -3523,7 +3512,7 @@ index e4487ba65..3c3f02419 100644
  #ifndef CURL_DISABLE_DOH
    BIT(doh);
  #endif
-@@ -1275,6 +1283,19 @@ struct UrlState {
+@@ -1224,6 +1232,19 @@ struct UrlState {
                                      curl_easy_setopt(COOKIEFILE) calls */
  #endif
  
@@ -3543,7 +3532,7 @@ index e4487ba65..3c3f02419 100644
  #ifndef CURL_DISABLE_VERBOSE_STRINGS
    struct curl_trc_feat *feat; /* opt. trace feature transfer is part of */
  #endif
-@@ -1493,6 +1514,13 @@ enum dupstring {
+@@ -1442,6 +1463,13 @@ enum dupstring {
  #endif
    STRING_ECH_CONFIG,            /* CURLOPT_ECH_CONFIG */
    STRING_ECH_PUBLIC,            /* CURLOPT_ECH_PUBLIC */
@@ -3554,10 +3543,10 @@ index e4487ba65..3c3f02419 100644
 +  STRING_HTTP2_STREAMS,
 +  STRING_TLS_EXTENSION_ORDER,
 +  STRING_TLS_DELEGATED_CREDENTIALS,
+   STRING_SSL_SIGNATURE_ALGORITHMS, /* CURLOPT_SSL_SIGNATURE_ALGORITHMS */
  
    /* -- end of null-terminated strings -- */
- 
-@@ -1808,6 +1836,15 @@ struct UserDefined {
+@@ -1749,6 +1777,15 @@ struct UserDefined {
    BIT(tcp_keepalive);  /* use TCP keepalives */
    BIT(tcp_fastopen);   /* use TCP Fast Open */
    BIT(ssl_enable_alpn);/* TLS ALPN extension? */
@@ -3573,13 +3562,14 @@ index e4487ba65..3c3f02419 100644
    BIT(path_as_is);     /* allow dotdots? */
    BIT(pipewait);       /* wait for multiplex status before starting a new
                            connection */
-@@ -1829,9 +1866,13 @@ struct UserDefined {
+@@ -1770,10 +1807,14 @@ struct UserDefined {
    BIT(doh_verifystatus);   /* DoH certificate status verification */
  #endif
    BIT(http09_allowed); /* allow HTTP/0.9 responses */
 +// BIT(grease);           /* grease enabled? */
  #ifndef CURL_DISABLE_WEBSOCKETS
    BIT(ws_raw_mode);
+   BIT(ws_no_auto_pong);
  #endif
 +  int http2_window_update;
 +  int tls_record_size_limit;
@@ -3588,10 +3578,10 @@ index e4487ba65..3c3f02419 100644
  
  #ifndef CURL_DISABLE_MIME
 diff --git a/lib/vtls/openssl.c b/lib/vtls/openssl.c
-index 4d5e1be29..479042ff7 100644
+index 0ce09ca06..f67332bb2 100644
 --- a/lib/vtls/openssl.c
 +++ b/lib/vtls/openssl.c
-@@ -81,9 +81,21 @@
+@@ -82,9 +82,20 @@
  #include <openssl/bio.h>
  #include <openssl/buffer.h>
  #include <openssl/pkcs12.h>
@@ -3609,11 +3599,10 @@ index 4d5e1be29..479042ff7 100644
 +#include <zstd.h>
 +#endif
 +
-+
  #ifdef HAVE_SSL_SET1_ECH_CONFIG_LIST
  #define USE_ECH_OPENSSL
  #endif
-@@ -242,6 +254,114 @@ typedef int numcert_t;
+@@ -256,6 +267,113 @@ typedef int numcert_t;
  #define HAVE_OPENSSL_VERSION
  #endif
  
@@ -3724,11 +3713,10 @@ index 4d5e1be29..479042ff7 100644
 +
 +#endif
 +
-+
  #if defined(OPENSSL_IS_BORINGSSL) || defined(OPENSSL_IS_AWSLC)
  typedef uint32_t sslerr_t;
  #else
-@@ -2650,6 +2770,183 @@ static const char *tls_rt_type(int type)
+@@ -2717,6 +2835,182 @@ static const char *tls_rt_type(int type)
    }
  }
  
@@ -3908,19 +3896,57 @@ index 4d5e1be29..479042ff7 100644
 +}
 +#endif
 +
-+
  /*
   * Our callback from the SSL/TLS layers.
   */
-@@ -3571,6 +3868,7 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
+@@ -3848,6 +4142,8 @@ static CURLcode ossl_init_ssl(struct ossl_ctx *octx,
+                               void *ssl_user_data,
+                               Curl_ossl_init_session_reuse_cb *sess_reuse_cb)
+ {
++  struct ssl_connect_data *connssl = cf->ctx;
++
+   /* Let's make an SSL structure */
+   if(octx->ssl)
+     SSL_free(octx->ssl);
+@@ -3859,6 +4155,29 @@ static CURLcode ossl_init_ssl(struct ossl_ctx *octx,
+ 
+   SSL_set_app_data(octx->ssl, ssl_user_data);
+ 
++#ifdef HAS_ALPN_OPENSSL
++  if(connssl->alps) {
++    size_t i;
++    struct alpn_proto_buf proto;
++
++    /* curl-impersonate: Set new ALPS codepoint before adding any ALPS settings */
++    if(data->set.tls_use_new_alps_codepoint) {
++      SSL_set_alps_use_new_codepoint(octx->ssl, 1);
++    }
++
++    for(i = 0; i < connssl->alps->count; ++i) {
++      /* curl-impersonate: Add the ALPS extension (17513) like Chrome does. */
++      // XXX: Firefox does not enable this.
++      SSL_add_application_settings(octx->ssl, connssl->alps->entries[i],
++                                   strlen(connssl->alps->entries[i]), NULL,
++                                   0);
++    }
++
++    Curl_alpn_to_proto_str(&proto, connssl->alps);
++    infof(data, VTLS_INFOF_ALPS_OFFER_1STR, proto.data);
++  }
++#endif
++
+ #if !defined(OPENSSL_NO_TLSEXT) && !defined(OPENSSL_NO_OCSP)
+   if(Curl_ssl_cf_get_primary_config(cf)->verifystatus)
+     SSL_set_tlsext_status_type(octx->ssl, TLSEXT_STATUSTYPE_ocsp);
+@@ -3979,6 +4298,7 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
    const struct curl_blob *ssl_cert_blob = ssl_config->primary.cert_blob;
    const char * const ssl_cert_type = ssl_config->cert_type;
    const bool verifypeer = conn_config->verifypeer;
 +  struct ssl_connect_data *connssl = cf->ctx;
+   unsigned int ssl_version_min;
    char error_buffer[256];
-   struct alpn_spec alpns;
  
-@@ -3694,7 +3992,14 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
+@@ -4061,7 +4381,14 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
    ctx_options = SSL_OP_ALL;
  
  #ifdef SSL_OP_NO_TICKET
@@ -3936,7 +3962,7 @@ index 4d5e1be29..479042ff7 100644
  #endif
  
  #ifdef SSL_OP_NO_COMPRESSION
-@@ -3751,6 +4056,20 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
+@@ -4118,6 +4445,20 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
    SSL_CTX_set_mode(octx->ssl_ctx, SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
  #endif
  
@@ -3954,12 +3980,12 @@ index 4d5e1be29..479042ff7 100644
 +    SSL_CTX_enable_ocsp_stapling(octx->ssl_ctx);
 +  }
 +
-   if(ssl_cert || ssl_cert_blob || ssl_cert_type) {
-     if(!result &&
-        !cert_stuff(data, octx->ssl_ctx,
-@@ -3809,6 +4128,35 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
-     }
+   ciphers = conn_config->cipher_list;
+   if(!ciphers && (peer->transport != TRNSPRT_QUIC))
+     ciphers = DEFAULT_CIPHER_SELECTION;
+@@ -4191,6 +4532,35 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
    }
+ #endif
  
 +#ifdef HAVE_SSL_CTX_SET_VERIFY_ALGORITHM_PREFS
 +  {
@@ -3993,12 +4019,12 @@ index 4d5e1be29..479042ff7 100644
  #ifdef USE_OPENSSL_SRP
    if(ssl_config->primary.username && Curl_auth_allowed_to_host(data)) {
      char * const ssl_username = ssl_config->primary.username;
-@@ -3834,6 +4182,61 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
+@@ -4216,6 +4586,59 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
    }
  #endif
  
 +  /* curl-impersonate:
-+   * Configure BoringSSL to behave like Chrome. 
++   * Configure BoringSSL to behave like Chrome.
 +   * See Constructor of SSLContext at net/socket/ssl_client_socket_impl.cc
 +   * and SSLClientSocketImpl::Init()
 +   * in the Chromium's source code. */
@@ -4050,44 +4076,11 @@ index 4d5e1be29..479042ff7 100644
 +                          conn_config->cert_compression))
 +    return CURLE_SSL_CIPHER;
 +
-+
-+
    /* OpenSSL always tries to verify the peer, this only says whether it should
     * fail to connect if the verification fails, or if it should continue
     * anyway. In the latter case the result of the verification is checked with
-@@ -3891,6 +4294,30 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
- 
-   SSL_set_app_data(octx->ssl, ssl_user_data);
- 
-+
-+#ifdef HAS_ALPN_OPENSSL
-+  if(connssl->alps) {
-+    size_t i;
-+    struct alpn_proto_buf proto;
-+
-+    /* curl-impersonate: Set new ALPS codepoint before adding any ALPS settings */
-+    if(data->set.tls_use_new_alps_codepoint) {
-+      SSL_set_alps_use_new_codepoint(octx->ssl, 1);
-+    }
-+
-+    for(i = 0; i < connssl->alps->count; ++i) {
-+      /* curl-impersonate: Add the ALPS extension (17513) like Chrome does. */
-+      // XXX: Firefox does not enable this.
-+      SSL_add_application_settings(octx->ssl, connssl->alps->entries[i],
-+                                   strlen(connssl->alps->entries[i]), NULL,
-+                                   0);
-+    }
-+
-+    Curl_alpn_to_proto_str(&proto, connssl->alps);
-+    infof(data, VTLS_INFOF_ALPS_OFFER_1STR, proto.data);
-+  }
-+#endif
-+
- #if !defined(OPENSSL_NO_TLSEXT) && !defined(OPENSSL_NO_OCSP)
-   if(conn_config->verifystatus)
-     SSL_set_tlsext_status_type(octx->ssl, TLSEXT_STATUSTYPE_ocsp);
 diff --git a/lib/vtls/vtls.c b/lib/vtls/vtls.c
-index b44b76473..1f2c3af6d 100644
+index c6fb60d0a..cbcd86a17 100644
 --- a/lib/vtls/vtls.c
 +++ b/lib/vtls/vtls.c
 @@ -172,6 +172,17 @@ alpn_get_spec(http_majors allowed, bool use_alpn)
@@ -4114,28 +4107,28 @@ index b44b76473..1f2c3af6d 100644
       strcasecompare(c1->curves, c2->curves) &&
 +     strcasecompare(c1->sig_hash_algs, c2->sig_hash_algs) &&
 +     strcasecompare(c1->cert_compression, c2->cert_compression) &&
+      strcasecompare(c1->signature_algorithms, c2->signature_algorithms) &&
       strcasecompare(c1->CRLfile, c2->CRLfile) &&
       strcasecompare(c1->pinned_key, c2->pinned_key))
-     return TRUE;
-@@ -259,6 +272,8 @@ static bool clone_ssl_primary_config(struct ssl_primary_config *source,
+@@ -260,6 +273,8 @@ static bool clone_ssl_primary_config(struct ssl_primary_config *source,
    CLONE_STRING(cipher_list13);
    CLONE_STRING(pinned_key);
    CLONE_STRING(curves);
 +  CLONE_STRING(sig_hash_algs);
 +  CLONE_STRING(cert_compression);
+   CLONE_STRING(signature_algorithms);
    CLONE_STRING(CRLfile);
  #ifdef USE_TLS_SRP
-   CLONE_STRING(username);
-@@ -281,6 +296,8 @@ static void free_primary_ssl_config(struct ssl_primary_config *sslc)
+@@ -283,6 +298,8 @@ static void free_primary_ssl_config(struct ssl_primary_config *sslc)
    Curl_safefree(sslc->ca_info_blob);
    Curl_safefree(sslc->issuercert_blob);
    Curl_safefree(sslc->curves);
 +  Curl_safefree(sslc->sig_hash_algs);
 +  Curl_safefree(sslc->cert_compression);
+   Curl_safefree(sslc->signature_algorithms);
    Curl_safefree(sslc->CRLfile);
  #ifdef USE_TLS_SRP
-   Curl_safefree(sslc->username);
-@@ -304,6 +321,8 @@ CURLcode Curl_ssl_easy_config_complete(struct Curl_easy *data)
+@@ -309,6 +326,8 @@ CURLcode Curl_ssl_easy_config_complete(struct Curl_easy *data)
    data->set.ssl.primary.cert_blob = data->set.blobs[BLOB_CERT];
    data->set.ssl.primary.ca_info_blob = data->set.blobs[BLOB_CAINFO];
    data->set.ssl.primary.curves = data->set.str[STRING_SSL_EC_CURVES];
@@ -4144,7 +4137,7 @@ index b44b76473..1f2c3af6d 100644
  #ifdef USE_TLS_SRP
    data->set.ssl.primary.username = data->set.str[STRING_TLSAUTH_USERNAME];
    data->set.ssl.primary.password = data->set.str[STRING_TLSAUTH_PASSWORD];
-@@ -455,7 +474,8 @@ static bool ssl_prefs_check(struct Curl_easy *data)
+@@ -460,7 +479,8 @@ static bool ssl_prefs_check(struct Curl_easy *data)
  }
  
  static struct ssl_connect_data *cf_ctx_new(struct Curl_easy *data,
@@ -4154,7 +4147,7 @@ index b44b76473..1f2c3af6d 100644
  {
    struct ssl_connect_data *ctx;
  
-@@ -466,6 +486,7 @@ static struct ssl_connect_data *cf_ctx_new(struct Curl_easy *data,
+@@ -471,6 +491,7 @@ static struct ssl_connect_data *cf_ctx_new(struct Curl_easy *data,
  
    ctx->ssl_impl = Curl_ssl;
    ctx->alpn = alpn;
@@ -4162,18 +4155,20 @@ index b44b76473..1f2c3af6d 100644
    Curl_bufq_init2(&ctx->earlydata, CURL_SSL_EARLY_MAX, 1, BUFQ_OPT_NO_SPARES);
    ctx->backend = calloc(1, ctx->ssl_impl->sizeof_ssl_backend_data);
    if(!ctx->backend) {
-@@ -1661,8 +1682,8 @@ static CURLcode cf_ssl_create(struct Curl_cfilter **pcf,
- 
-   DEBUGASSERT(data->conn);
- 
+@@ -1674,9 +1695,10 @@ static CURLcode cf_ssl_create(struct Curl_cfilter **pcf,
+   DEBUGASSERT(!conn->bits.tls_enable_alpn);
+   ctx = cf_ctx_new(data, NULL);
+ #else
 -  ctx = cf_ctx_new(data, alpn_get_spec(data->state.http_neg.wanted,
 -                                       conn->bits.tls_enable_alpn));
 +  ctx = cf_ctx_new(data, alpn_get_spec(data->state.http_neg.wanted, conn->bits.tls_enable_alpn),
 +                   alps_get_spec(data->state.http_neg.wanted, conn->bits.tls_enable_alps));
+ #endif
++
    if(!ctx) {
      result = CURLE_OUT_OF_MEMORY;
      goto out;
-@@ -1712,6 +1733,7 @@ static CURLcode cf_ssl_proxy_create(struct Curl_cfilter **pcf,
+@@ -1726,6 +1748,7 @@ static CURLcode cf_ssl_proxy_create(struct Curl_cfilter **pcf,
    struct ssl_connect_data *ctx;
    CURLcode result;
    bool use_alpn = conn->bits.tls_enable_alpn;
@@ -4181,7 +4176,7 @@ index b44b76473..1f2c3af6d 100644
    http_majors allowed = CURL_HTTP_V1x;
  
  #ifdef USE_HTTP2
-@@ -1721,7 +1743,8 @@ static CURLcode cf_ssl_proxy_create(struct Curl_cfilter **pcf,
+@@ -1735,7 +1758,8 @@ static CURLcode cf_ssl_proxy_create(struct Curl_cfilter **pcf,
    }
  #endif
  
@@ -4192,10 +4187,10 @@ index b44b76473..1f2c3af6d 100644
      result = CURLE_OUT_OF_MEMORY;
      goto out;
 diff --git a/lib/vtls/vtls.h b/lib/vtls/vtls.h
-index b751c3743..be6499fb8 100644
+index 0bb333b98..9ea316b64 100644
 --- a/lib/vtls/vtls.h
 +++ b/lib/vtls/vtls.h
-@@ -57,6 +57,8 @@ struct dynbuf;
+@@ -58,6 +58,8 @@ struct dynbuf;
    "ALPN: server did not agree on a protocol. Uses default."
  #define VTLS_INFOF_ALPN_OFFER_1STR    \
    "ALPN: curl offers %s"
@@ -4205,7 +4200,7 @@ index b751c3743..be6499fb8 100644
    ALPN_ACCEPTED "%.*s"
  
 diff --git a/lib/vtls/vtls_int.h b/lib/vtls/vtls_int.h
-index 5dadbb1f2..177a581a4 100644
+index 0632a0765..50774b1d3 100644
 --- a/lib/vtls/vtls_int.h
 +++ b/lib/vtls/vtls_int.h
 @@ -110,6 +110,7 @@ struct ssl_connect_data {
@@ -4230,7 +4225,7 @@ index c0ba5244a..b5e9cb4ee 100644
  Cflags: -I${includedir} @LIBCURL_PC_CFLAGS@
  Cflags.private: @LIBCURL_PC_CFLAGS_PRIVATE@
 diff --git a/m4/curl-compilers.m4 b/m4/curl-compilers.m4
-index 15babf9d3..fb89332a5 100644
+index dc6d3aa4c..94778e421 100644
 --- a/m4/curl-compilers.m4
 +++ b/m4/curl-compilers.m4
 @@ -393,42 +393,55 @@ AC_DEFUN([CURL_CONVERT_INCLUDE_TO_ISYSTEM], [
@@ -4325,10 +4320,10 @@ index 15babf9d3..fb89332a5 100644
  
  
 diff --git a/scripts/singleuse.pl b/scripts/singleuse.pl
-index 773238722..8b36b8754 100755
+index 13a9ff54e..54eb07c9b 100755
 --- a/scripts/singleuse.pl
 +++ b/scripts/singleuse.pl
-@@ -56,6 +56,7 @@ my %api = (
+@@ -57,6 +57,7 @@ my %api = (
      'curl_easy_escape' => 'API',
      'curl_easy_getinfo' => 'API',
      'curl_easy_init' => 'API',
@@ -4337,26 +4332,26 @@ index 773238722..8b36b8754 100755
      'curl_easy_perform' => 'API',
      'curl_easy_recv' => 'API',
 diff --git a/src/Makefile.am b/src/Makefile.am
-index dcf1e371c..049838bc7 100644
+index 2df95a0f9..3ec459ee9 100644
 --- a/src/Makefile.am
 +++ b/src/Makefile.am
-@@ -46,7 +46,7 @@ AM_CPPFLAGS = -I$(top_srcdir)/include        \
-               -I$(top_srcdir)/lib            \
+@@ -47,7 +47,7 @@ AM_CPPFLAGS = -I$(top_srcdir)/include        \
+               -I$(top_srcdir)/lib/curlx      \
                -I$(top_srcdir)/src
  
 -bin_PROGRAMS = curl
 +bin_PROGRAMS = curl-impersonate
  
- if USE_CPPFLAG_CURL_STATICLIB
- AM_CPPFLAGS += -DCURL_STATICLIB
-@@ -84,19 +84,19 @@ endif
+ curlinfo_SOURCES = curlinfo.c
+ noinst_PROGRAMS = curlinfo
+@@ -82,19 +82,19 @@ endif
  curltool_unity.c: $(top_srcdir)/scripts/mk-unity.pl $(CURL_CFILES) $(curl_cfiles_gen) $(curl_CURLX)
- 	@PERL@ $(top_srcdir)/scripts/mk-unity.pl $(srcdir) $(CURL_CFILES) $(curl_cfiles_gen) $(curl_CURLX) --exclude $(curl_EXCLUDE) > curltool_unity.c
+ 	@PERL@ $(top_srcdir)/scripts/mk-unity.pl $(srcdir) $(CURL_CFILES) $(curl_cfiles_gen) $(curl_CURLX) > curltool_unity.c
  
 -nodist_curl_SOURCES = curltool_unity.c
--curl_SOURCES = $(curl_EXCLUDE)
+-curl_SOURCES =
 +nodist_curl_impersonate_SOURCES = curltool_unity.c
-+curl_impersonate_SOURCES = $(curl_EXCLUDE)
++curl_impersonate_SOURCES =
  CLEANFILES += curltool_unity.c
  else
  # CURL_FILES comes from Makefile.inc
@@ -4369,12 +4364,12 @@ index dcf1e371c..049838bc7 100644
  $(CURL_RCFILES): tool_version.h
  endif
  
--curl_LDFLAGS = $(AM_LDFLAGS) $(CURL_LDFLAGS_BIN)
-+curl_impersonate_LDFLAGS = $(AM_LDFLAGS) $(CURL_LDFLAGS_BIN)
+-curl_LDFLAGS = $(AM_LDFLAGS) $(CURL_LDFLAGS_BIN) $(UNICODEFLAG)
++curl_impersonate_LDFLAGS = $(AM_LDFLAGS) $(CURL_LDFLAGS_BIN) $(UNICODEFLAG)
  
  # This might hold -Werror
  CFLAGS += @CURL_CFLAG_EXTRAS@
-@@ -104,7 +104,7 @@ CFLAGS += @CURL_CFLAG_EXTRAS@
+@@ -102,7 +102,7 @@ CFLAGS += @CURL_CFLAG_EXTRAS@
  # Prevent LIBS from being used for all link targets
  LIBS = $(BLANK_AT_MAKETIME)
  
@@ -4383,13 +4378,111 @@ index dcf1e371c..049838bc7 100644
  
  # if unit tests are enabled, build a static library to link them with
  if BUILD_UNITTESTS
+diff --git a/src/config2setopts.c b/src/config2setopts.c
+index d7a4187a8..4108af689 100644
+--- a/src/config2setopts.c
++++ b/src/config2setopts.c
+@@ -423,6 +423,54 @@ static CURLcode ssl_setopts(struct GlobalConfig *global,
+             "--proxy-tls13-ciphers", ssl_backend());
+   }
+ 
++  /* curl-impersonate */
++  if(config->ssl_sig_hash_algs)
++    my_setopt_str(curl, CURLOPT_SSL_SIG_HASH_ALGS,
++                  config->ssl_sig_hash_algs);
++
++  if(config->ssl_cert_compression)
++    my_setopt_str(curl, CURLOPT_SSL_CERT_COMPRESSION,
++                  config->ssl_cert_compression);
++
++  if(config->ssl_permute_extensions)
++    my_setopt(curl, CURLOPT_SSL_PERMUTE_EXTENSIONS, 1L);
++
++  if(config->tls_grease)
++    my_setopt(curl, CURLOPT_TLS_GREASE, 1L);
++
++  if(config->tls_extension_order)
++    my_setopt_str(curl, CURLOPT_TLS_EXTENSION_ORDER, config->tls_extension_order);
++
++  if (config->tls_use_new_alps_codepoint)
++    my_setopt(curl, CURLOPT_TLS_USE_NEW_ALPS_CODEPOINT, 1L);
++
++  if (config->tls_use_firefox_tls13_ciphers)
++    my_setopt(curl, CURLOPT_TLS_USE_FIREFOX_TLS13_CIPHERS, 1L);
++
++  if(config->tls_delegated_credentials)
++    my_setopt_str(curl, CURLOPT_TLS_DELEGATED_CREDENTIALS, config->tls_delegated_credentials);
++ 
++  if(config->tls_record_size_limit)
++    my_setopt(curl, CURLOPT_TLS_RECORD_SIZE_LIMIT, config->tls_record_size_limit);
++ 
++  if(config->tls_key_shares_limit)
++    my_setopt(curl, CURLOPT_TLS_KEY_SHARES_LIMIT, config->tls_key_shares_limit);
++
++  if(config->alps) {
++    my_setopt(curl, CURLOPT_SSL_ENABLE_ALPS, 1L);
++  }
++
++  if (config->noticket) {
++    my_setopt(curl, CURLOPT_SSL_ENABLE_TICKET, 0L);
++  }
++
++  if(config->tls_signed_cert_timestamps) {
++    my_setopt(curl, CURLOPT_TLS_SIGNED_CERT_TIMESTAMPS, 1L);
++  }
++
++  my_setopt(curl, CURLOPT_TLS_STATUS_REQUEST, 1L);
++  /* end of curl-impersonate */
++
+   /* curl 7.16.0 */
+   if(config->disable_sessionid)
+     /* disable it */
+@@ -516,6 +564,38 @@ static CURLcode http_setopts(struct GlobalConfig *global,
+   if(config->hsts)
+     my_setopt_str(curl, CURLOPT_HSTS, config->hsts);
+ 
++  /* curl-impersonate */
++  if(config->http2_pseudo_headers_order)
++    my_setopt_str(curl,
++                  CURLOPT_HTTP2_PSEUDO_HEADERS_ORDER,
++                  config->http2_pseudo_headers_order);
++
++  if(config->http2_settings)
++    my_setopt_str(curl,
++                  CURLOPT_HTTP2_SETTINGS,
++                  config->http2_settings);
++
++  if(config->http2_window_update)
++    my_setopt(curl,
++              CURLOPT_HTTP2_WINDOW_UPDATE,
++              config->http2_window_update);
++
++  if(config->http2_stream_exclusive)
++    my_setopt(curl,
++              CURLOPT_STREAM_EXCLUSIVE,
++              config->http2_stream_exclusive);
++
++  if(config->http2_stream_weight)
++    my_setopt(curl,
++              CURLOPT_STREAM_WEIGHT,
++              config->http2_stream_weight);
++
++  if(config->http2_streams)
++    my_setopt_str(curl,
++                  CURLOPT_HTTP2_STREAMS,
++                  config->http2_streams);
++  /* end of curl-impersonate */
++
+   /* new in 7.47.0 */
+   if(config->expect100timeout_ms > 0)
+     my_setopt_long(curl, CURLOPT_EXPECT_100_TIMEOUT_MS,
 diff --git a/src/tool_cfgable.c b/src/tool_cfgable.c
-index 93ba139c4..37ccbc877 100644
+index 99fc91b09..fdcfe2ad3 100644
 --- a/src/tool_cfgable.c
 +++ b/src/tool_cfgable.c
-@@ -98,6 +98,14 @@ static void free_config_fields(struct OperationConfig *config)
-   curlx_safefree(config->proto_str);
-   curlx_safefree(config->proto_redir_str);
+@@ -97,6 +97,14 @@ static void free_config_fields(struct OperationConfig *config)
+   tool_safefree(config->proto_str);
+   tool_safefree(config->proto_redir_str);
  
 +  // curl-impersonate
 +  Curl_safefree(config->ssl_sig_hash_algs);
@@ -4403,15 +4496,16 @@ index 93ba139c4..37ccbc877 100644
    while(urlnode) {
      struct getout *next = urlnode->next;
 diff --git a/src/tool_cfgable.h b/src/tool_cfgable.h
-index 75fef60c8..3ed59525b 100644
+index c4f1d6b23..f0d3c431f 100644
 --- a/src/tool_cfgable.h
 +++ b/src/tool_cfgable.h
-@@ -135,12 +135,28 @@ struct OperationConfig {
+@@ -160,13 +160,29 @@ struct OperationConfig {
    char *etag_compare_file;
    char *customrequest;
    char *ssl_ec_curves;
-+  char *ssl_sig_hash_algs;
 +  char *ssl_cert_compression;
++  char *ssl_sig_hash_algs;
+   char *ssl_signature_algorithms;
    char *krblevel;
    char *request_target;
 +  char *http2_pseudo_headers_order;
@@ -4435,7 +4529,7 @@ index 75fef60c8..3ed59525b 100644
    struct curl_slist *headers;
    struct curl_slist *proxyheaders;
    struct tool_mime *mimeroot;
-@@ -197,6 +213,9 @@ struct OperationConfig {
+@@ -223,6 +239,9 @@ struct OperationConfig {
    long alivetime;           /* keepalive-time */
    long alivecnt;            /* keepalive-cnt */
    long gssapi_delegation;
@@ -4446,26 +4540,26 @@ index 75fef60c8..3ed59525b 100644
    long happy_eyeballs_timeout_ms; /* happy eyeballs timeout in milliseconds.
                                       0 is valid. default: CURL_HET_DEFAULT. */
 diff --git a/src/tool_getparam.c b/src/tool_getparam.c
-index a55973a60..30885daac 100644
+index 51156e46b..213fb84da 100644
 --- a/src/tool_getparam.c
 +++ b/src/tool_getparam.c
-@@ -90,6 +90,7 @@ static ParameterError getstrn(char **str, const char *val,
+@@ -87,6 +87,7 @@ static ParameterError getstrn(char **str, const char *val,
  static const struct LongShort aliases[]= {
    {"abstract-unix-socket",       ARG_FILE, ' ', C_ABSTRACT_UNIX_SOCKET},
    {"alpn",                       ARG_BOOL|ARG_NO|ARG_TLS, ' ', C_ALPN},
 +  {"alps",                       ARG_BOOL, ' ', C_ALPS},  // curl-impersonate
    {"alt-svc",                    ARG_STRG, ' ', C_ALT_SVC},
-   {"anyauth",                    ARG_BOOL, ' ', C_ANYAUTH},
+   {"anyauth",                    ARG_NONE, ' ', C_ANYAUTH},
    {"append",                     ARG_BOOL, 'a', C_APPEND},
-@@ -100,6 +101,7 @@ static const struct LongShort aliases[]= {
+@@ -97,6 +98,7 @@ static const struct LongShort aliases[]= {
    {"cacert",                     ARG_FILE|ARG_TLS, ' ', C_CACERT},
    {"capath",                     ARG_FILE|ARG_TLS, ' ', C_CAPATH},
-   {"cert",                       ARG_FILE|ARG_TLS, 'E', C_CERT},
+   {"cert",                       ARG_FILE|ARG_TLS|ARG_CLEAR, 'E', C_CERT},
 +  {"cert-compression",           ARG_STRG|ARG_TLS, ' ', C_CERT_COMPRESSION},  // curl-impersonate
    {"cert-status",                ARG_BOOL|ARG_TLS, ' ', C_CERT_STATUS},
    {"cert-type",                  ARG_STRG|ARG_TLS, ' ', C_CERT_TYPE},
    {"ciphers",                    ARG_STRG|ARG_TLS, ' ', C_CIPHERS},
-@@ -181,6 +183,12 @@ static const struct LongShort aliases[]= {
+@@ -178,6 +180,12 @@ static const struct LongShort aliases[]= {
    {"http1.1",                    ARG_NONE, ' ', C_HTTP1_1},
    {"http2",                      ARG_NONE, ' ', C_HTTP2},
    {"http2-prior-knowledge",      ARG_NONE, ' ', C_HTTP2_PRIOR_KNOWLEDGE},
@@ -4478,15 +4572,18 @@ index a55973a60..30885daac 100644
    {"http3",                      ARG_NONE|ARG_TLS, ' ', C_HTTP3},
    {"http3-only",                 ARG_NONE|ARG_TLS, ' ', C_HTTP3_ONLY},
    {"ignore-content-length",      ARG_BOOL, ' ', C_IGNORE_CONTENT_LENGTH},
-@@ -305,6 +313,7 @@ static const struct LongShort aliases[]= {
+@@ -302,8 +310,8 @@ static const struct LongShort aliases[]= {
    {"sessionid",                  ARG_BOOL|ARG_NO, ' ', C_SESSIONID},
    {"show-error",                 ARG_BOOL, 'S', C_SHOW_ERROR},
    {"show-headers",               ARG_BOOL, 'i', C_SHOW_HEADERS},
+-  {"sigalgs",                    ARG_STRG|ARG_TLS, ' ',
+-   C_SIGNATURE_ALGORITHMS},
++  {"sigalgs",                    ARG_STRG|ARG_TLS, ' ', C_SIGNATURE_ALGORITHMS},
 +  {"signature-hashes",           ARG_STRG, ' ', C_SIGNATURE_HASHES}, // curl-impersonate
    {"silent",                     ARG_BOOL, 's', C_SILENT},
    {"skip-existing",              ARG_BOOL, ' ', C_SKIP_EXISTING},
    {"socks4",                     ARG_STRG, ' ', C_SOCKS4},
-@@ -341,8 +350,18 @@ static const struct LongShort aliases[]= {
+@@ -340,8 +348,18 @@ static const struct LongShort aliases[]= {
    {"tftp-blksize",               ARG_STRG, ' ', C_TFTP_BLKSIZE},
    {"tftp-no-options",            ARG_BOOL, ' ', C_TFTP_NO_OPTIONS},
    {"time-cond",                  ARG_STRG, 'z', C_TIME_COND},
@@ -4504,125 +4601,102 @@ index a55973a60..30885daac 100644
 +  {"tls-use-new-alps-codepoint", ARG_BOOL, ' ', C_TLS_USE_NEW_ALPS_CODEPOINT},  // curl-impersonate
    {"tls13-ciphers",              ARG_STRG|ARG_TLS, ' ', C_TLS13_CIPHERS},
    {"tlsauthtype",                ARG_STRG|ARG_TLS, ' ', C_TLSAUTHTYPE},
-   {"tlspassword",                ARG_STRG|ARG_TLS, ' ', C_TLSPASSWORD},
-@@ -1864,7 +1883,7 @@ ParameterError getparameter(const char *flag, /* f or -long-flag */
-         /* if given a blank string, make it NULL again */
-         curlx_safefree(config->doh_url);
-       break;
--    case C_CIPHERS: /* -- ciphers */
-+    case C_CIPHERS: /* --ciphers */
-       err = getstr(&config->cipher_list, nextarg, DENY_BLANK);
-       break;
-     case C_DNS_INTERFACE: /* --dns-interface */
-@@ -1913,6 +1932,9 @@ ParameterError getparameter(const char *flag, /* f or -long-flag */
-     case C_ALPN: /* --alpn */
-       config->noalpn = !toggle;
-       break;
-+    case C_ALPS:  /* --alps curl-impersonate */
-+      config->alps = toggle;
-+      break;
-     case C_LIMIT_RATE: /* --limit-rate */
-       err = GetSizeParameter(global, nextarg, "rate", &value);
-       if(!err) {
-@@ -2294,6 +2316,36 @@ ParameterError getparameter(const char *flag, /* f or -long-flag */
-     case C_TLS_MAX: /* --tls-max */
-       err = str2tls_max(&config->ssl_version_max, nextarg);
-       break;
-+    case C_TLS_SIGNED_CERT_TIMESTAMPS:
-+      config->tls_signed_cert_timestamps = toggle;
-+      break;
-+    case C_TLS_SESSION_TICKET:  /* --tls-session-ticket curl-impersonate */
-+      config->noticket = (!toggle)?TRUE:FALSE;
-+      break;
-+    case C_TLS_PERMUTE_EXTENSIONS:  /* --tls-permute-extensions curl-impersonate */
-+      config->ssl_permute_extensions = toggle;
-+      break;
-+    case C_TLS_EXTENSION_ORDER:  /* --tls-extension-order curl-impersonate */
-+      err = getstr(&config->tls_extension_order, nextarg, ALLOW_BLANK);
-+      break;
-+    case C_TLS_DELEGATED_CREDENTIALS:
-+      err = getstr(&config->tls_delegated_credentials, nextarg, ALLOW_BLANK);
-+      break;
-+    case C_TLS_RECORD_SIZE_LIMIT:
-+      err = str2unum(&config->tls_record_size_limit, nextarg);
-+      break;
-+    case C_TLS_KEY_SHARES_LIMIT:
-+      err = str2unum(&config->tls_key_shares_limit, nextarg);
-+      break;
-+    case C_TLS_GREASE:  /* --tls-grease curl-impersonate */
-+      config->tls_grease = toggle;
-+      break;
-+    case C_TLS_USE_NEW_ALPS_CODEPOINT: /* --tls-use-new-alps-codepoint curl-impersonate */
-+      config->tls_use_new_alps_codepoint = toggle;
-+      break;
-+    case C_TLS_USE_FIREFOX_TLS13_CIPHERS: /* --tls-use-new-alps-codepoint curl-impersonate */
-+      config->tls_use_firefox_tls13_ciphers = toggle;
-+      break;
-     case C_SUPPRESS_CONNECT_HEADERS: /* --suppress-connect-headers */
-       config->suppress_connect_headers = toggle;
-       break;
-@@ -2343,6 +2395,39 @@ ParameterError getparameter(const char *flag, /* f or -long-flag */
-         return PARAM_LIBCURL_DOESNT_SUPPORT;
-       sethttpver(global, config, CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE);
-       break;
-+    case C_HTTP2_PSEUDO_HEADERS_ORDER: /* --http2-pseudo-headers-order curl-impersonate */
-+      if(!feature_http2)
-+        return PARAM_LIBCURL_DOESNT_SUPPORT;
-+      err = getstr(&config->http2_pseudo_headers_order, nextarg, ALLOW_BLANK);
-+      break;
-+    case C_HTTP2_SETTINGS:  /* --http2-settings curl-impersonate */
-+      if(!feature_http2)
-+        return PARAM_LIBCURL_DOESNT_SUPPORT;
-+      err = getstr(&config->http2_settings, nextarg, ALLOW_BLANK);
-+      break;
-+    case C_HTTP2_STREAM_EXCLUSIVE:
-+      if(!feature_http2)
-+        return PARAM_LIBCURL_DOESNT_SUPPORT;
-+      err = str2num(&config->http2_stream_exclusive, nextarg);
-+      if(config->http2_stream_exclusive < 0) return PARAM_BAD_NUMERIC;
-+      break;
-+    case C_HTTP2_STREAM_WEIGHT:
-+      if(!feature_http2)
-+        return PARAM_LIBCURL_DOESNT_SUPPORT;
-+      err = str2num(&config->http2_stream_weight, nextarg);
-+      if(config->http2_stream_weight < 0) return PARAM_BAD_NUMERIC;
-+      break;
-+    case C_HTTP2_WINDOW_UPDATE:  /* --http2-window-update curl-impersonate */
-+      if(!feature_http2)
-+        return PARAM_LIBCURL_DOESNT_SUPPORT;
-+      err = str2num(&config->http2_window_update, nextarg);
-+      if(config->http2_window_update < -1) return PARAM_BAD_NUMERIC;
-+      break;
-+    case C_HTTP2_STREAMS:  /* --http2-streams curl-impersonate */
-+      if(!feature_http2)
-+        return PARAM_LIBCURL_DOESNT_SUPPORT;
-+      err = getstr(&config->http2_streams, nextarg, ALLOW_BLANK);
-+      break;
-     case C_HTTP3: /* --http3: */
-       /* Try HTTP/3, allow fallback */
-       if(!feature_http3)
-@@ -2477,6 +2562,9 @@ ParameterError getparameter(const char *flag, /* f or -long-flag */
-       GetFileAndPassword(nextarg, &config->cert, &config->key_passwd);
-       cleanarg(clearthis);
-       break;
-+    case C_CERT_COMPRESSION:  /* --cert-compression curl-impersonate */
-+      err = getstr(&config->ssl_cert_compression, nextarg, ALLOW_BLANK);
-+      break;
-     case C_CACERT: /* --cacert */
-       err = getstr(&config->cacert, nextarg, DENY_BLANK);
-       break;
-@@ -2885,6 +2973,9 @@ ParameterError getparameter(const char *flag, /* f or -long-flag */
-     case C_SKIP_EXISTING: /* --skip-existing */
-       config->skip_existing = toggle;
-       break;
-+    case C_SIGNATURE_HASHES: /* --signature-hashes */
-+      err = getstr(&config->ssl_sig_hash_algs, nextarg, ALLOW_BLANK);
-+      break;
-     case C_SHOW_ERROR: /* --show-error */
-       global->showerror = toggle;
-       break;
+   {"tlspassword",              ARG_STRG|ARG_TLS|ARG_CLEAR, ' ', C_TLSPASSWORD},
+@@ -1779,6 +1797,9 @@ static ParameterError opt_bool(struct GlobalConfig *global,
+   case C_ALPN: /* --alpn */
+     config->noalpn = !toggle;
+     break;
++  case C_ALPS:  /* --alps curl-impersonate */
++    config->alps = toggle;
++    break;
+   case C_DISABLE_EPSV: /* --disable-epsv */
+     config->disable_epsv = toggle;
+     break;
+@@ -1944,6 +1965,24 @@ static ParameterError opt_bool(struct GlobalConfig *global,
+   case C_TLS_EARLYDATA: /* --tls-earlydata */
+     config->ssl_allow_earlydata = toggle;
+     break;
++  case C_TLS_SIGNED_CERT_TIMESTAMPS:
++    config->tls_signed_cert_timestamps = toggle;
++    break;
++  case C_TLS_SESSION_TICKET:  /* --tls-session-ticket curl-impersonate */
++    config->noticket = (!toggle)?TRUE:FALSE;
++    break;
++  case C_TLS_PERMUTE_EXTENSIONS:  /* --tls-permute-extensions curl-impersonate */
++    config->ssl_permute_extensions = toggle;
++    break;
++  case C_TLS_GREASE:  /* --tls-grease curl-impersonate */
++    config->tls_grease = toggle;
++    break;
++  case C_TLS_USE_NEW_ALPS_CODEPOINT: /* --tls-use-new-alps-codepoint curl-impersonate */
++    config->tls_use_new_alps_codepoint = toggle;
++    break;
++  case C_TLS_USE_FIREFOX_TLS13_CIPHERS: /* --tls-use-new-alps-codepoint curl-impersonate */
++    config->tls_use_firefox_tls13_ciphers = toggle;
++    break;
+   case C_SUPPRESS_CONNECT_HEADERS: /* --suppress-connect-headers */
+     config->suppress_connect_headers = toggle;
+     break;
+@@ -2435,6 +2474,57 @@ static ParameterError opt_filestring(struct GlobalConfig *global,
+   case C_TLS_MAX: /* --tls-max */
+     err = str2tls_max(&config->ssl_version_max, nextarg);
+     break;
++  case C_TLS_RECORD_SIZE_LIMIT:
++    err = str2unum(&config->tls_record_size_limit, nextarg);
++    break;
++  case C_TLS_KEY_SHARES_LIMIT:
++    err = str2unum(&config->tls_key_shares_limit, nextarg);
++    break;
++  case C_TLS_EXTENSION_ORDER:  /* --tls-extension-order curl-impersonate */
++    err = getstr(&config->tls_extension_order, nextarg, ALLOW_BLANK);
++    break;
++  case C_TLS_DELEGATED_CREDENTIALS:
++    err = getstr(&config->tls_delegated_credentials, nextarg, ALLOW_BLANK);
++    break;
++  case C_HTTP2_PSEUDO_HEADERS_ORDER: /* --http2-pseudo-headers-order curl-impersonate */
++    if(!feature_http2)
++      return PARAM_LIBCURL_DOESNT_SUPPORT;
++    err = getstr(&config->http2_pseudo_headers_order, nextarg, ALLOW_BLANK);
++    break;
++  case C_HTTP2_SETTINGS:  /* --http2-settings curl-impersonate */
++    if(!feature_http2)
++      return PARAM_LIBCURL_DOESNT_SUPPORT;
++    err = getstr(&config->http2_settings, nextarg, ALLOW_BLANK);
++    break;
++  case C_HTTP2_STREAM_EXCLUSIVE:
++    if(!feature_http2)
++      return PARAM_LIBCURL_DOESNT_SUPPORT;
++    err = str2num(&config->http2_stream_exclusive, nextarg);
++    if(config->http2_stream_exclusive < 0) return PARAM_BAD_NUMERIC;
++    break;
++  case C_HTTP2_STREAM_WEIGHT:
++    if(!feature_http2)
++      return PARAM_LIBCURL_DOESNT_SUPPORT;
++    err = str2num(&config->http2_stream_weight, nextarg);
++    if(config->http2_stream_weight < 0) return PARAM_BAD_NUMERIC;
++    break;
++  case C_HTTP2_WINDOW_UPDATE:  /* --http2-window-update curl-impersonate */
++    if(!feature_http2)
++      return PARAM_LIBCURL_DOESNT_SUPPORT;
++    err = str2num(&config->http2_window_update, nextarg);
++    if(config->http2_window_update < -1) return PARAM_BAD_NUMERIC;
++    break;
++  case C_HTTP2_STREAMS:  /* --http2-streams curl-impersonate */
++    if(!feature_http2)
++      return PARAM_LIBCURL_DOESNT_SUPPORT;
++    err = getstr(&config->http2_streams, nextarg, ALLOW_BLANK);
++    break;
++  case C_CERT_COMPRESSION:  /* --cert-compression curl-impersonate */
++    err = getstr(&config->ssl_cert_compression, nextarg, ALLOW_BLANK);
++    break;
++  case C_SIGNATURE_HASHES: /* --signature-hashes */
++    err = getstr(&config->ssl_sig_hash_algs, nextarg, ALLOW_BLANK);
++    break;
+   case C_HAPPY_EYEBALLS_TIMEOUT_MS: /* --happy-eyeballs-timeout-ms */
+     err = str2unum(&config->happy_eyeballs_timeout_ms, nextarg);
+     /* 0 is a valid value for this timeout */
 diff --git a/src/tool_getparam.h b/src/tool_getparam.h
-index d770e2695..fc2877680 100644
+index d84e85222..fdd3e265f 100644
 --- a/src/tool_getparam.h
 +++ b/src/tool_getparam.h
 @@ -31,6 +31,7 @@
@@ -4660,9 +4734,9 @@ index d770e2695..fc2877680 100644
    C_SHOW_HEADERS,
 +  C_SIGNATURE_HASHES,
    C_SILENT,
+   C_SIGNATURE_ALGORITHMS,
    C_SKIP_EXISTING,
-   C_SOCKS4,
-@@ -274,7 +283,17 @@ typedef enum {
+@@ -275,7 +284,17 @@ typedef enum {
    C_TFTP_NO_OPTIONS,
    C_TIME_COND,
    C_TLS_EARLYDATA,
@@ -4681,7 +4755,7 @@ index d770e2695..fc2877680 100644
    C_TLSAUTHTYPE,
    C_TLSPASSWORD,
 diff --git a/src/tool_listhelp.c b/src/tool_listhelp.c
-index b69cd89e1..ec131aacf 100644
+index 785f4cd93..f8934834b 100644
 --- a/src/tool_listhelp.c
 +++ b/src/tool_listhelp.c
 @@ -111,6 +111,27 @@ const struct helptxt helptext[] = {
@@ -4722,134 +4796,11 @@ index b69cd89e1..ec131aacf 100644
    {"-N, --no-buffer",
     "Disable buffering of the output stream",
     CURLHELP_OUTPUT},
-diff --git a/src/tool_operate.c b/src/tool_operate.c
-index 426d1de34..f60c51ad6 100644
---- a/src/tool_operate.c
-+++ b/src/tool_operate.c
-@@ -1111,6 +1111,36 @@ static CURLcode config2setopts(struct GlobalConfig *global,
-       errorf(global, "HTTP/0.9 is not supported in this build");
-       return result;
-     }
-+    if(config->http2_pseudo_headers_order)
-+      my_setopt_str(curl,
-+                    CURLOPT_HTTP2_PSEUDO_HEADERS_ORDER,
-+                    config->http2_pseudo_headers_order);
-+
-+    if(config->http2_settings)
-+      my_setopt_str(curl,
-+                    CURLOPT_HTTP2_SETTINGS,
-+                    config->http2_settings);
-+
-+    if(config->http2_window_update)
-+      my_setopt(curl,
-+                CURLOPT_HTTP2_WINDOW_UPDATE,
-+                config->http2_window_update);
-+
-+    if(config->http2_stream_exclusive)
-+      my_setopt(curl,
-+                CURLOPT_STREAM_EXCLUSIVE,
-+                config->http2_stream_exclusive);
-+
-+    if(config->http2_stream_weight)
-+      my_setopt(curl,
-+                CURLOPT_STREAM_WEIGHT,
-+                config->http2_stream_weight);
-+
-+    if(config->http2_streams)
-+      my_setopt_str(curl,
-+                    CURLOPT_HTTP2_STREAMS,
-+                    config->http2_streams);
-+
- 
-   } /* (proto_http) */
- 
-@@ -1263,6 +1293,14 @@ static CURLcode config2setopts(struct GlobalConfig *global,
-   if(config->ssl_ec_curves)
-     my_setopt_str(curl, CURLOPT_SSL_EC_CURVES, config->ssl_ec_curves);
- 
-+  if(config->ssl_sig_hash_algs)
-+    my_setopt_str(curl, CURLOPT_SSL_SIG_HASH_ALGS,
-+                  config->ssl_sig_hash_algs);
-+
-+  if(config->ssl_cert_compression)
-+    my_setopt_str(curl, CURLOPT_SSL_CERT_COMPRESSION,
-+                  config->ssl_cert_compression);
-+
-   if(config->writeout)
-     my_setopt_long(curl, CURLOPT_CERTINFO, 1);
- 
-@@ -1457,10 +1495,43 @@ static CURLcode config2setopts(struct GlobalConfig *global,
-   if(config->proxy_cipher13_list) {
-     result = res_setopt_str(curl, CURLOPT_PROXY_TLS13_CIPHERS,
-                             config->proxy_cipher13_list);
-+
-     if(result == CURLE_NOT_BUILT_IN)
-       warnf(global, "ignoring %s, not supported by libcurl with %s",
-             "--proxy-tls13-ciphers", ssl_backend());
-   }
-+  /* curl-impersonate */
-+  if(config->ssl_permute_extensions)
-+    my_setopt(curl, CURLOPT_SSL_PERMUTE_EXTENSIONS, 1L);
-+
-+  /* curl-impersonate */
-+  if(config->tls_grease)
-+    my_setopt(curl, CURLOPT_TLS_GREASE, 1L);
-+
-+  /* curl-impersonate */
-+  if(config->tls_extension_order)
-+    // printf("setting is %s\n", config->tls_extension_order);
-+    my_setopt_str(curl, CURLOPT_TLS_EXTENSION_ORDER, config->tls_extension_order);
-+
-+  /* curl-impersonate */
-+  if (config->tls_use_new_alps_codepoint)
-+    my_setopt(curl, CURLOPT_TLS_USE_NEW_ALPS_CODEPOINT, 1L);
-+
-+  /* curl-impersonate */
-+  if (config->tls_use_firefox_tls13_ciphers)
-+    my_setopt(curl, CURLOPT_TLS_USE_FIREFOX_TLS13_CIPHERS, 1L);
-+
-+  /* curl-impersonate */
-+  if(config->tls_delegated_credentials)
-+    my_setopt_str(curl, CURLOPT_TLS_DELEGATED_CREDENTIALS, config->tls_delegated_credentials);
-+ 
-+  /* curl-impersonate */
-+  if(config->tls_record_size_limit)
-+    my_setopt(curl, CURLOPT_TLS_RECORD_SIZE_LIMIT, config->tls_record_size_limit);
-+ 
-+  /* curl-impersonate */
-+  if(config->tls_key_shares_limit)
-+    my_setopt(curl, CURLOPT_TLS_KEY_SHARES_LIMIT, config->tls_key_shares_limit);
- 
-   /* new in libcurl 7.9.2: */
-   if(config->disable_epsv)
-@@ -1660,6 +1731,22 @@ static CURLcode config2setopts(struct GlobalConfig *global,
-     my_setopt_long(curl, CURLOPT_SSL_ENABLE_ALPN, 0);
-   }
- 
-+  if(config->alps) {
-+    my_setopt(curl, CURLOPT_SSL_ENABLE_ALPS, 1L);
-+  }
-+
-+  if (config->noticket) {
-+    my_setopt(curl, CURLOPT_SSL_ENABLE_TICKET, 0L);
-+  }
-+
-+  // curl-impersonate
-+  if(config->tls_signed_cert_timestamps) {
-+    my_setopt(curl, CURLOPT_TLS_SIGNED_CERT_TIMESTAMPS, 1L);
-+  }
-+
-+  // curl-impersonate: always enable this
-+  my_setopt(curl, CURLOPT_TLS_STATUS_REQUEST, 1L);
-+
-   /* new in 7.40.0, abstract support added in 7.53.0 */
-   if(config->unix_socket_path) {
-     if(config->abstract_unix_socket) {
 diff --git a/src/tool_setopt.c b/src/tool_setopt.c
-index cd3aeabe0..f573d59c6 100644
+index a782b33ea..aab1ca356 100644
 --- a/src/tool_setopt.c
 +++ b/src/tool_setopt.c
-@@ -160,6 +160,9 @@ static const struct NameValue setopt_nv_CURLNONZERODEFAULTS[] = {
+@@ -157,6 +157,9 @@ static const struct NameValue setopt_nv_CURLNONZERODEFAULTS[] = {
    NV1(CURLOPT_SSL_VERIFYHOST, 1),
    NV1(CURLOPT_SSL_ENABLE_NPN, 1),
    NV1(CURLOPT_SSL_ENABLE_ALPN, 1),
