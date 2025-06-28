@@ -95,6 +95,14 @@
   - null
   - null
   - safari_18.4_iOS
+- - curl_safari260
+  - null
+  - null
+  - safari_26.0_macOS
+- - curl_safari260_ios
+  - null
+  - null
+  - safari_26.0_iOS
 - - curl_firefox133
   - null
   - null
@@ -215,6 +223,14 @@
   - CURL_IMPERSONATE: safari184_ios
   - libcurl-impersonate
   - safari_18.4_iOS
+- - minicurl
+  - CURL_IMPERSONATE: safari260
+  - libcurl-impersonate
+  - safari_26.0_macOS
+- - minicurl
+  - CURL_IMPERSONATE: safari260_ios
+  - libcurl-impersonate
+  - safari_26.0_iOS
 - - minicurl
   - CURL_IMPERSONATE: firefox133
   - libcurl-impersonate
