@@ -15,7 +15,7 @@
     -H "priority: u=0, i" ^
     -H "accept-encoding: gzip, deflate, br, zstd" ^
     --http2 ^
-    --http2-settings "2:0;3:100;4:2097152;;9:1" ^
+    --http2-settings "2:0;3:100;4:2097152;9:1" ^
     --http2-pseudo-headers-order "msap" ^
     --http2-window-update 10420225 ^
     --http2-no-priority ^

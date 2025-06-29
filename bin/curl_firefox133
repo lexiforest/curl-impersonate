@@ -33,5 +33,4 @@ dir=${0%/*}
     --tls-record-size-limit 4001 \
     --tls-key-shares-limit 3 \
     --cert-compression zlib,brotli,zstd \
-    --tls-use-firefox-tls13-ciphers \
     "$@"
