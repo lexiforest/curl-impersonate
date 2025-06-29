@@ -124,8 +124,6 @@ signature:
       - GREASE
       - TLS_VERSION_1_3
       - TLS_VERSION_1_2
-      - TLS_VERSION_1_1
-      - TLS_VERSION_1_0
       type: supported_versions
     - algorithms:
       - 1

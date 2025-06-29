@@ -1519,7 +1519,7 @@ index 93cc2d44f..52e80ce9c 100644
   * Store nghttp2 version info in this buffer.
 diff --git a/lib/impersonate.c b/lib/impersonate.c
 new file mode 100644
-index 000000000..9ffa5d82d
+index 000000000..ada434366
 --- /dev/null
 +++ b/lib/impersonate.c
 @@ -0,0 +1,1799 @@
@@ -3136,7 +3136,7 @@ index 000000000..9ffa5d82d
 +    .target = "safari260",
 +    .alias = "safari26_0",
 +    .httpversion = CURL_HTTP_VERSION_2_0,
-+    .ssl_version = CURL_SSLVERSION_TLSv1_0 | CURL_SSLVERSION_MAX_DEFAULT,
++    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
 +    .ciphers =
 +      "TLS_AES_256_GCM_SHA384,"
 +      "TLS_CHACHA20_POLY1305_SHA256,"
@@ -3198,7 +3198,7 @@ index 000000000..9ffa5d82d
 +    .target = "safari260_ios",
 +    .alias = "safari26_0_ios",
 +    .httpversion = CURL_HTTP_VERSION_2_0,
-+    .ssl_version = CURL_SSLVERSION_TLSv1_0 | CURL_SSLVERSION_MAX_DEFAULT,
++    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
 +    .ciphers =
 +      "TLS_AES_128_GCM_SHA256,"
 +      "TLS_AES_256_GCM_SHA384,"
