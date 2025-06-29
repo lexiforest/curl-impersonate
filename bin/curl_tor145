@@ -35,5 +35,4 @@ dir=${0%/*}
     --tls-key-shares-limit 2 \
     --cert-compression zlib,brotli,zstd \
     --tls-signed-cert-timestamps \
-    --tls-use-firefox-tls13-ciphers \
     "$@"
