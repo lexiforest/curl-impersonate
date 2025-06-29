@@ -20,7 +20,7 @@
     --http2-window-update 10420225 ^
     --http2-no-priority ^
     --compressed ^
-    --tlsv1.0 --no-tls-session-ticket ^
+    --tlsv1.0 ^
     --cert-compression zlib ^
     --tls-grease ^
     --tls-signed-cert-timestamps ^

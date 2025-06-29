@@ -4,6 +4,7 @@
 # 1. User-Agent
 # 2. Accept-Encoding
 # 3. HTTP/2: removed priority
+# 4. Added extension session_ticket
 
 # Find the directory of this script
 dir=${0%/*}
@@ -29,7 +30,7 @@ dir=${0%/*}
     --http2-window-update 10420225 \
     --http2-no-priority \
     --compressed \
-    --tlsv1.0 --no-tls-session-ticket \
+    --tlsv1.0 \
     --cert-compression zlib \
     --tls-grease \
     --tls-signed-cert-timestamps \

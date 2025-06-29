@@ -84,6 +84,8 @@ signature:
       - 0
       length: 2
       type: ec_point_formats
+    - length: 0
+      type: session_ticket
     - alpn_list:
       - h2
       - http/1.1
