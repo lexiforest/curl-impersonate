@@ -71,7 +71,7 @@ signature:
       type: extended_master_secret
     - length: 1
       type: renegotiation_info
-    - length: 12
+    - length: 14
       supported_groups:
       - GREASE
       - 4588
@@ -119,7 +119,7 @@ signature:
     - length: 2
       psk_ke_mode: 1
       type: psk_key_exchange_modes
-    - length: 11
+    - length: 7
       supported_versions:
       - GREASE
       - TLS_VERSION_1_3

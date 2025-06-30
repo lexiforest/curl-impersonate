@@ -4674,7 +4674,7 @@ index c4f1d6b23..bb141c05b 100644
    long happy_eyeballs_timeout_ms; /* happy eyeballs timeout in milliseconds.
                                       0 is valid. default: CURL_HET_DEFAULT. */
 diff --git a/src/tool_getparam.c b/src/tool_getparam.c
-index 51156e46b..9f31bae08 100644
+index 51156e46b..9d63b2de6 100644
 --- a/src/tool_getparam.c
 +++ b/src/tool_getparam.c
 @@ -87,6 +87,7 @@ static ParameterError getstrn(char **str, const char *val,
@@ -4697,7 +4697,7 @@ index 51156e46b..9f31bae08 100644
    {"http1.0",                    ARG_NONE, '0', C_HTTP1_0},
    {"http1.1",                    ARG_NONE, ' ', C_HTTP1_1},
    {"http2",                      ARG_NONE, ' ', C_HTTP2},
-+  {"http2-no-priority",          ARG_NONE, ' ', C_HTTP2_NO_PRIORITY},  // curl-impersonate
++  {"http2-no-priority",          ARG_BOOL, ' ', C_HTTP2_NO_PRIORITY},  // curl-impersonate
    {"http2-prior-knowledge",      ARG_NONE, ' ', C_HTTP2_PRIOR_KNOWLEDGE},
 +  {"http2-pseudo-headers-order", ARG_STRG, ' ', C_HTTP2_PSEUDO_HEADERS_ORDER},  // curl-impersonate
 +  {"http2-settings",             ARG_STRG, ' ', C_HTTP2_SETTINGS},  // curl-impersonate
