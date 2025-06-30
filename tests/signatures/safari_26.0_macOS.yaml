@@ -112,9 +112,11 @@ signature:
     - key_shares:
       - group: GREASE
         length: 1
+      - group: 4588
+        length: 1216
       - group: 29
         length: 32
-      length: 43
+      length: 1263
       type: keyshare
     - length: 2
       psk_ke_mode: 1
