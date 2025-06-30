@@ -129,6 +129,7 @@ signature:
         AA==
       length: 1
       type: GREASE
+    - type: padding
     handshake_version: TLS_VERSION_1_2
     record_version: TLS_VERSION_1_0
     session_id_length: 32
