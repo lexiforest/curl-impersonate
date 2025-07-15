@@ -624,7 +624,7 @@ index 4bd5c5d69..1adae1322 100644
      if (!kExtensions[i].add_clienthello(hs, &extensions, &extensions, type)) {
        OPENSSL_PUT_ERROR(SSL, SSL_R_ERROR_ADDING_EXTENSION);
 diff --git a/ssl/handshake_client.cc b/ssl/handshake_client.cc
-index 4ce8d1802..8d6fa6933 100644
+index 4ce8d1802..94fa868d8 100644
 --- a/ssl/handshake_client.cc
 +++ b/ssl/handshake_client.cc
 @@ -26,6 +26,8 @@
@@ -636,67 +636,58 @@ index 4ce8d1802..8d6fa6933 100644
  #include <openssl/ec_key.h>
  #include <openssl/ecdsa.h>
  #include <openssl/err.h>
-@@ -82,14 +84,6 @@ static void ssl_get_client_disabled(const SSL_HANDSHAKE *hs,
-   }
- }
+@@ -125,15 +127,43 @@ static bool ssl_write_client_cipher_list(const SSL_HANDSHAKE *hs, CBB *out,
+         TLS1_3_CK_AES_128_GCM_SHA256 & 0xffff,
+         TLS1_3_CK_CHACHA20_POLY1305_SHA256 & 0xffff,
+     };
++    static const uint16_t kCiphersFirefox[] = {
++        TLS1_3_CK_AES_128_GCM_SHA256 & 0xffff,
++        TLS1_3_CK_CHACHA20_POLY1305_SHA256 & 0xffff,
++        TLS1_3_CK_AES_256_GCM_SHA384 & 0xffff,
++    };
++    static const uint16_t kCiphersSafari26[] = {
++        TLS1_3_CK_AES_256_GCM_SHA384 & 0xffff,
++        TLS1_3_CK_CHACHA20_POLY1305_SHA256 & 0xffff,
++        TLS1_3_CK_AES_128_GCM_SHA256 & 0xffff,
++    };
++    static const uint16_t kCiphersOther[] = {
++        TLS1_3_CK_CHACHA20_POLY1305_SHA256 & 0xffff,
++        TLS1_3_CK_AES_256_GCM_SHA384 & 0xffff,
++        TLS1_3_CK_AES_128_GCM_SHA256 & 0xffff,
++    };
++
++#define TLS13_CIPHER_LEN 74
++
++    const char *order = hs->config->cipher_order;
++    // printf("CIPHER ORDER IS %s\n", order);
  
--static bool ssl_add_tls13_cipher(CBB *cbb, uint16_t cipher_id,
--                                 ssl_compliance_policy_t policy) {
--  if (ssl_tls13_cipher_meets_policy(cipher_id, policy)) {
--    return CBB_add_u16(cbb, cipher_id);
--  }
--  return true;
--}
--
- static bool ssl_write_client_cipher_list(const SSL_HANDSHAKE *hs, CBB *out,
-                                          ssl_client_hello_type_t type) {
-   const SSL *const ssl = hs->ssl;
-@@ -107,41 +101,9 @@ static bool ssl_write_client_cipher_list(const SSL_HANDSHAKE *hs, CBB *out,
-     return false;
-   }
- 
--  // Add TLS 1.3 ciphers. Order ChaCha20-Poly1305 relative to AES-GCM based on
--  // hardware support.
--  if (hs->max_version >= TLS1_3_VERSION) {
--    static const uint16_t kCiphersNoAESHardware[] = {
--        TLS1_3_CK_CHACHA20_POLY1305_SHA256 & 0xffff,
--        TLS1_3_CK_AES_128_GCM_SHA256 & 0xffff,
--        TLS1_3_CK_AES_256_GCM_SHA384 & 0xffff,
--    };
--    static const uint16_t kCiphersAESHardware[] = {
--        TLS1_3_CK_AES_128_GCM_SHA256 & 0xffff,
--        TLS1_3_CK_AES_256_GCM_SHA384 & 0xffff,
--        TLS1_3_CK_CHACHA20_POLY1305_SHA256 & 0xffff,
--    };
--    static const uint16_t kCiphersCNSA[] = {
--        TLS1_3_CK_AES_256_GCM_SHA384 & 0xffff,
--        TLS1_3_CK_AES_128_GCM_SHA256 & 0xffff,
--        TLS1_3_CK_CHACHA20_POLY1305_SHA256 & 0xffff,
--    };
--
 -    const bool has_aes_hw = ssl->config->aes_hw_override
 -                                ? ssl->config->aes_hw_override_value
 -                                : EVP_has_aes_hardware();
--    const bssl::Span<const uint16_t> ciphers =
+     const bssl::Span<const uint16_t> ciphers =
 -        ssl->config->compliance_policy == ssl_compliance_policy_cnsa_202407
 -            ? bssl::Span<const uint16_t>(kCiphersCNSA)
 -            : (has_aes_hw ? bssl::Span<const uint16_t>(kCiphersAESHardware)
 -                          : bssl::Span<const uint16_t>(kCiphersNoAESHardware));
--
--    for (auto cipher : ciphers) {
--      if (!ssl_add_tls13_cipher(&child, cipher,
--                                ssl->config->compliance_policy)) {
--        return false;
--      }
--    }
--  }
-+
-+  // curl-impersonate: TLS 1.3 suites are added uniformly with other suites.
-+  // Notably, Firefox and Safari does not honor the rules defined in boringssl.
++      order == nullptr ?
++        kCiphersAESHardware :
++        strncmp(order, "TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256", TLS13_CIPHER_LEN) == 0 ?
++          kCiphersAESHardware :
++        strncmp(order, "TLS_AES_128_GCM_SHA256:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_256_GCM_SHA384", TLS13_CIPHER_LEN) == 0 ?
++          kCiphersFirefox :
++        strncmp(order, "TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256", TLS13_CIPHER_LEN) == 0 ?
++          kCiphersSafari26 :
++        strncmp(order, "TLS_AES_256_GCM_SHA384:TLS_AES_128_GCM_SHA256:TLS_CHACHA20_POLY1305_SHA256", TLS13_CIPHER_LEN) == 0 ?
++          kCiphersCNSA :
++        strncmp(order, "TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384", TLS13_CIPHER_LEN) == 0 ?
++          kCiphersNoAESHardware :
++        strncmp(order, "TLS_CHACHA20_POLY1305_SHA256:TLS_AES_256_GCM_SHA384:TLS_AES_128_GCM_SHA256", TLS13_CIPHER_LEN) == 0 ?
++          kCiphersOther :
++          kCiphersAESHardware;  // default one
  
-   if (hs->min_version < TLS1_3_VERSION && type != ssl_client_hello_inner) {
-     bool any_enabled = false;
-@@ -431,8 +393,10 @@ static enum ssl_hs_wait_t do_start_connect(SSL_HANDSHAKE *hs) {
+     for (auto cipher : ciphers) {
+       if (!ssl_add_tls13_cipher(&child, cipher,
+@@ -431,8 +461,10 @@ static enum ssl_hs_wait_t do_start_connect(SSL_HANDSHAKE *hs) {
      hs->early_data_offered = true;
    }
  
@@ -707,7 +698,7 @@ index 4ce8d1802..8d6fa6933 100644
        !ssl_encrypt_client_hello(hs, Span(ech_enc, ech_enc_len)) ||
        !ssl_add_client_hello(hs)) {
      return ssl_hs_error;
-@@ -1026,7 +990,28 @@ static enum ssl_hs_wait_t do_read_server_key_exchange(SSL_HANDSHAKE *hs) {
+@@ -1026,7 +1058,28 @@ static enum ssl_hs_wait_t do_read_server_key_exchange(SSL_HANDSHAKE *hs) {
      hs->peer_psk_identity_hint.reset(raw);
    }
  
@@ -737,7 +728,7 @@ index 4ce8d1802..8d6fa6933 100644
      // Parse the server parameters.
      uint8_t group_type;
      uint16_t group_id;
-@@ -1366,7 +1351,9 @@ static enum ssl_hs_wait_t do_send_client_key_exchange(SSL_HANDSHAKE *hs) {
+@@ -1366,7 +1419,9 @@ static enum ssl_hs_wait_t do_send_client_key_exchange(SSL_HANDSHAKE *hs) {
      ssl_key_usage_t intended_use = (alg_k & SSL_kRSA)
                                         ? key_usage_encipherment
                                         : key_usage_digital_signature;
@@ -748,7 +739,7 @@ index 4ce8d1802..8d6fa6933 100644
        if (hs->config->enforce_rsa_key_usage ||
            EVP_PKEY_id(hs->peer_pubkey.get()) != EVP_PKEY_RSA) {
          return ssl_hs_error;
-@@ -1440,6 +1427,64 @@ static enum ssl_hs_wait_t do_send_client_key_exchange(SSL_HANDSHAKE *hs) {
+@@ -1440,6 +1495,64 @@ static enum ssl_hs_wait_t do_send_client_key_exchange(SSL_HANDSHAKE *hs) {
          !CBB_flush(&body)) {
        return ssl_hs_error;
      }
@@ -814,7 +805,7 @@ index 4ce8d1802..8d6fa6933 100644
      CBB child;
      if (!CBB_add_u8_length_prefixed(&body, &child)) {
 diff --git a/ssl/internal.h b/ssl/internal.h
-index 05af44f7b..f5bdd2441 100644
+index 05af44f7b..138d6a5e4 100644
 --- a/ssl/internal.h
 +++ b/ssl/internal.h
 @@ -697,10 +697,11 @@ BSSL_NAMESPACE_BEGIN
@@ -875,7 +866,7 @@ index 05af44f7b..f5bdd2441 100644
  // ssl_setup_key_shares computes client key shares and saves them in |hs|. It
  // returns true on success and false on failure. If |override_group_id| is zero,
  // it offers the default groups, including GREASE. If it is non-zero, it offers
-@@ -3581,6 +3592,12 @@ struct SSL_CONFIG {
+@@ -3581,6 +3592,15 @@ struct SSL_CONFIG {
    // crypto
    UniquePtr<SSLCipherPreferenceList> cipher_list;
  
@@ -883,12 +874,15 @@ index 05af44f7b..f5bdd2441 100644
 +  char *extension_order = nullptr;
 +
 +  // curl-impersonate
++  const char *cipher_order = nullptr;
++
++  // curl-impersonate
 +  int key_usage_check_enabled = 1;
 +
    // This is used to hold the local certificate used (i.e. the server
    // certificate for a server or the client certificate for a client).
    UniquePtr<CERT> cert;
-@@ -3639,6 +3656,10 @@ struct SSL_CONFIG {
+@@ -3639,6 +3659,10 @@ struct SSL_CONFIG {
    // accepted from the peer in decreasing order of preference.
    Array<uint16_t> verify_sigalgs;
  
@@ -899,7 +893,7 @@ index 05af44f7b..f5bdd2441 100644
    // srtp_profiles is the list of configured SRTP protection profiles for
    // DTLS-SRTP.
    UniquePtr<STACK_OF(SRTP_PROTECTION_PROFILE)> srtp_profiles;
-@@ -3704,6 +3725,14 @@ struct SSL_CONFIG {
+@@ -3704,6 +3728,14 @@ struct SSL_CONFIG {
    // hardware support, and use the value in aes_hw_override_value instead.
    bool aes_hw_override : 1;
  
@@ -914,7 +908,7 @@ index 05af44f7b..f5bdd2441 100644
    // aes_hw_override_value is used for testing to indicate the support or lack
    // of support for AES hw. The value is only considered if |aes_hw_override| is
    // true.
-@@ -4076,6 +4105,12 @@ struct ssl_ctx_st : public bssl::RefCounted<ssl_ctx_st> {
+@@ -4076,6 +4108,15 @@ struct ssl_ctx_st : public bssl::RefCounted<ssl_ctx_st> {
  
    bssl::UniquePtr<bssl::SSLCipherPreferenceList> cipher_list;
  
@@ -922,12 +916,15 @@ index 05af44f7b..f5bdd2441 100644
 +  char *extension_order = nullptr;
 +
 +  // curl-impersonate
++  const char *cipher_order = nullptr;
++
++  // curl-impersonate
 +  int key_usage_check_enabled = 1;
 +
    X509_STORE *cert_store = nullptr;
    LHASH_OF(SSL_SESSION) *sessions = nullptr;
    // Most session-ids that will be cached, default is
-@@ -4300,6 +4335,10 @@ struct ssl_ctx_st : public bssl::RefCounted<ssl_ctx_st> {
+@@ -4300,6 +4341,10 @@ struct ssl_ctx_st : public bssl::RefCounted<ssl_ctx_st> {
    // accepted from the peer in decreasing order of preference.
    bssl::Array<uint16_t> verify_sigalgs;
  
@@ -938,7 +935,7 @@ index 05af44f7b..f5bdd2441 100644
    // retain_only_sha256_of_client_certs is true if we should compute the SHA256
    // hash of the peer's certificate and then discard it to save memory and
    // session space. Only effective on the server side.
-@@ -4352,6 +4391,14 @@ struct ssl_ctx_st : public bssl::RefCounted<ssl_ctx_st> {
+@@ -4352,6 +4397,14 @@ struct ssl_ctx_st : public bssl::RefCounted<ssl_ctx_st> {
    // |aes_hw_override| is true.
    bool aes_hw_override_value : 1;
  
@@ -954,7 +951,7 @@ index 05af44f7b..f5bdd2441 100644
    friend RefCounted;
    ~ssl_ctx_st();
 diff --git a/ssl/ssl_cipher.cc b/ssl/ssl_cipher.cc
-index 724a0f272..d38c740fb 100644
+index 724a0f272..41dd140d1 100644
 --- a/ssl/ssl_cipher.cc
 +++ b/ssl/ssl_cipher.cc
 @@ -61,6 +61,18 @@ static constexpr SSL_CIPHER kCiphers[] = {
@@ -1166,24 +1163,7 @@ index 724a0f272..d38c740fb 100644
      // GCM based TLS v1.2 ciphersuites from RFC 5289
  
      // Cipher C02B
-@@ -341,16 +501,6 @@ static constexpr SSL_CIPHER kCiphers[] = {
- 
- Span<const SSL_CIPHER> AllCiphers() { return kCiphers; }
- 
--static constexpr size_t NumTLS13Ciphers() {
--  size_t num = 0;
--  for (const auto &cipher : kCiphers) {
--    if (cipher.algorithm_mkey == SSL_kGENERIC) {
--      num++;
--    }
--  }
--  return num;
--}
--
- #define CIPHER_ADD 1
- #define CIPHER_KILL 2
- #define CIPHER_DEL 3
-@@ -428,6 +578,8 @@ static const CIPHER_ALIAS kCipherAliases[] = {
+@@ -428,6 +588,8 @@ static const CIPHER_ALIAS kCipherAliases[] = {
      // MAC aliases
      {"SHA1", ~0u, ~0u, ~0u, SSL_SHA1, 0},
      {"SHA", ~0u, ~0u, ~0u, SSL_SHA1, 0},
@@ -1192,7 +1172,7 @@ index 724a0f272..d38c740fb 100644
  
      // Legacy protocol minimum version aliases. "TLSv1" is intentionally the
      // same as "SSLv3".
-@@ -512,11 +664,20 @@ bool ssl_cipher_get_evp_aead(const EVP_AEAD **out_aead,
+@@ -512,11 +674,20 @@ bool ssl_cipher_get_evp_aead(const EVP_AEAD **out_aead,
    } else if (cipher->algorithm_mac == SSL_SHA256) {
      if (cipher->algorithm_enc == SSL_AES128) {
        *out_aead = EVP_aead_aes_128_cbc_sha256_tls();
@@ -1213,7 +1193,7 @@ index 724a0f272..d38c740fb 100644
    } else {
      return false;
    }
-@@ -1020,13 +1181,20 @@ bool ssl_create_cipher_list(UniquePtr<SSLCipherPreferenceList> *out_cipher_list,
+@@ -1020,13 +1191,20 @@ bool ssl_create_cipher_list(UniquePtr<SSLCipherPreferenceList> *out_cipher_list,
        TLS1_CK_ECDHE_PSK_WITH_CHACHA20_POLY1305_SHA256 & 0xffff,
    };
    static const uint16_t kLegacyCiphers[] = {
@@ -1234,7 +1214,7 @@ index 724a0f272..d38c740fb 100644
        TLS1_CK_RSA_WITH_AES_128_GCM_SHA256 & 0xffff,
        TLS1_CK_RSA_WITH_AES_256_GCM_SHA384 & 0xffff,
        TLS1_CK_RSA_WITH_AES_128_SHA & 0xffff,
-@@ -1034,12 +1202,24 @@ bool ssl_create_cipher_list(UniquePtr<SSLCipherPreferenceList> *out_cipher_list,
+@@ -1034,12 +1212,19 @@ bool ssl_create_cipher_list(UniquePtr<SSLCipherPreferenceList> *out_cipher_list,
        TLS1_CK_RSA_WITH_AES_256_SHA & 0xffff,
        TLS1_CK_PSK_WITH_AES_256_CBC_SHA & 0xffff,
        SSL3_CK_RSA_DES_192_CBC3_SHA & 0xffff,
@@ -1244,39 +1224,16 @@ index 724a0f272..d38c740fb 100644
 +      TLS1_CK_DHE_RSA_WITH_AES_256_SHA256 & 0xffff,
 +      TLS1_CK_DHE_RSA_WITH_AES_128_GCM_SHA256 & 0xffff,
 +      TLS1_CK_DHE_RSA_WITH_AES_256_GCM_SHA384 & 0xffff,
-+  };
-+
-+  // curl-impersonate: add TLS 1.3 ciphers here for ordering
-+  static const uint16_t kTLS13Ciphers[] = {
-+      TLS1_3_CK_AES_128_GCM_SHA256 & 0xffff,
-+      TLS1_3_CK_AES_256_GCM_SHA384 & 0xffff,
-+      TLS1_3_CK_CHACHA20_POLY1305_SHA256 & 0xffff,
    };
  
    // Set up a linked list of ciphers.
--  CIPHER_ORDER co_list[OPENSSL_ARRAY_SIZE(kAESCiphers) +
--                       OPENSSL_ARRAY_SIZE(kChaChaCiphers) +
--                       OPENSSL_ARRAY_SIZE(kLegacyCiphers)];
-+  CIPHER_ORDER co_list[OPENSSL_ARRAY_SIZE(kCiphers)];
+   CIPHER_ORDER co_list[OPENSSL_ARRAY_SIZE(kAESCiphers) +
+                        OPENSSL_ARRAY_SIZE(kChaChaCiphers) +
+                        OPENSSL_ARRAY_SIZE(kLegacyCiphers)];
 +
    for (size_t i = 0; i < OPENSSL_ARRAY_SIZE(co_list); i++) {
      co_list[i].next =
          i + 1 < OPENSSL_ARRAY_SIZE(co_list) ? &co_list[i + 1] : nullptr;
-@@ -1075,8 +1255,13 @@ bool ssl_create_cipher_list(UniquePtr<SSLCipherPreferenceList> *out_cipher_list,
-     co_list[num++].cipher = SSL_get_cipher_by_value(id);
-     assert(co_list[num - 1].cipher != nullptr);
-   }
-+  // curl-impersonate: add TLS 1.3 ciphers here for ordering
-+  for (uint16_t id : kTLS13Ciphers) {
-+    co_list[num++].cipher = SSL_get_cipher_by_value(id);
-+    assert(co_list[num - 1].cipher != nullptr);
-+  }
-   assert(num == OPENSSL_ARRAY_SIZE(co_list));
--  static_assert(OPENSSL_ARRAY_SIZE(co_list) + NumTLS13Ciphers() ==
-+  static_assert(OPENSSL_ARRAY_SIZE(co_list) ==
-                     OPENSSL_ARRAY_SIZE(kCiphers),
-                 "Not all ciphers are included in the cipher order");
- 
 @@ -1265,6 +1450,8 @@ int SSL_CIPHER_get_digest_nid(const SSL_CIPHER *cipher) {
        return NID_sha1;
      case SSL_SHA256:
@@ -1311,7 +1268,7 @@ index e60016c82..476dc3915 100644
  
  }  // namespace
 diff --git a/ssl/ssl_lib.cc b/ssl/ssl_lib.cc
-index c859ea612..a2034bf0c 100644
+index c859ea612..79c653219 100644
 --- a/ssl/ssl_lib.cc
 +++ b/ssl/ssl_lib.cc
 @@ -401,7 +401,8 @@ ssl_ctx_st::ssl_ctx_st(const SSL_METHOD *ssl_method)
@@ -1324,11 +1281,12 @@ index c859ea612..a2034bf0c 100644
    CRYPTO_MUTEX_init(&lock);
    CRYPTO_new_ex_data(&ex_data);
  }
-@@ -520,14 +521,18 @@ SSL *SSL_new(SSL_CTX *ctx) {
+@@ -520,14 +521,19 @@ SSL *SSL_new(SSL_CTX *ctx) {
    ssl->config->retain_only_sha256_of_client_certs =
        ctx->retain_only_sha256_of_client_certs;
    ssl->config->permute_extensions = ctx->permute_extensions;
 +  ssl->config->extension_order = ctx->extension_order;  // curl-impersonate
++  ssl->config->cipher_order = ctx->cipher_order;  // curl-impersonate
 +  ssl->config->key_usage_check_enabled = ctx->key_usage_check_enabled;  // curl-impersonate
    ssl->config->aes_hw_override = ctx->aes_hw_override;
    ssl->config->aes_hw_override_value = ctx->aes_hw_override_value;
@@ -1344,7 +1302,7 @@ index c859ea612..a2034bf0c 100644
      return nullptr;
    }
  
-@@ -547,6 +552,7 @@ SSL *SSL_new(SSL_CTX *ctx) {
+@@ -547,6 +553,7 @@ SSL *SSL_new(SSL_CTX *ctx) {
    ssl->config->signed_cert_timestamps_enabled =
        ctx->signed_cert_timestamps_enabled;
    ssl->config->ocsp_stapling_enabled = ctx->ocsp_stapling_enabled;
@@ -1352,7 +1310,7 @@ index c859ea612..a2034bf0c 100644
    ssl->config->handoff = ctx->handoff;
    ssl->quic_method = ctx->quic_method;
  
-@@ -571,6 +577,7 @@ SSL_CONFIG::SSL_CONFIG(SSL *ssl_arg)
+@@ -571,6 +578,7 @@ SSL_CONFIG::SSL_CONFIG(SSL *ssl_arg)
        jdk11_workaround(false),
        quic_use_legacy_codepoint(false),
        permute_extensions(false),
@@ -1360,7 +1318,15 @@ index c859ea612..a2034bf0c 100644
        alps_use_new_codepoint(false) {
    assert(ssl);
  }
-@@ -2068,6 +2075,28 @@ void SSL_enable_ocsp_stapling(SSL *ssl) {
+@@ -1975,6 +1983,7 @@ const char *SSL_get_cipher_list(const SSL *ssl, int n) {
+ int SSL_CTX_set_cipher_list(SSL_CTX *ctx, const char *str) {
+   const bool has_aes_hw = ctx->aes_hw_override ? ctx->aes_hw_override_value
+                                                : EVP_has_aes_hardware();
++  ctx->cipher_order = str;
+   return ssl_create_cipher_list(&ctx->cipher_list, has_aes_hw, str,
+                                 false /* not strict */);
+ }
+@@ -2068,6 +2077,28 @@ void SSL_enable_ocsp_stapling(SSL *ssl) {
    ssl->config->ocsp_stapling_enabled = true;
  }
  
@@ -1389,7 +1355,7 @@ index c859ea612..a2034bf0c 100644
  void SSL_get0_signed_cert_timestamp_list(const SSL *ssl, const uint8_t **out,
                                           size_t *out_len) {
    SSL_SESSION *session = SSL_get_session(ssl);
-@@ -2889,6 +2918,17 @@ void SSL_CTX_set_permute_extensions(SSL_CTX *ctx, int enabled) {
+@@ -2889,6 +2920,17 @@ void SSL_CTX_set_permute_extensions(SSL_CTX *ctx, int enabled) {
    ctx->permute_extensions = !!enabled;
  }
  
@@ -1408,10 +1374,10 @@ index c859ea612..a2034bf0c 100644
    if (!ssl->config) {
      return;
 diff --git a/ssl/ssl_privkey.cc b/ssl/ssl_privkey.cc
-index 6d46f886b..005b30f17 100644
+index 6d46f886b..0524eae8e 100644
 --- a/ssl/ssl_privkey.cc
 +++ b/ssl/ssl_privkey.cc
-@@ -519,44 +519,49 @@ int SSL_is_signature_algorithm_rsa_pss(uint16_t sigalg) {
+@@ -519,44 +519,12 @@ int SSL_is_signature_algorithm_rsa_pss(uint16_t sigalg) {
    return alg != nullptr && alg->is_rsa_pss;
  }
  
@@ -1450,39 +1416,6 @@ index 6d46f886b..005b30f17 100644
 -}
 +// curl-impersonate: Remove the uniqueness check. Older Safari versions (15)
 +// send out duplicated algorithm prefs.
-+// static int compare_uint16_t(const void *p1, const void *p2) {
-+//  uint16_t u1 = *((const uint16_t *)p1);
-+//   uint16_t u2 = *((const uint16_t *)p2);
-+//   if (u1 < u2) {
-+//     return -1;
-+//   } else if (u1 > u2) {
-+//     return 1;
-+//   } else {
-+//     return 0;
-+//   }
-+// }
-+
-+// static bool sigalgs_unique(Span<const uint16_t> in_sigalgs) {
-+//   if (in_sigalgs.size() < 2) {
-+//     return true;
-+//   }
-+// 
-+//   Array<uint16_t> sigalgs;
-+//   if (!sigalgs.CopyFrom(in_sigalgs)) {
-+//     return false;
-+//   }
-+// 
-+//   qsort(sigalgs.data(), sigalgs.size(), sizeof(uint16_t), compare_uint16_t);
-+// 
-+//   for (size_t i = 1; i < sigalgs.size(); i++) {
-+//     if (sigalgs[i - 1] == sigalgs[i]) {
-+//       OPENSSL_PUT_ERROR(SSL, SSL_R_DUPLICATE_SIGNATURE_ALGORITHM);
-+//       return false;
-+//     }
-+//   }
-+// 
-+//   return true;
-+// }
  
  static bool set_sigalg_prefs(Array<uint16_t> *out, Span<const uint16_t> prefs) {
 -  if (!sigalgs_unique(prefs)) {
@@ -1490,14 +1423,10 @@ index 6d46f886b..005b30f17 100644
 -  }
 +  // curl-impersonate: Remove the uniqueness check. Older Safari versions (15)
 +  // send out duplicated algorithm prefs.
-+
-+  // if (!sigalgs_unique(prefs)) {
-+  //   return false;
-+  // }
  
    // Check for invalid algorithms, and filter out |SSL_SIGN_RSA_PKCS1_MD5_SHA1|.
    Array<uint16_t> filtered;
-@@ -916,3 +921,13 @@ int SSL_set_verify_algorithm_prefs(SSL *ssl, const uint16_t *prefs,
+@@ -916,3 +884,13 @@ int SSL_set_verify_algorithm_prefs(SSL *ssl, const uint16_t *prefs,
  
    return set_sigalg_prefs(&ssl->config->verify_sigalgs, Span(prefs, num_prefs));
  }
