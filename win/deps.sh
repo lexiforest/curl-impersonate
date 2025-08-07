@@ -15,7 +15,7 @@ get_dep https://github.com/curl/curl.git curl $CURL_TAG
 get_dep https://github.com/nghttp2/nghttp2.git nghttp2 $NGHTTP2_COMMIT
 get_dep https://github.com/ngtcp2/nghttp3.git nghttp3 $NGHTTP3_TAG
 get_dep https://github.com/ngtcp2/ngtcp2.git ngtcp2 $NGTCP2_TAG
-get_dep https://github.com/c-ares/c-ares.git c-ares $NGTCP2_TAG
+get_dep https://github.com/c-ares/c-ares.git c-ares $CARES_TAG
 
 git -C "$PWD/deps/nghttp2" submodule update --init
 git -C "$PWD/deps/nghttp3" submodule update --init
