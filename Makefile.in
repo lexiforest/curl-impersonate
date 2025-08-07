@@ -21,7 +21,7 @@ NGTCP2_VERSION := 1.11.0
 NGTCP2_URL := https://github.com/ngtcp2/ngtcp2/releases/download/v$(NGTCP2_VERSION)/ngtcp2-$(NGTCP2_VERSION).tar.bz2
 NGHTTP3_VERSION := 1.9.0
 NGHTTP3_URL := https://github.com/ngtcp2/nghttp3/releases/download/v$(NGHTTP3_VERSION)/nghttp3-$(NGHTTP3_VERSION).tar.bz2
-CARES_VERSION := 1.34.5
+CARES_VERSION := 1.19.1
 CARES_URL := https://github.com/c-ares/c-ares/releases/download/v$(CARES_VERSION)/c-ares-$(CARES_VERSION).tar.gz
 CURL_VERSION := curl-8_15_0
 

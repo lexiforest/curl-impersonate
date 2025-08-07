@@ -74,6 +74,12 @@ cmake %cmake_common_args% -DENABLE_SHARED_LIB=OFF -DENABLE_STATIC_LIB=ON -DENABL
 cmake --build "%build%\ngtcp2" --config %configuration% --target install
 popd
 
+:: Build & Install c-ares
+pushd "%deps%\c-ares"
+cmake %cmake_common_args% -DCARES_SHARED=OFF -DCARES_STATIC=ON -S . -B "%build%\c-ares"
+cmake --build "%build%\c-ares" --config %configuration% --target install
+popd
+
 
 :: Build & Install curl
 pushd "%deps%\curl"
@@ -93,6 +99,7 @@ cmake %cmake_common_args% -DBUILD_SHARED_LIBS=ON^
   -DUSE_SSLS_EXPORT=ON^
   -DENABLE_IPV6=ON^
   -DENABLE_UNICODE=ON^
+  -DENABLE_ARES=ON^
   -DCURL_ENABLE_SSL=ON^
   -DCURL_USE_LIBSSH2=OFF^
   -DOPENSSL_ROOT_DIR="%packages%"^

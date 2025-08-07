@@ -23,6 +23,7 @@ env:
   NGHTTP2_COMMIT: 8f44147c385fb1ed93a6f39911eeb30279bfd2dd
   NGHTTP3_TAG: v1.9.0
   NGTCP2_TAG: v1.11.0
+  CARES_TAG: v1.19.1
 
 jobs:
   build-windows:
