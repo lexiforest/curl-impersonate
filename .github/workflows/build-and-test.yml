@@ -6,6 +6,7 @@ on:
       - main
       - feature/*
       - bugfix/*
+      - chore/*
     tags:
       - "v*"
   pull_request:
