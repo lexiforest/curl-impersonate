@@ -6,6 +6,7 @@ on:
       - main
       - feature/*
       - bugfix/*
+      - chore/*
     tags:
       - "v*"
   pull_request:
@@ -17,6 +18,7 @@ permissions:
 
 env:
   BORING_SSL_COMMIT: 673e61fc215b178a90c0e67858bbf162c8158993
+  MACOSX_DEPLOYMENT_TARGET: 11.0
 
 jobs:
   build-and-test-linux:
@@ -159,6 +161,7 @@ jobs:
           cp ngtcp2*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
           cp brotli*/out/installed/lib/lib*.a ${{ runner.temp }}/install/lib
           cp boringssl*/lib/lib*.a ${{ runner.temp }}/install/lib
+          cp c-ares*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
 
           cd ${{ runner.temp }}/install/lib
           ls -lah .
@@ -182,7 +185,6 @@ jobs:
           rm -Rf ${{ runner.temp }}/install
           mkdir ${{ runner.temp }}/install
 
-       # Recompile curl-impersonate statically when doing a release.
       - name: Reconfigure statically
         run: |
           set -e
@@ -325,25 +327,33 @@ jobs:
           rm -Rf ${{ runner.temp }}/install
           mkdir ${{ runner.temp }}/install
 
-       # Recompile curl-impersonate statically when doing a release.
       - name: Reconfigure statically
-        if: startsWith(github.ref, 'refs/tags/')
         run: |
-          ./configure LDFLAGS="-L$(brew --prefix zstd)/lib" CPPFLAGS="-I$(brew --prefix zstd)/include" --prefix=${{ runner.temp }}/install --enable-static
+          ./configure LDFLAGS="-L$(brew --prefix zstd)/lib" CPPFLAGS="-I$(brew --prefix zstd)/include" \
+            --prefix=${{ runner.temp }}/install \
+            --enable-static
 
       - name: Rebuild statically
-        if: startsWith(github.ref, 'refs/tags/')
         run: |
           ${{ matrix.make }} build
           ${{ matrix.make }} checkbuild
           ${{ matrix.make }} install-strip
 
       - name: Create tar release files for curl-impersonate
-        if: startsWith(github.ref, 'refs/tags/')
         run: |
           cd ${{ runner.temp }}/install/bin
-          tar -c -z -f ${{ runner.temp }}/curl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz curl-impersonate curl_*
+          if [[ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]]; then
+            tar -c -z -f ${{ runner.temp }}/curl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz curl-impersonate curl_*
+          else
+            tar -c -z -f ${{ runner.temp }}/curl-impersonate.${{ matrix.host }}.tar.gz curl-impersonate curl_*
+          fi
           echo "release_file_bin=${{ runner.temp }}/curl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz" >> $GITHUB_ENV
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: curl-impersonate.${{ matrix.host }}.tar.gz
+          path: ${{ runner.temp }}/curl-impersonate*.tar.gz
 
       - name: Upload release files
         uses: softprops/action-gh-release@v1
