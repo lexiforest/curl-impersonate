@@ -5166,3 +5166,53 @@ index 89505979c..89305b0f7 100644
    NV1(CURLOPT_TCP_NODELAY, 1),
    NV1(CURLOPT_PROXY_SSL_VERIFYPEER, 1),
    NV1(CURLOPT_PROXY_SSL_VERIFYHOST, 1),
+diff --git a/lib/http.c b/lib/http.c
+index e5a069627..90e80cebf 100644
+--- a/lib/http.c
++++ b/lib/http.c
+@@ -1691,13 +1691,7 @@ CURLcode Curl_add_custom_headers(struct Curl_easy *data,
+ 
+       /* only send this if the contents was non-blank or done special */
+ 
+-      if(data->state.aptr.host &&
+-         /* a Host: header was sent already, do not pass on any custom
+-            Host: header as that will produce *two* in the same
+-            request! */
+-         curlx_str_casecompare(&name, "Host"))
+-        ;
+-      else if(data->state.httpreq == HTTPREQ_POST_FORM &&
++      if(data->state.httpreq == HTTPREQ_POST_FORM &&
+               /* this header (extended by formdata.c) is sent later */
+               curlx_str_casecompare(&name, "Content-Type"))
+         ;
+@@ -1929,11 +1923,7 @@ static CURLcode http_host(struct Curl_easy *data, struct connectdata *conn)
+     }
+ #endif
+ 
+-    if(!curl_strequal("Host:", ptr)) {
+-      aptr->host = aprintf("Host:%s\r\n", &ptr[5]);
+-      if(!aptr->host)
+-        return CURLE_OUT_OF_MEMORY;
+-    }
++    aptr->host = NULL;
+   }
+   else {
+     /* When building Host: headers, we must put the hostname within
+diff --git a/lib/http_proxy.c b/lib/http_proxy.c
+index 6f435a867..430a81653 100644
+--- a/lib/http_proxy.c
++++ b/lib/http_proxy.c
+@@ -144,12 +144,7 @@ static CURLcode dynhds_add_custom(struct Curl_easy *data,
+       }
+ 
+       DEBUGASSERT(name && value);
+-      if(data->state.aptr.host &&
+-         /* a Host: header was sent already, do not pass on any custom Host:
+-            header as that will produce *two* in the same request! */
+-         hd_name_eq(name, namelen, STRCONST("Host:")))
+-        ;
+-      else if(data->state.httpreq == HTTPREQ_POST_FORM &&
++      if(data->state.httpreq == HTTPREQ_POST_FORM &&
+               /* this header (extended by formdata.c) is sent later */
+               hd_name_eq(name, namelen, STRCONST("Content-Type:")))
+         ;
