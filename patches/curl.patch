@@ -407,7 +407,7 @@ index e533dcc36..84d8c5d70 100644
  bool Curl_dynhds_contains(struct dynhds *dynhds,
                            const char *name, size_t namelen);
 diff --git a/lib/easy.c b/lib/easy.c
-index 9c1f1c696..31635e968 100644
+index 9c1f1c696..bdba88894 100644
 --- a/lib/easy.c
 +++ b/lib/easy.c
 @@ -77,6 +77,8 @@
@@ -419,7 +419,7 @@ index 9c1f1c696..31635e968 100644
  
  #include "easy_lock.h"
  
-@@ -345,6 +347,287 @@ CURLsslset curl_global_sslset(curl_sslbackend id, const char *name,
+@@ -345,6 +347,288 @@ CURLsslset curl_global_sslset(curl_sslbackend id, const char *name,
    return rc;
  }
  
@@ -474,6 +474,7 @@ index 9c1f1c696..31635e968 100644
 +      return ret;
 +  }
 +
++  // TODO: remove npn, which has been deprecated by curl
 +  ret = curl_easy_setopt(data, CURLOPT_SSL_ENABLE_NPN, opts->npn ? 1 : 0);
 +  if(ret)
 +    return ret;
@@ -707,7 +708,7 @@ index 9c1f1c696..31635e968 100644
  /*
   * curl_easy_init() is the external interface to alloc, setup and init an
   * easy handle that is returned. If anything goes wrong, NULL is returned.
-@@ -353,6 +636,8 @@ CURL *curl_easy_init(void)
+@@ -353,6 +637,8 @@ CURL *curl_easy_init(void)
  {
    CURLcode result;
    struct Curl_easy *data;
@@ -716,7 +717,7 @@ index 9c1f1c696..31635e968 100644
  
    /* Make sure we inited the global SSL stuff */
    global_init_lock();
-@@ -375,6 +660,29 @@ CURL *curl_easy_init(void)
+@@ -375,6 +661,29 @@ CURL *curl_easy_init(void)
      return NULL;
    }
  
@@ -746,7 +747,7 @@ index 9c1f1c696..31635e968 100644
    return data;
  }
  
-@@ -1017,6 +1325,13 @@ CURL *curl_easy_duphandle(CURL *d)
+@@ -1017,6 +1326,13 @@ CURL *curl_easy_duphandle(CURL *d)
      outcurl->state.referer_alloc = TRUE;
    }
  
@@ -760,7 +761,7 @@ index 9c1f1c696..31635e968 100644
    /* Reinitialize an SSL engine for the new handle
     * note: the engine name has already been copied by dupset */
    if(outcurl->set.str[STRING_SSL_ENGINE]) {
-@@ -1073,6 +1388,9 @@ fail:
+@@ -1073,6 +1389,9 @@ fail:
   */
  void curl_easy_reset(CURL *d)
  {
@@ -770,7 +771,7 @@ index 9c1f1c696..31635e968 100644
    struct Curl_easy *data = d;
    Curl_req_hard_reset(&data->req, data);
    Curl_hash_clean(&data->meta_hash);
-@@ -1106,6 +1424,22 @@ void curl_easy_reset(CURL *d)
+@@ -1106,6 +1425,22 @@ void curl_easy_reset(CURL *d)
    Curl_http_auth_cleanup_digest(data);
  #endif
    data->master_mid = UINT_MAX;
@@ -874,7 +875,7 @@ index 03d676df0..476216312 100644
  }
  #endif
 diff --git a/lib/http.c b/lib/http.c
-index e5a069627..c9b8d8e2c 100644
+index e5a069627..771efd30a 100644
 --- a/lib/http.c
 +++ b/lib/http.c
 @@ -85,6 +85,7 @@
@@ -1145,7 +1146,7 @@ index e5a069627..c9b8d8e2c 100644
 +  result = h2_check_pseudo_header_order(order);
 +
 +  /* curl-impersonate: add http2 pseudo headers according to the specified order. */
-+  for(i = 0; !result && i < strlen(order); ++i) {
++  for(i = 0; !result && i < 4; ++i) {
 +    switch(order[i]) {
 +      case 'm':
 +        result = Curl_dynhds_add(h2_headers, STRCONST(HTTP_PSEUDO_METHOD),
@@ -1185,7 +1186,7 @@ index e5a069627..c9b8d8e2c 100644
    }
  
 diff --git a/lib/http2.c b/lib/http2.c
-index 36dca426d..982f285e2 100644
+index 36dca426d..7207e1d7b 100644
 --- a/lib/http2.c
 +++ b/lib/http2.c
 @@ -51,6 +51,7 @@
@@ -1237,17 +1238,20 @@ index 36dca426d..982f285e2 100644
 +  // TODO check if the http2 settings is valid
 +  int i = 0;
 +  char *delimiter = ";";
-+
+ 
+-  iv[1].settings_id = NGHTTP2_SETTINGS_INITIAL_WINDOW_SIZE;
+-  iv[1].value = H2_STREAM_WINDOW_SIZE_INITIAL;
 +  // Use chrome's settings as default
 +  char *http2_settings = "1:65536;2:0;4:6291456;6:262144";
 +  if(data->set.str[STRING_HTTP2_SETTINGS]) {
 +    http2_settings = data->set.str[STRING_HTTP2_SETTINGS];
 +  }
-+
+ 
+-  iv[2].settings_id = NGHTTP2_SETTINGS_ENABLE_PUSH;
+-  iv[2].value = data->multi->push_cb != NULL;
 +  // printf("USING settings %s\n", http2_settings);
  
--  iv[1].settings_id = NGHTTP2_SETTINGS_INITIAL_WINDOW_SIZE;
--  iv[1].value = H2_STREAM_WINDOW_SIZE_INITIAL;
+-  return 3;
 +  char *tmp = strdup(http2_settings);
 +  char *setting = strtok(tmp, delimiter);
 +
@@ -1302,17 +1306,14 @@ index 36dca426d..982f285e2 100644
 +    setting = strtok(NULL, delimiter);
 +  }
 +  free(tmp);
- 
--  iv[2].settings_id = NGHTTP2_SETTINGS_ENABLE_PUSH;
--  iv[2].value = data->multi->push_cb != NULL;
++
 +  // curl-impersonate:
 +  // Up until Chrome 98, there was a randomly chosen setting number in the
 +  // HTTP2 SETTINGS frame. This might be something similar to TLS GREASE.
 +  // However, it seems to have been removed since.
 +  // Curl_rand(data, (unsigned char *)&iv[4].settings_id, sizeof(iv[4].settings_id));
 +  // Curl_rand(data, (unsigned char *)&iv[4].value, sizeof(iv[4].value));
- 
--  return 3;
++
 +  return i;
  }
  
@@ -1428,14 +1429,15 @@ index 36dca426d..982f285e2 100644
    if(rc) {
      failf(data, "nghttp2_session_set_local_window_size() failed: %s(%d)",
            nghttp2_strerror(rc), rc);
-@@ -598,6 +753,15 @@ static CURLcode cf_h2_ctx_open(struct Curl_cfilter *cf,
+@@ -598,6 +753,16 @@ static CURLcode cf_h2_ctx_open(struct Curl_cfilter *cf,
      goto out;
    }
  
 +  // curl-impersonate: set stream priorities
-+  result = http2_set_stream_priorities(cf, data);
-+  if(result)
-+    goto out;
++  // No popular browsers are doing this, so it's disabled.
++  // result = http2_set_stream_priorities(cf, data);
++  // if(result)
++  //   goto out;
 +
 +  // #define FIREFOX_DEFAULT_STREAM_ID   (15)
 +  // nghttp2_session_set_next_stream_id(ctx->h2, FIREFOX_DEFAULT_STREAM_ID);
@@ -1444,7 +1446,7 @@ index 36dca426d..982f285e2 100644
    /* all set, traffic will be send on connect */
    result = CURLE_OK;
    CURL_TRC_CF(data, cf, "[0] created h2 session%s",
-@@ -1911,11 +2075,19 @@ out:
+@@ -1911,11 +2076,19 @@ out:
    return result;
  }
  
@@ -1465,7 +1467,7 @@ index 36dca426d..982f285e2 100644
  }
  
  static int sweight_in_effect(const struct Curl_easy *data)
-@@ -1930,6 +2102,12 @@ static int sweight_in_effect(const struct Curl_easy *data)
+@@ -1930,6 +2103,12 @@ static int sweight_in_effect(const struct Curl_easy *data)
   * and dependency to the peer. It also stores the updated values in the state
   * struct.
   */
@@ -1478,7 +1480,7 @@ index 36dca426d..982f285e2 100644
  
  static void h2_pri_spec(struct cf_h2_ctx *ctx,
                          struct Curl_easy *data,
-@@ -1938,6 +2116,11 @@ static void h2_pri_spec(struct cf_h2_ctx *ctx,
+@@ -1938,6 +2117,11 @@ static void h2_pri_spec(struct cf_h2_ctx *ctx,
    struct Curl_data_priority *prio = &data->set.priority;
    struct h2_stream_ctx *depstream = H2_STREAM_CTX(ctx, prio->parent);
    int32_t depstream_id = depstream ? depstream->id : 0;
@@ -1490,7 +1492,7 @@ index 36dca426d..982f285e2 100644
    nghttp2_priority_spec_init(pri_spec, depstream_id,
                               sweight_wanted(data),
                               data->set.priority.exclusive);
-@@ -1957,20 +2140,25 @@ static CURLcode h2_progress_egress(struct Curl_cfilter *cf,
+@@ -1957,20 +2141,25 @@ static CURLcode h2_progress_egress(struct Curl_cfilter *cf,
    struct h2_stream_ctx *stream = H2_STREAM_CTX(ctx, data);
    int rv = 0;
  
@@ -1523,7 +1525,7 @@ index 36dca426d..982f285e2 100644
    }
  
    ctx->nw_out_blocked = 0;
-@@ -2267,11 +2455,15 @@ static CURLcode h2_submit(struct h2_stream_ctx **pstream,
+@@ -2267,11 +2456,15 @@ static CURLcode h2_submit(struct h2_stream_ctx **pstream,
    case HTTPREQ_PUT:
      data_prd.read_callback = req_body_read_callback;
      data_prd.source.ptr = NULL;
@@ -1557,10 +1559,10 @@ index 93cc2d44f..52e80ce9c 100644
   * Store nghttp2 version info in this buffer.
 diff --git a/lib/impersonate.c b/lib/impersonate.c
 new file mode 100644
-index 000000000..69a1e9a04
+index 000000000..abe1b8401
 --- /dev/null
 +++ b/lib/impersonate.c
-@@ -0,0 +1,1799 @@
+@@ -0,0 +1,1979 @@
 +#include "curl_setup.h"
 +
 +#include <curl/curl.h>
@@ -2283,6 +2285,59 @@ index 000000000..69a1e9a04
 +    .tls_grease = true
 +  },
 +  {
++    .target = "chrome142",
++    .alias = "chrome142",
++    .httpversion = CURL_HTTP_VERSION_2_0,
++    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
++    .ciphers =
++      "TLS_AES_128_GCM_SHA256:"
++      "TLS_AES_256_GCM_SHA384:"
++      "TLS_CHACHA20_POLY1305_SHA256:"
++      "ECDHE-ECDSA-AES128-GCM-SHA256:"
++      "ECDHE-RSA-AES128-GCM-SHA256:"
++      "ECDHE-ECDSA-AES256-GCM-SHA384:"
++      "ECDHE-RSA-AES256-GCM-SHA384:"
++      "ECDHE-ECDSA-CHACHA20-POLY1305:"
++      "ECDHE-RSA-CHACHA20-POLY1305:"
++      "ECDHE-RSA-AES128-SHA:"
++      "ECDHE-RSA-AES256-SHA:"
++      "AES128-GCM-SHA256:"
++      "AES256-GCM-SHA384:"
++      "AES128-SHA:"
++      "AES256-SHA",
++    .curves = "X25519MLKEM768:X25519:P-256:P-384",
++    .npn = false,
++    .alpn = true,
++    .alps = true,
++    .tls_permute_extensions = true,
++    .tls_session_ticket = true,
++    .cert_compression = "brotli",
++    .http_headers = {
++      "sec-ch-ua: \"Chromium\";v=\"142\", \"Google Chrome\";v=\"142\", \"Not_A Brand\";v=\"99\"",
++      "sec-ch-ua-mobile: ?0",
++      "sec-ch-ua-platform: \"macOS\"",
++      "Upgrade-Insecure-Requests: 1",
++      "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
++      "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
++      "Sec-Fetch-Site: none",
++      "Sec-Fetch-Mode: navigate",
++      "Sec-Fetch-User: ?1",
++      "Sec-Fetch-Dest: document",
++      "Accept-Encoding: gzip, deflate, br, zstd",
++      "Accept-Language: en-US,en;q=0.9",
++      "Priority: u=0, i"
++    },
++    .http2_settings = "1:65536;2:0;4:6291456;6:262144",
++    .http2_window_update = 15663105,
++    .http2_stream_weight = 256,
++    .http2_stream_exclusive = 1,
++    .ech = "grease",
++    .tls_extension_order = NULL,
++    .tls_use_new_alps_codepoint = true,
++    .tls_signed_cert_timestamps = true,
++    .tls_grease = true
++  },
++  {
 +    .target = "chrome99",
 +    .alias = "chrome99",
 +    .httpversion = CURL_HTTP_VERSION_2_0,
@@ -2595,6 +2650,71 @@ index 000000000..69a1e9a04
 +    .http2_window_update = 12517377,
 +    .http2_pseudo_headers_order = "mpas",
 +    .http2_stream_exclusive = 0,
++    .cert_compression = "zlib,brotli,zstd",
++    .ech = "grease",
++    .tls_session_ticket = true,
++    .tls_extension_order = "0-23-65281-10-11-35-16-5-34-18-51-43-13-45-28-27-65037",
++    .tls_delegated_credentials = "ecdsa_secp256r1_sha256:ecdsa_secp384r1_sha384:ecdsa_secp521r1_sha512:ecdsa_sha1",
++    .tls_record_size_limit = 4001,
++    .tls_grease = false,
++    .tls_signed_cert_timestamps = true,
++    .tls_key_shares_limit = 3,
++  },
++  {
++    .target = "firefox144",
++    .alias = "firefox144",
++    .httpversion = CURL_HTTP_VERSION_2_0,
++    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
++    .ciphers =
++      "TLS_AES_128_GCM_SHA256:"
++      "TLS_CHACHA20_POLY1305_SHA256:"
++      "TLS_AES_256_GCM_SHA384:"
++      "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:"
++      "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:"
++      "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256:"
++      "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256:"
++      "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:"
++      "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384:"
++      "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA:"
++      "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA:"
++      "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA:"
++      "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA:"
++      "TLS_RSA_WITH_AES_128_GCM_SHA256:"
++      "TLS_RSA_WITH_AES_256_GCM_SHA384:"
++      "TLS_RSA_WITH_AES_128_CBC_SHA:"
++      "TLS_RSA_WITH_AES_256_CBC_SHA",
++    .http_headers = {
++      "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:135.0) Gecko/20100101 Firefox/144.0",
++      "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
++      "Accept-Language: en-US,en;q=0.5",
++      "Accept-Encoding: gzip, deflate, br, zstd",
++      "Upgrade-Insecure-Requests: 1",
++      "Sec-Fetch-Dest: document",
++      "Sec-Fetch-Mode: navigate",
++      "Sec-Fetch-Site: none",
++      "Sec-Fetch-User: ?1",
++      "Priority: u=0, i",
++      "Te: trailers"
++    },
++    .curves = "X25519MLKEM768:X25519:P-256:P-384:P-521:ffdhe2048:ffdhe3072",
++    .sig_hash_algs =
++      "ecdsa_secp256r1_sha256:"
++      "ecdsa_secp384r1_sha384:"
++      "ecdsa_secp521r1_sha512:"
++      "rsa_pss_rsae_sha256:"
++      "rsa_pss_rsae_sha384:"
++      "rsa_pss_rsae_sha512:"
++      "rsa_pkcs1_sha256:"
++      "rsa_pkcs1_sha384:"
++      "rsa_pkcs1_sha512:"
++      "ecdsa_sha1:"
++      "rsa_pkcs1_sha1",
++    .alpn = true,
++    .http2_settings = "1:65536;2:0;4:131072;5:16384",
++    .http2_window_update = 12517377,
++    .http2_pseudo_headers_order = "mpas",
++    .http2_stream_exclusive = 0,
++    .http2_stream_weight = 42,
 +    .cert_compression = "zlib,brotli,zstd",
 +    .ech = "grease",
 +    .tls_session_ticket = true,
@@ -3227,6 +3347,68 @@ index 000000000..69a1e9a04
 +    .http2_pseudo_headers_order = "msap",
 +    .http2_no_priority = true,
 +    .tls_session_ticket = true,
++    .tls_extension_order = NULL,
++    .tls_use_new_alps_codepoint = false,
++    .tls_signed_cert_timestamps = true,
++    .tls_grease = true
++  },
++  {
++    .target = "safari2601",
++    .alias = "safari26_0_1",
++    .httpversion = CURL_HTTP_VERSION_2_0,
++    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
++    .ciphers =
++      "TLS_AES_256_GCM_SHA384:"
++      "TLS_CHACHA20_POLY1305_SHA256:"
++      "TLS_AES_128_GCM_SHA256:"
++      "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:"
++      "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:"
++      "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256:"
++      "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384:"
++      "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:"
++      "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256:"
++      "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA:"
++      "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA:"
++      "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA:"
++      "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA:"
++      "TLS_RSA_WITH_AES_256_GCM_SHA384:"
++      "TLS_RSA_WITH_AES_128_GCM_SHA256:"
++      "TLS_RSA_WITH_AES_256_CBC_SHA:"
++      "TLS_RSA_WITH_AES_128_CBC_SHA:"
++      "TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA:"
++      "TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA:"
++      "TLS_RSA_WITH_3DES_EDE_CBC_SHA",
++    .curves = "X25519MLKEM768:X25519:P-256:P-384:P-521",
++    .sig_hash_algs =
++      "ecdsa_secp256r1_sha256:"
++      "rsa_pss_rsae_sha256:"
++      "rsa_pkcs1_sha256:"
++      "ecdsa_secp384r1_sha384:"
++      "rsa_pss_rsae_sha384:"
++      "rsa_pss_rsae_sha384:"
++      "rsa_pkcs1_sha384:"
++      "rsa_pss_rsae_sha512:"
++      "rsa_pkcs1_sha512:"
++      "rsa_pkcs1_sha1",
++    .npn = false,
++    .alpn = true,
++    .alps = false,
++    .cert_compression = "zlib",
++    .http_headers = {
++      "sec-fetch-dest: document",
++      "user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0.1 Safari/605.1.15",
++      "accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
++      "sec-fetch-site: none",
++      "sec-fetch-mode: navigate",
++      "accept-language: en-US,en;q=0.9",
++      "priority: u=0, i",
++      "accept-encoding: gzip, deflate, br"
++    },
++    .http2_settings = "2:0;3:100;4:2097152;9:1",
++    .http2_window_update = 10420225,
++    .http2_pseudo_headers_order = "msap",
++    .http2_no_priority = true,
++    .tls_session_ticket = false,
 +    .tls_extension_order = NULL,
 +    .tls_use_new_alps_codepoint = false,
 +    .tls_signed_cert_timestamps = true,
