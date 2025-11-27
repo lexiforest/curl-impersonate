@@ -3647,7 +3647,7 @@ index b3a7938e3..5da6f894e 100644
  
    if(Curl_uint_bset_resize(&multi->process, xfer_table_size) ||
 diff --git a/lib/setopt.c b/lib/setopt.c
-index 1380c33db..7af98245a 100644
+index 1380c33db..128c13787 100644
 --- a/lib/setopt.c
 +++ b/lib/setopt.c
 @@ -52,6 +52,7 @@
@@ -3761,14 +3761,17 @@ index 1380c33db..7af98245a 100644
  #endif
  #ifndef CURL_DISABLE_TELNET
    case CURLOPT_TELNETOPTIONS:
-@@ -1689,6 +1754,43 @@ static CURLcode setopt_cptr(struct Curl_easy *data, CURLoption option,
+@@ -1689,6 +1754,46 @@ static CURLcode setopt_cptr(struct Curl_easy *data, CURLoption option,
      }
      else
        return CURLE_NOT_BUILT_IN;
 +  // curl-impersonate
 +  case CURLOPT_IMPERSONATE:
++    result = Curl_setstropt(&data->set.str[STRING_IMPERSONATE], ptr);
++    if(result)
++      return result;
 +    // for the master option, we simply call the easy_impersonate method here.
-+    return curl_easy_impersonate(data, &data->set.str[STRING_IMPERSONATE], true);
++    return curl_easy_impersonate(data, data->set.str[STRING_IMPERSONATE], true);
 +    break;
 +  case CURLOPT_TLS_EXTENSION_ORDER:
 +    return Curl_setstropt(&data->set.str[STRING_TLS_EXTENSION_ORDER], ptr);
@@ -3805,7 +3808,7 @@ index 1380c33db..7af98245a 100644
  #ifndef CURL_DISABLE_PROXY
    case CURLOPT_PROXY_TLS13_CIPHERS:
      if(Curl_ssl_supports(data, SSLSUPP_TLS13_CIPHERSUITES))
-@@ -3039,6 +3141,7 @@ CURLcode Curl_vsetopt(struct Curl_easy *data, CURLoption option, va_list param)
+@@ -3039,6 +3144,7 @@ CURLcode Curl_vsetopt(struct Curl_easy *data, CURLoption option, va_list param)
         way than being listed explicitly */
      switch(option) {
      case CURLOPT_HTTPHEADER:
@@ -5398,6 +5401,21 @@ index beb034eea..4f0506ac1 100644
    {"    --proxy-crlfile <file>",
     "Set a CRL list for proxy",
     CURLHELP_PROXY | CURLHELP_TLS},
+diff --git a/src/tool_paramhlp.c b/src/tool_paramhlp.c
+index 97a6b6e2e..37a01eae1 100644
+--- a/src/tool_paramhlp.c
++++ b/src/tool_paramhlp.c
+@@ -718,8 +718,8 @@ CURLcode get_args(struct OperationConfig *config, const size_t i)
+   if(!result && config->proxyuserpwd)
+     result = checkpasswd("proxy", i, last, &config->proxyuserpwd);
+ 
+-  /* Check if we have a user agent */
+-  if(!result && !config->useragent) {
++  /* Check if we have a user agent, do not override impersonate value */
++  if(!result && !config->useragent && !config->impersonate) {
+     config->useragent = my_useragent();
+     if(!config->useragent) {
+       errorf(config->global, "out of memory");
 diff --git a/src/tool_setopt.c b/src/tool_setopt.c
 index 89505979c..89305b0f7 100644
 --- a/src/tool_setopt.c

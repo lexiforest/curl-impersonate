@@ -3,4 +3,4 @@
 # Find the directory of this script
 dir=${0%/*}
 
-"$dir/curl-impersonate" --impersonate "firefox144" "$@"
+"$dir/curl-impersonate" --compressed --impersonate "firefox144" "$@"
