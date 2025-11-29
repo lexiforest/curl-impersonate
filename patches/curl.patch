@@ -4713,6 +4713,19 @@ index 662539cd8..29f545c69 100644
    if(ssl->verifypeer) {
      r = cf_ssl_peer_key_add_path(&buf, "CA", ssl->CAfile, &is_local);
      if(r)
+diff --git a/lib/ws.c b/lib/ws.c
+index 7f8a688ca..ab34231bc 100644
+--- a/lib/ws.c
++++ b/lib/ws.c
+@@ -1587,7 +1587,7 @@ const struct Curl_handler Curl_handler_wss = {
+   CURLPROTO_WSS,                        /* protocol */
+   CURLPROTO_HTTP,                       /* family */
+   PROTOPT_SSL | PROTOPT_CREDSPERREQUEST | /* flags */
+-  PROTOPT_USERPWDCTRL
++  PROTOPT_USERPWDCTRL | PROTOPT_ALPN
+ };
+ #endif
+ 
 diff --git a/libcurl.pc.in b/libcurl.pc.in
 index c0ba5244a..b5e9cb4ee 100644
 --- a/libcurl.pc.in
