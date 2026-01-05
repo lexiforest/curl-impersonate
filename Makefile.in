@@ -293,10 +293,10 @@ $(nghttp3_static_libs): nghttp3-$(NGHTTP3_VERSION).tar.bz2
 	$(MAKE) MAKEFLAGS=-j$(SUBJOBS)
 	$(MAKE) install MAKEFLAGS=
 
-cares-$(CARES_VERSION).tar.gz:
+c-ares-$(CARES_VERSION).tar.gz:
 	curl -L $(CARES_URL) -o c-ares-$(CARES_VERSION).tar.gz
 
-$(cares_static_libs): cares-$(CARES_VERSION).tar.gz
+$(cares_static_libs): c-ares-$(CARES_VERSION).tar.gz
 	tar -xzf c-ares-$(CARES_VERSION).tar.gz
 	cd c-ares-$(CARES_VERSION)
 
