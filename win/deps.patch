@@ -1,7 +1,7 @@
 diff --git a/deps/curl/lib/curl_setup.h b/deps/curl/lib/curl_setup.h
 index 286acc3..0ea2480 100644
---- a/deps/curl/lib/curl_setup.h
-+++ b/deps/curl/lib/curl_setup.h
+--- a/deps/curl-chrome/lib/curl_setup.h
++++ b/deps/curl-chrome/lib/curl_setup.h
 @@ -687,6 +687,10 @@
  #error "No longer supported. Set CURLOPT_CAINFO at runtime instead."
  #endif
