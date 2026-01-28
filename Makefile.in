@@ -10,9 +10,6 @@ SHELL := bash
 SUBJOBS := 4
 
 BROTLI_VERSION := 1.1.0
-# Chrome 135.0.7049.41
-# In case this is changed, update build-and-test-make.yml and build-win as well
-BORING_SSL_COMMIT := 673e61fc215b178a90c0e67858bbf162c8158993
 # We need to pin to 1.64 or lower, since the priority flag was removed.
 # See: https://nghttp2.org/blog/2025/03/02/nghttp2-v1-65-0/
 NGHTTP2_VERSION := 1.63.0
@@ -21,14 +18,14 @@ NGTCP2_VERSION := 1.11.0
 NGTCP2_URL := https://github.com/ngtcp2/ngtcp2/releases/download/v$(NGTCP2_VERSION)/ngtcp2-$(NGTCP2_VERSION).tar.bz2
 NGHTTP3_VERSION := 1.9.0
 NGHTTP3_URL := https://github.com/ngtcp2/nghttp3/releases/download/v$(NGHTTP3_VERSION)/nghttp3-$(NGHTTP3_VERSION).tar.bz2
-CURL_VERSION := curl-8_15_0
 
 # https://github.com/google/brotli/commit/641bec0e30bea648b3da1cd90fc6b44deb429f71
 brotli_install_dir := $(abspath brotli-$(BROTLI_VERSION)/out/installed)
 brotli_static_libs := $(brotli_install_dir)/lib/libbrotlicommon.a $(brotli_install_dir)/lib/libbrotlidec.a
-boringssl_dir := $(abspath boringssl-$(BORING_SSL_COMMIT))
+boringssl_dir := $(abspath deps/boringssl)
 boringssl_install_dir := $(boringssl_dir)/build
 boringssl_static_libs := $(boringssl_dir)/lib/libssl.a $(boringssl_dir)/lib/libcrypto.a
+curl_dir := $(abspath deps/curl-chrome)
 nghttp2_install_dir := $(abspath nghttp2-$(NGHTTP2_VERSION)/installed)
 nghttp2_static_libs := $(nghttp2_install_dir)/lib/libnghttp2.a
 ngtcp2_install_dir := $(abspath ngtcp2-$(NGTCP2_VERSION)/installed)
@@ -70,15 +67,15 @@ help: ## Show this help message
 .PHONY: help
 .DEFAULT_GOAL := help
 
-build: $(CURL_VERSION)/.chrome
-	cd $(CURL_VERSION)
+build: $(curl_dir)/.chrome
+	cd $(curl_dir)
 	# Don't pass this Makefile's MAKEFLAGS
 	$(MAKE) MAKEFLAGS=-j$(SUBJOBS)
 .PHONY: build
 
 checkbuild: ## Run basic checks on the built binary
 ifeq ($(host),$(build))
-	cd $(CURL_VERSION)
+	cd $(curl_dir)
 	# Make sure all needed features were compiled in
 	./src/curl-impersonate -V | grep -q zlib
 	./src/curl-impersonate -V | grep -q brotli
@@ -91,14 +88,14 @@ endif
 .PHONY: checkbuild
 
 install:
-	cd $(CURL_VERSION)
+	cd $(curl_dir)
 	$(MAKE) install-exec MAKEFLAGS=
 	# Wrapper scripts for the cli shortcut (e.g. 'curl_chrome99')
 	install $(srcdir)/bin/curl_* @bindir@
 .PHONY: install
 
 install-strip: ## Like 'install', but strip binaries for smaller size
-	cd $(CURL_VERSION)
+	cd $(curl_dir)
 	$(MAKE) install-exec MAKEFLAGS=
 	# We could have used 'install-strip' but then the docs would be installed as well.
 	# Instead strip manually.
@@ -108,7 +105,7 @@ install-strip: ## Like 'install', but strip binaries for smaller size
 .PHONY: install-strip
 
 uninstall: ## Uninstall the Chrome version of curl-impersonate after 'make install'
-	cd $(CURL_VERSION)
+	cd $(curl_dir)
 	$(MAKE) uninstall MAKEFLAGS=
 	rm -Rf @bindir@/curl_*
 .PHONY: uninstall
@@ -116,11 +113,9 @@ uninstall: ## Uninstall the Chrome version of curl-impersonate after 'make insta
 clean:
 	## Remove all build artifacts, including dependencies
 	rm -Rf brotli-$(BROTLI_VERSION).tar.gz brotli-$(BROTLI_VERSION)
-	rm -Rf boringssl-$(BORING_SSL_COMMIT).zip boringssl-$(BORING_SSL_COMMIT)
 	rm -Rf nghttp2-$(NGHTTP2_VERSION).tar.bz2 nghttp2-$(NGHTTP2_VERSION)
 	rm -Rf ngtcp2-$(NGTCP2_VERSION).tar.bz2 ngtcp2-$(NGTCP2_VERSION)
 	rm -Rf nghttp3-$(NGHTTP3_VERSION).tar.bz2 nghttp3-$(NGHTTP3_VERSION)
-	rm -Rf $(CURL_VERSION).tar.gz $(CURL_VERSION)
 .PHONY: clean
 
 
@@ -161,19 +156,7 @@ $(brotli_static_libs): brotli-$(BROTLI_VERSION).tar.gz
 	@cmake@ --build . --config Release --target install --parallel $(SUBJOBS)
 
 
-boringssl-$(BORING_SSL_COMMIT).zip:
-	curl -L https://github.com/google/boringssl/archive/$(BORING_SSL_COMMIT).zip \
-		-o boringssl-$(BORING_SSL_COMMIT).zip
-
-# Patch boringssl and use a dummy '.patched' file to mark it patched
-boringssl-$(BORING_SSL_COMMIT)/.patched: $(srcdir)/patches/boringssl.patch
-	unzip -q -o boringssl-$(BORING_SSL_COMMIT).zip
-	# mv boringssl boringssl-$(BORING_SSL_COMMIT)
-	cd boringssl-$(BORING_SSL_COMMIT)/
-	for p in $^; do patch -p1 < $$p; done
-	touch .patched
-
-$(boringssl_static_libs): boringssl-$(BORING_SSL_COMMIT).zip boringssl-$(BORING_SSL_COMMIT)/.patched
+$(boringssl_static_libs): $(boringssl_dir)/CMakeLists.txt
 	mkdir -p $(boringssl_install_dir)
 	cd $(boringssl_install_dir)
 
@@ -288,24 +271,11 @@ $(nghttp3_static_libs): nghttp3-$(NGHTTP3_VERSION).tar.bz2
 	$(MAKE) MAKEFLAGS=-j$(SUBJOBS)
 	$(MAKE) install MAKEFLAGS=
 
-$(CURL_VERSION).tar.gz:
-	curl -L "https://github.com/curl/curl/archive/$(CURL_VERSION).tar.gz" \
-		-o "$(CURL_VERSION).tar.gz"
-
-# Apply the "Chorme version" patches and mark using a dummy file
-$(CURL_VERSION)/.patched: $(srcdir)/patches/curl.patch
-	rm -Rf $(CURL_VERSION)
-	tar -xf $(CURL_VERSION).tar.gz
-	mv curl-$(CURL_VERSION) $(CURL_VERSION)  # fix directory name
-	cd $(CURL_VERSION)
-	for p in $^; do patch -p1 < $$p; done
-	# Re-generate the configure script
-	autoreconf -fi
-	touch .patched
-
 # This is a small hack that flags that curl was patched and configured in the "chrome" version
-$(CURL_VERSION)/.chrome: $(chrome_libs)	$(CURL_VERSION).tar.gz $(CURL_VERSION)/.patched
-	cd $(CURL_VERSION)
+$(curl_dir)/.chrome: $(chrome_libs)
+	cd $(curl_dir)
+	# Ensure configure is up-to-date when building from the submodule.
+	autoreconf -fi
 
 	# Set up the configure flags to curl.
 	# If the user provided the --host flag to our configure script
@@ -358,6 +328,7 @@ $(CURL_VERSION)/.chrome: $(chrome_libs)	$(CURL_VERSION).tar.gz $(CURL_VERSION)/.
 			 $$config_flags \
 			 LIBS="$$add_libs" \
 			 PKG_CONFIG_PATH="$(ngtcp2_install_dir)/crypto/boringssl/"
+	touch .chrome
 
 	# Remove possible leftovers from a previous compilation
 	$(MAKE) clean MAKEFLAGS=

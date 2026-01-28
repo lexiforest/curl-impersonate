@@ -16,9 +16,6 @@ on:
 permissions:
   contents: write
 
-env:
-  BORING_SSL_COMMIT: 673e61fc215b178a90c0e67858bbf162c8158993
-
 jobs:
   build-and-test-linux:
     name: (${{ matrix.host }}) Build curl-impersonate and run the tests
@@ -67,6 +64,8 @@ jobs:
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
+        with:
+          submodules: recursive
 
       - name: Set up zig
         uses: goto-bus-stop/setup-zig@v2
@@ -289,6 +288,8 @@ jobs:
 
       - name: Check out the repo
         uses: actions/checkout@v2
+        with:
+          submodules: recursive
 
       - name: Install dependencies for the tests script
         run: |

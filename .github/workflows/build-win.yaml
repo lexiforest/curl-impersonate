@@ -1,10 +1,12 @@
 name: Build for windows
+
 on:
   push:
     branches:
       - main
       - feature/*
       - bugfix/*
+      - chore/*
     tags:
       - "v*"
   pull_request:
@@ -18,8 +20,6 @@ env:
   ZLIB_COMMIT: 09155eaa2f9270dc4ed1fa13e2b4b2613e6e4851
   ZSTD_COMMIT: 794ea1b0afca0f020f4e57b6732332231fb23c70
   BROTLI_COMMIT: ed738e842d2fbdf2d6459e39267a633c4a9b2f5d
-  BORINGSSL_COMMIT: 673e61fc215b178a90c0e67858bbf162c8158993
-  CURL_TAG: curl-8_15_0  # using tags is less secure, but easier to maintain
   NGHTTP2_COMMIT: 8f44147c385fb1ed93a6f39911eeb30279bfd2dd
   NGHTTP3_TAG: v1.9.0
   NGTCP2_TAG: v1.11.0
@@ -49,6 +49,8 @@ jobs:
 
       - name: Check out the repo
         uses: actions/checkout@v2
+        with:
+          submodules: recursive
 
       - name: Install NASM
         shell: cmd

@@ -150,9 +150,9 @@ More documentation is available in the [docs/](docs/) directory.
 ## Repository Contents
 
 This repository contains these folders:
-* [patches](patches/) - Patches for building `curl-impersonate`.
-    * [curl.patch](patches/curl.patch) - The main patch that makes curl use the same TLS extensions as browsers. Also makes curl compile statically with libnghttp2 etc.
-    * [boringssl.patch](patches/boringssl.patch) - The boringssl patch that tweaks boringssl behaviors to the same as browsers.
+* [deps](deps/) - Submodules for patched dependencies.
+    * [deps/curl](deps/curl-chrome) - The curl fork with browser impersonation patches (impersonate-chrome).
+    * [deps/boringssl](deps/boringssl) - The BoringSSL fork with impersonation tweaks.
 * [bin](bin/) - Shortcut scripts for easier use.
     * [curl_chrome110](bin/curl_chrome110), [curl_chrome124](bin/curl_chrome124) - Wrapper scripts that launch `curl-impersonate` with the correct flags.
 * [win](win) - Scripts for building the Windows version of `curl-impersonate`, which is quite different from `*nix`.
@@ -168,9 +168,9 @@ Other files of interest:
 
 If you'd like to help, please check out the [open issues in the origional repo](https://github.com/lwthiker/curl-impersonate/issues) and [open issues here](https://github.com/lexiforest/curl-impersonate/issues). You can open a pull request with your changes. Note that some of the upstream issues have been fixed.
 
-This repository contains the build process for `curl-impersonate`. The actual patches to `curl` are maintained in a [separate repository](https://github.com/lexiforest/curl-chrome) forked from lwthiker's fork of the upstream curl. The changes are maintained in the [impersonate-chrome](https://github.com/lexiforest/curl-chrome/tree/impersonate-chrome) branch.
+This repository contains the build process for `curl-impersonate`. The actual patches to `curl` are maintained in a [separate repository](https://github.com/lexiforest/curl-chrome) forked from lwthiker's fork of the upstream curl. The changes are maintained in the [impersonate-chrome](https://github.com/lexiforest/curl-chrome/tree/impersonate-chrome) branch, and are included here as a submodule under `deps/curl`.
 
-You may also need the [forked and patched](https://github.com/lexiforest/boringssl) BoringSSL.
+You may also need the [forked and patched](https://github.com/lexiforest/boringssl) BoringSSL, included here as a submodule under `deps/boringssl`.
 
 ## Acknowledgements
 
@@ -211,4 +211,3 @@ If you’re looking for a meeting recording API, consider checking out [Recall.a
 <a href="https://www.thordata.com/?ls=github&lk=curl_cffi" target="_blank"><img src="https://raw.githubusercontent.com/lexiforest/curl_cffi/main/assets/thordata.png" alt="Thordata" height="126" width="240"></a>
 
 Thordata: A reliable and cost-effective proxy service provider. One-click collection of public network data, providing enterprises and developers with stable, efficient, and compliant global proxy IP services. Register for a free trial of [residential proxies](https://www.thordata.com/products/residential-proxies/?ls=github&lk=curl_cffi) and receive 2000 free SERP API calls.
-
