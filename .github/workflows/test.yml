@@ -1,0 +1,108 @@
+name: Test
+
+on:
+  push:
+    branches:
+      - main
+      - feature/*
+      - bugfix/*
+      - chore/*
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+env:
+  BORING_SSL_COMMIT: 673e61fc215b178a90c0e67858bbf162c8158993
+
+jobs:
+  test-linux:
+    name: (x86_64-linux-gnu) Build and run tests
+    runs-on: ubuntu-latest
+    env:
+      CC: ${{ github.workspace }}/zigshim/cc
+      CXX: ${{ github.workspace }}/zigshim/cxx
+      AR: ${{ github.workspace }}/zigshim/ar
+      ZIG_FLAGS: -target x86_64-linux-gnu.2.17
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v2
+        with:
+          submodules: recursive
+
+      - name: Set up zig
+        uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: 0.14.0
+
+      - name: Install Ubuntu dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install build-essential pkg-config cmake ninja-build curl autoconf automake libtool
+          sudo apt-get install golang-go
+          # Needed to compile 'minicurl'
+          sudo apt-get install libcurl4-openssl-dev
+          # More dependencies for the tests
+          sudo apt-get install tcpdump nghttp2-server
+
+      - name: Run configure script
+        run: |
+          mkdir ${{ runner.temp }}/install
+          ./configure --prefix=${{ runner.temp }}/install \
+                      --host=x86_64-linux-gnu \
+                      --with-ca-path=/etc/ssl/certs \
+                      --with-ca-bundle=/etc/ssl/certs/ca-certificates.crt \
+
+      # Cache the build of BoringSSL, which is the longest part of the build
+      # We must cache the .zip as well, otherwise the Makefile will
+      # rebuild BoringSSL. This whole thing is a bit hacky, but necessary to
+      # reduce the insanely long build times.
+      - name: Cache BoringSSL source
+        uses: actions/cache@v4
+        with:
+          path: boringssl.zip
+          key: ${{ runner.os }}-x86_64-linux-gnu-boring-source-${{ env.BORING_SSL_COMMIT }}
+
+      - name: Cache BoringSSL build
+        id: cache-boringssl
+        uses: actions/cache@v4
+        with:
+          path: boringssl/build
+          key: ${{ runner.os }}-x86_64-linux-gnu-boring-build-${{ env.BORING_SSL_COMMIT }}-${{ hashFiles('patches/boringssl.patch') }}
+
+      # Trick the Makefile into skipping the BoringSSL build step
+      # if it was found in the cache. See Makefile.in
+      - name: Post BoringSSL cache restore
+        if: ${{ steps.cache-boringssl.outputs.cache-hit != false }}
+        run: |
+          touch boringssl.zip
+          touch boringssl/.patched
+          find boringssl/build -type f | xargs touch
+
+      - name: Build the Chrome version of curl-impersonate
+        run: |
+          make build
+          make checkbuild
+          make install
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies for the tests script
+        run: |
+          pip3 install -r tests/requirements.txt
+
+      - name: Prepare the tests
+        run: |
+          # Compile 'minicurl' which is used by the tests
+          gcc -Wall -Werror -o ${{ runner.temp }}/install/bin/minicurl tests/minicurl.c `curl-config --libs`
+
+      - name: Run the tests
+        run: |
+          cd tests
+          # sudo is needed for capturing packets
+          python_bin=$(which python3)
+          sudo $python_bin -m pytest . --log-cli-level DEBUG --install-dir ${{ runner.temp }}/install --capture-interface eth0

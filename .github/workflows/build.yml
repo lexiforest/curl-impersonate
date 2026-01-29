@@ -1,4 +1,4 @@
-name: Build and test
+name: "Build on *nix"
 
 on:
   push:
@@ -53,10 +53,6 @@ jobs:
             host: aarch64-linux-musl
             capture_interface: eth0
             zigflags: -target aarch64-linux-musl -fPIC -mno-outline-atomics
-          # - arch: i386
-          #   host: i386-linux-musl
-          #   capture_interface: eth0
-          #   zigflags: -target i386-linux-musl -fPIC -mno-outline-atomics
           - arch: arm
             host: arm-linux-gnueabihf
             capture_interface: eth0
@@ -80,18 +76,6 @@ jobs:
           sudo apt-get install build-essential pkg-config cmake ninja-build curl autoconf automake libtool
           sudo apt-get install gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf gcc-riscv64-linux-gnu
           sudo apt-get install golang-go
-          # Needed to compile 'minicurl'
-          sudo apt-get install libcurl4-openssl-dev
-          # More dependencies for the tests
-          sudo apt-get install tcpdump nghttp2-server
-
-      - name: Run configure script
-        run: |
-          mkdir ${{ runner.temp }}/install
-          ./configure --prefix=${{ runner.temp }}/install \
-                      --host=${{ matrix.host }} \
-                      --with-ca-path=/etc/ssl/certs \
-                      --with-ca-bundle=/etc/ssl/certs/ca-certificates.crt \
 
       # Cache the build of BoringSSL, which is the longest part of the build
       # We must cache the .zip as well, otherwise the Makefile will
@@ -119,80 +103,16 @@ jobs:
           touch boringssl/.patched
           find boringssl/build -type f | xargs touch
 
-      - name: Build the Chrome version of curl-impersonate
-        run: |
-          make build
-          make checkbuild
-          make install
-
-      - name: Prepare the tests
-        if: matrix.host == 'x86_64-linux-gnu'
-        run: |
-          # Compile 'minicurl' which is used by the tests
-          gcc -Wall -Werror -o ${{ runner.temp }}/install/bin/minicurl tests/minicurl.c `curl-config --libs`
-
-      - uses: actions/setup-python@v4
-        if: matrix.host == 'x86_64-linux-gnu'
-        with:
-          python-version: '3.10'
-
-      - name: Install dependencies for the tests script
-        if: matrix.host == 'x86_64-linux-gnu'
-        run: |
-          pip3 install -r tests/requirements.txt
-
-      # For now we can only run the tests when native
-      # tests run the curl-impersonate binary locally.
-      - name: Run the tests
-        if: matrix.host == 'x86_64-linux-gnu'
-        run: |
-          cd tests
-          # sudo is needed for capturing packets
-          python_bin=$(which python3)
-          sudo $python_bin -m pytest . --log-cli-level DEBUG --install-dir ${{ runner.temp }}/install --capture-interface ${{ matrix.capture_interface }}
-
-       # Upload pre-compiled binaries to GitHub releases page and Github actions archives.
-      - name: Create tar release files for libcurl-impersonate
-        run: |
-          cp zlib-*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
-          cp zstd-*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
-          cp nghttp2*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
-          cp nghttp3*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
-          cp ngtcp2*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
-          cp brotli*/out/installed/lib/lib*.a ${{ runner.temp }}/install/lib
-          cp boringssl*/lib/lib*.a ${{ runner.temp }}/install/lib
-
-          cd ${{ runner.temp }}/install/lib
-          ls -lah .
-          if [[ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]]; then
-            tar -c -z -f ${{ runner.temp }}/libcurl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz lib*
-          else
-            tar -c -z -f ${{ runner.temp }}/libcurl-impersonate.${{ matrix.host }}.tar.gz lib*
-          fi
-          echo "release_file_lib=${{ runner.temp }}/libcurl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz" >> $GITHUB_ENV
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: libcurl-impersonate.${{ matrix.host }}.tar.gz
-          path: ${{ runner.temp }}/libcurl-impersonate*.tar.gz
-
-      - name: Clean build
+      - name: Configure statically
         run: |
           set -e
-          make clean
-          rm -Rf ${{ runner.temp }}/install
           mkdir ${{ runner.temp }}/install
-
-      - name: Reconfigure statically
-        run: |
-          set -e
-          ./configure --prefix=${{ runner.temp }}/install --enable-static \
+          ./configure --prefix=${{ runner.temp }}/install --enable-static --disable-shared \
                       --host=${{ matrix.host }} \
                       --with-ca-path=/etc/ssl/certs \
                       --with-ca-bundle=/etc/ssl/certs/ca-certificates.crt \
 
-      - name: Rebuild statically
+      - name: Build statically
         run: |
           set -e
           make build
@@ -203,8 +123,28 @@ jobs:
             make install-strip
           fi
 
-      - name: Create tar release files for curl-impersonate
+       # Upload pre-compiled binaries to GitHub releases page and Github actions archives.
+      - name: Create tar release files
         run: |
+          cp zlib-*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
+          cp zstd-*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
+          cp nghttp2*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
+          cp nghttp3*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
+          cp ngtcp2*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
+          cp brotli*/out/installed/lib/lib*.a ${{ runner.temp }}/install/lib
+          cp boringssl*/lib/lib*.a ${{ runner.temp }}/install/lib
+          cp libidn2*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
+          cp libunistring*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
+
+          cd ${{ runner.temp }}/install/lib
+          ls -lah .
+          if [[ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]]; then
+            tar -c -z -f ${{ runner.temp }}/libcurl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz lib*
+          else
+            tar -c -z -f ${{ runner.temp }}/libcurl-impersonate.${{ matrix.host }}.tar.gz lib*
+          fi
+          echo "release_file_lib=${{ runner.temp }}/libcurl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz" >> $GITHUB_ENV
+
           cd ${{ runner.temp }}/install/bin
           if [[ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]]; then
             tar -c -z -f ${{ runner.temp }}/curl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz curl-impersonate curl_*
@@ -217,7 +157,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: curl-impersonate.${{ matrix.host }}.tar.gz
-          path: ${{ runner.temp }}/curl-impersonate*.tar.gz
+          path: |
+            ${{ runner.temp }}/libcurl-impersonate*.tar.gz
+            ${{ runner.temp }}/curl-impersonate*.tar.gz
 
       - name: Upload release files
         uses: softprops/action-gh-release@v1
@@ -268,6 +210,7 @@ jobs:
         run: |
           mkdir ${{ runner.temp }}/install
           ./configure --prefix=${{ runner.temp }}/install \
+            --enable-static --disable-shared
 
       # Cache the build of BoringSSL, which is the longest part of the build
       # We must cache the .zip as well, otherwise the Makefile will
@@ -299,7 +242,7 @@ jobs:
         run: |
           ${{ matrix.make }} build
           ${{ matrix.make }} checkbuild
-          ${{ matrix.make }} install
+          ${{ matrix.make }} install-strip
 
       - name: Prepare the tests
         run: |
@@ -316,33 +259,16 @@ jobs:
       #     sudo $python_bin -m pytest . --log-cli-level DEBUG --install-dir ${{ runner.temp }}/install --capture-interface ${{ matrix.capture_interface }}
 
        # Upload pre-compiled binaries to GitHub releases page.
-      - name: Create tar release files for libcurl-impersonate
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Create tar release files
         run: |
-            cd ${{ runner.temp }}/install/lib
+          cd ${{ runner.temp }}/install/lib
+          if [[ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]]; then
             tar -c -z -f ${{ runner.temp }}/libcurl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz libcurl-impersonate*
-            echo "release_file_lib=${{ runner.temp }}/libcurl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz" >> $GITHUB_ENV
+          else
+            tar -c -z -f ${{ runner.temp }}/libcurl-impersonate.${{ matrix.host }}.tar.gz libcurl-impersonate*
+          fi
+          echo "release_file_lib=${{ runner.temp }}/libcurl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz" >> $GITHUB_ENV
 
-      - name: Clean build
-        if: startsWith(github.ref, 'refs/tags/')
-        run: |
-          ${{ matrix.make }} clean
-          rm -Rf ${{ runner.temp }}/install
-          mkdir ${{ runner.temp }}/install
-
-      - name: Reconfigure statically
-        run: |
-          ./configure --prefix=${{ runner.temp }}/install \
-            --enable-static \
-
-      - name: Rebuild statically
-        run: |
-          ${{ matrix.make }} build
-          ${{ matrix.make }} checkbuild
-          ${{ matrix.make }} install-strip
-
-      - name: Create tar release files for curl-impersonate
-        run: |
           cd ${{ runner.temp }}/install/bin
           if [[ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]]; then
             tar -c -z -f ${{ runner.temp }}/curl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz curl-impersonate curl_*
@@ -355,7 +281,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: curl-impersonate.${{ matrix.host }}.tar.gz
-          path: ${{ runner.temp }}/curl-impersonate*.tar.gz
+          path: |
+            ${{ runner.temp }}/libcurl-impersonate*.tar.gz
+            ${{ runner.temp }}/curl-impersonate*.tar.gz
 
       - name: Upload release files
         uses: softprops/action-gh-release@v1
