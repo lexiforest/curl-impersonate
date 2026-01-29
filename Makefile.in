@@ -177,7 +177,7 @@ zstd-$(ZSTD_VERSION).tar.gz:
 $(zstd_static_libs): zstd-$(ZSTD_VERSION).tar.gz
 	tar xf zstd-$(ZSTD_VERSION).tar.gz
 	cd zstd-$(ZSTD_VERSION)
-	$(MAKE) BUILD_SHARED=0 BUILD_STATIC=1 MAKEFLAGS=-j$(SUBJOBS) libzstd.a
+	$(MAKE) -C lib BUILD_SHARED=0 BUILD_STATIC=1 MAKEFLAGS=-j$(SUBJOBS) libzstd.a
 	mkdir -p $(zstd_install_dir)/lib
 	mkdir -p $(zstd_install_dir)/include
 	cp lib/libzstd.a $(zstd_install_dir)/lib/
