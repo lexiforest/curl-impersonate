@@ -162,20 +162,13 @@ jobs:
           cp brotli*/out/installed/lib/lib*.a ${{ runner.temp }}/install/lib
           cp boringssl*/lib/lib*.a ${{ runner.temp }}/install/lib
 
-          lib_dir="${{ runner.temp }}/install/lib"
+          cd ${{ runner.temp }}/install/lib
+          ls -lah .
           if [[ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]]; then
-            out_file="${{ runner.temp }}/libcurl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz"
+            tar -c -z -f ${{ runner.temp }}/libcurl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz lib*
           else
-            out_file="${{ runner.temp }}/libcurl-impersonate.${{ matrix.host }}.tar.gz"
+            tar -c -z -f ${{ runner.temp }}/libcurl-impersonate.${{ matrix.host }}.tar.gz lib*
           fi
-          (
-            cd "$lib_dir"
-            files=()
-            while IFS= read -r -d '' f; do
-              files+=("${f#./}")
-            done < <(find . -maxdepth 1 -type f -print0)
-            tar -c -z -f "$out_file" "${files[@]}"
-          )
           echo "release_file_lib=${{ runner.temp }}/libcurl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz" >> $GITHUB_ENV
 
       - name: Upload artifacts
@@ -212,20 +205,12 @@ jobs:
 
       - name: Create tar release files for curl-impersonate
         run: |
-          bin_dir="${{ runner.temp }}/install/bin"
+          cd ${{ runner.temp }}/install/bin
           if [[ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]]; then
-            out_file="${{ runner.temp }}/curl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz"
+            tar -c -z -f ${{ runner.temp }}/curl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz curl-impersonate curl_*
           else
-            out_file="${{ runner.temp }}/curl-impersonate.${{ matrix.host }}.tar.gz"
+            tar -c -z -f ${{ runner.temp }}/curl-impersonate.${{ matrix.host }}.tar.gz curl-impersonate curl_*
           fi
-          (
-            cd "$bin_dir"
-            files=()
-            while IFS= read -r -d '' f; do
-              files+=("${f#./}")
-            done < <(find . -maxdepth 1 -type f -print0)
-            tar -c -z -f "$out_file" "${files[@]}"
-          )
           echo "release_file_bin=${{ runner.temp }}/curl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz" >> $GITHUB_ENV
 
       - name: Upload artifacts
@@ -319,7 +304,7 @@ jobs:
       - name: Prepare the tests
         run: |
           # Compile 'minicurl' which is used by the tests
-          gcc -Wall -Werror -o ${{ runner.temp }}/install/bin/minicurl tests/minicurl.c `${{ runner.temp }}/install/bin/curl-config --libs`
+          gcc -Wall -Werror -o ${{ runner.temp }}/install/bin/minicurl tests/minicurl.c `curl-config --libs`
 
       # For now we can only run the tests when not cross compiling, since the
       # tests run the curl-impersonate binary locally.
@@ -334,16 +319,8 @@ jobs:
       - name: Create tar release files for libcurl-impersonate
         if: startsWith(github.ref, 'refs/tags/')
         run: |
-            lib_dir="${{ runner.temp }}/install/lib"
-            out_file="${{ runner.temp }}/libcurl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz"
-            (
-              cd "$lib_dir"
-              files=()
-              while IFS= read -r -d '' f; do
-                files+=("${f#./}")
-              done < <(find . -maxdepth 1 -type f -print0)
-              tar -c -z -f "$out_file" "${files[@]}"
-            )
+            cd ${{ runner.temp }}/install/lib
+            tar -c -z -f ${{ runner.temp }}/libcurl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz libcurl-impersonate*
             echo "release_file_lib=${{ runner.temp }}/libcurl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz" >> $GITHUB_ENV
 
       - name: Clean build
@@ -366,20 +343,12 @@ jobs:
 
       - name: Create tar release files for curl-impersonate
         run: |
-          bin_dir="${{ runner.temp }}/install/bin"
+          cd ${{ runner.temp }}/install/bin
           if [[ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]]; then
-            out_file="${{ runner.temp }}/curl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz"
+            tar -c -z -f ${{ runner.temp }}/curl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz curl-impersonate curl_*
           else
-            out_file="${{ runner.temp }}/curl-impersonate.${{ matrix.host }}.tar.gz"
+            tar -c -z -f ${{ runner.temp }}/curl-impersonate.${{ matrix.host }}.tar.gz curl-impersonate curl_*
           fi
-          (
-            cd "$bin_dir"
-            files=()
-            while IFS= read -r -d '' f; do
-              files+=("${f#./}")
-            done < <(find . -maxdepth 1 -type f -print0)
-            tar -c -z -f "$out_file" "${files[@]}"
-          )
           echo "release_file_bin=${{ runner.temp }}/curl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz" >> $GITHUB_ENV
 
       - name: Upload artifacts
