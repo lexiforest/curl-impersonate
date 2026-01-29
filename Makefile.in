@@ -78,6 +78,12 @@ with_ca_path = @with_ca_path@
 CC = @CC@
 CXX = @CXX@
 STRIP = @STRIP@
+cc_words := $(strip $(CC))
+cxx_words := $(strip $(CXX))
+cc_compiler := $(firstword $(cc_words))
+cxx_compiler := $(firstword $(cxx_words))
+cc_extra_flags := $(filter -%,$(wordlist 2,$(words $(cc_words)),$(cc_words)))
+cxx_extra_flags := $(filter -%,$(wordlist 2,$(words $(cxx_words)),$(cxx_words)))
 
 # Auto-generate Makefile help.
 # Borrowed from https://marmelab.com/blog/2016/02/29/auto-documented-makefile.html
@@ -200,9 +206,10 @@ $(brotli_static_libs): brotli-$(BROTLI_VERSION).tar.gz
 	@cmake@ -DCMAKE_BUILD_TYPE=Release \
 		-DCMAKE_INSTALL_PREFIX=./installed \
 		-DCMAKE_INSTALL_LIBDIR=lib \
-		-DCMAKE_CXX_COMPILER=$(CXX) \
-		-DCMAKE_C_COMPILER=$(CC) \
-		-DCMAKE_C_FLAGS="$(CFLAGS)" \
+		-DCMAKE_CXX_COMPILER=$(cxx_compiler) \
+		-DCMAKE_C_COMPILER=$(cc_compiler) \
+		-DCMAKE_C_FLAGS="$(CFLAGS) $(cc_extra_flags)" \
+		-DCMAKE_CXX_FLAGS="$(CXXFLAGS) $(cxx_extra_flags)" \
 		-DCMAKE_SYSTEM_NAME=$$system_name \
 		-DCMAKE_SYSTEM_PROCESSOR=$(host_cpu) \
 		-DBUILD_SHARED_LIBS=OFF \
@@ -246,10 +253,10 @@ $(boringssl_static_libs): boringssl-$(BORING_SSL_COMMIT).zip boringssl-$(BORING_
 	# prevent clang from failing on them.
 	@cmake@ -DCMAKE_BUILD_TYPE=Release \
 			-DCMAKE_POSITION_INDEPENDENT_CODE=on \
-			-DCMAKE_C_FLAGS="$(CFLAGS) -Wno-unknown-warning-option -Wno-stringop-overflow -Wno-array-bounds -Wno-macro-redefined" \
-			-DCMAKE_CXX_FLAGS="$(CXX_FLAGS) -Wno-macro-redefined" \
-			-DCMAKE_CXX_COMPILER=$(CXX) \
-			-DCMAKE_C_COMPILER=$(CC) \
+			-DCMAKE_C_FLAGS="$(CFLAGS) $(cc_extra_flags) -Wno-unknown-warning-option -Wno-stringop-overflow -Wno-array-bounds -Wno-macro-redefined" \
+			-DCMAKE_CXX_FLAGS="$(CXXFLAGS) $(cxx_extra_flags) -Wno-macro-redefined" \
+			-DCMAKE_CXX_COMPILER=$(cxx_compiler) \
+			-DCMAKE_C_COMPILER=$(cc_compiler) \
 			-DCMAKE_SYSTEM_NAME=$$system_name \
 			-DCMAKE_SYSTEM_PROCESSOR=$(host_cpu) \
 			-GNinja \
