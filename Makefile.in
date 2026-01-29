@@ -53,7 +53,11 @@ libidn2_install_dir := $(abspath libidn2-$(LIBIDN2_VERSION)/installed)
 libidn2_static_libs := $(libidn2_install_dir)/lib/libidn2.a
 
 # Dependencies needed to compile the Chrome version
+ifeq ($(findstring darwin,$(host_os)),darwin)
+chrome_libs := $(zlib_static_libs) $(zstd_static_libs) $(brotli_static_libs) $(boringssl_static_libs) $(nghttp2_static_libs) $(ngtcp2_static_libs) $(nghttp3_static_libs)
+else
 chrome_libs := $(zlib_static_libs) $(zstd_static_libs) $(brotli_static_libs) $(boringssl_static_libs) $(nghttp2_static_libs) $(ngtcp2_static_libs) $(nghttp3_static_libs) $(libidn2_static_libs)
+endif
 
 # The following variables will be set by the configure script.
 prefix = @prefix@
@@ -107,7 +111,11 @@ ifeq ($(host),$(build))
 	./src/curl-impersonate -V | grep -q brotli
 	./src/curl-impersonate -V | grep -q nghttp2
 	./src/curl-impersonate -V | grep -q BoringSSL
-	./src/curl-impersonate -V | grep -q libidn2
+	if test "$(host_os)" = "darwin"; then \
+	  ./src/curl-impersonate -V | grep -q AppleIDN; \
+	else \
+	  ./src/curl-impersonate -V | grep -q libidn2; \
+	fi
 	$(info Build OK)
 else
 	$(info Cross compiling, skipping checkbuild)
@@ -414,7 +422,14 @@ $(CURL_VERSION)/.chrome: $(chrome_libs)	$(CURL_VERSION).tar.gz $(CURL_VERSION)/.
 	  config_flags="$$config_flags --with-nghttp2=$(nghttp2_install_dir)"; \
 	  config_flags="$$config_flags --with-ngtcp2=$(ngtcp2_install_dir)"; \
 	  config_flags="$$config_flags --with-nghttp3=$(nghttp3_install_dir)"; \
-	  config_flags="$$config_flags --with-libidn2=$(libidn2_install_dir)"; \
+	  case "$(host_os)" in \
+	    darwin*) \
+	      config_flags="$$config_flags --with-apple-idn --without-libidn2"; \
+	      ;; \
+	    *) \
+	      config_flags="$$config_flags --with-libidn2=$(libidn2_install_dir)"; \
+	      ;; \
+	  esac; \
 	  config_flags="$$config_flags --with-openssl=$(boringssl_dir)"; \
 	  config_flags="$$config_flags --with-zlib=$(with_zlib)"; \
 	  config_flags="$$config_flags --with-zstd=$(with_zstd)"; \
@@ -437,17 +452,20 @@ $(CURL_VERSION)/.chrome: $(chrome_libs)	$(CURL_VERSION).tar.gz $(CURL_VERSION)/.
 	  if test -n "$(with_ca_path)"; then \
 		config_flags="$$config_flags --with-ca-path=$(with_ca_path)"; \
 	  fi; \
-	  if test "$(host_os)" = "darwin"; then \
-	    add_libs="-pthread -lc++"; \
-	  else \
-	    add_libs="-pthread -lstdc++"; \
-	  fi; \
+	  case "$(host_os)" in \
+	    darwin*) add_libs="-pthread -lc++" ;; \
+	    *) add_libs="-pthread -lstdc++ -L$(libunistring_install_dir)/lib -lunistring" ;; \
+	  esac; \
 	}
 
 	echo "Configuring curl with: $$config_flags"
 
 	{ \
-		lib_path="$(nghttp2_install_dir)/lib:$(ngtcp2_install_dir)/lib:$(nghttp3_install_dir)/lib:$(zstd_install_dir)/lib:$(zlib_install_dir)/lib:$(brotli_install_dir)/lib:$(libidn2_install_dir)/lib:$(libunistring_install_dir)/lib"; \
+		lib_path="$(nghttp2_install_dir)/lib:$(ngtcp2_install_dir)/lib:$(nghttp3_install_dir)/lib:$(zstd_install_dir)/lib:$(zlib_install_dir)/lib:$(brotli_install_dir)/lib"; \
+		case "$(host_os)" in \
+		  darwin*) ;; \
+		  *) lib_path="$$lib_path:$(libidn2_install_dir)/lib:$(libunistring_install_dir)/lib" ;; \
+		esac; \
 	}
 
 	DYLD_LIBRARY_PATH="$$lib_path" \
