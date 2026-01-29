@@ -21,6 +21,10 @@ NGTCP2_VERSION := 1.11.0
 NGTCP2_URL := https://github.com/ngtcp2/ngtcp2/releases/download/v$(NGTCP2_VERSION)/ngtcp2-$(NGTCP2_VERSION).tar.bz2
 NGHTTP3_VERSION := 1.9.0
 NGHTTP3_URL := https://github.com/ngtcp2/nghttp3/releases/download/v$(NGHTTP3_VERSION)/nghttp3-$(NGHTTP3_VERSION).tar.bz2
+LIBUNISTRING_VERSION := 1.1
+LIBUNISTRING_URL := https://ftp.gnu.org/gnu/libunistring/libunistring-$(LIBUNISTRING_VERSION).tar.gz
+LIBIDN2_VERSION := 2.3.7
+LIBIDN2_URL := https://ftp.gnu.org/gnu/libidn/libidn2-$(LIBIDN2_VERSION).tar.gz
 CURL_VERSION := curl-8_15_0
 
 # https://github.com/google/brotli/commit/641bec0e30bea648b3da1cd90fc6b44deb429f71
@@ -35,9 +39,13 @@ ngtcp2_install_dir := $(abspath ngtcp2-$(NGTCP2_VERSION)/installed)
 ngtcp2_static_libs := $(ngtcp2_install_dir)/lib/libngtcp2.a
 nghttp3_install_dir := $(abspath nghttp3-$(NGHTTP3_VERSION)/installed)
 nghttp3_static_libs := $(nghttp3_install_dir)/lib/libnghttp3.a
+libunistring_install_dir := $(abspath libunistring-$(LIBUNISTRING_VERSION)/installed)
+libunistring_static_libs := $(libunistring_install_dir)/lib/libunistring.a
+libidn2_install_dir := $(abspath libidn2-$(LIBIDN2_VERSION)/installed)
+libidn2_static_libs := $(libidn2_install_dir)/lib/libidn2.a
 
 # Dependencies needed to compile the Chrome version
-chrome_libs := $(brotli_static_libs) $(boringssl_static_libs) $(nghttp2_static_libs) $(ngtcp2_static_libs) $(nghttp3_static_libs)
+chrome_libs := $(brotli_static_libs) $(boringssl_static_libs) $(nghttp2_static_libs) $(ngtcp2_static_libs) $(nghttp3_static_libs) $(libidn2_static_libs)
 
 # The following variables will be set by the configure script.
 prefix = @prefix@
@@ -120,6 +128,8 @@ clean:
 	rm -Rf nghttp2-$(NGHTTP2_VERSION).tar.bz2 nghttp2-$(NGHTTP2_VERSION)
 	rm -Rf ngtcp2-$(NGTCP2_VERSION).tar.bz2 ngtcp2-$(NGTCP2_VERSION)
 	rm -Rf nghttp3-$(NGHTTP3_VERSION).tar.bz2 nghttp3-$(NGHTTP3_VERSION)
+	rm -Rf libunistring-$(LIBUNISTRING_VERSION).tar.gz libunistring-$(LIBUNISTRING_VERSION)
+	rm -Rf libidn2-$(LIBIDN2_VERSION).tar.gz libidn2-$(LIBIDN2_VERSION)
 	rm -Rf $(CURL_VERSION).tar.gz $(CURL_VERSION)
 .PHONY: clean
 
@@ -288,6 +298,41 @@ $(nghttp3_static_libs): nghttp3-$(NGHTTP3_VERSION).tar.bz2
 	$(MAKE) MAKEFLAGS=-j$(SUBJOBS)
 	$(MAKE) install MAKEFLAGS=
 
+libunistring-$(LIBUNISTRING_VERSION).tar.gz:
+	curl -L $(LIBUNISTRING_URL) -o libunistring-$(LIBUNISTRING_VERSION).tar.gz
+
+$(libunistring_static_libs): libunistring-$(LIBUNISTRING_VERSION).tar.gz
+	tar -xf libunistring-$(LIBUNISTRING_VERSION).tar.gz
+	cd libunistring-$(LIBUNISTRING_VERSION)
+	{ \
+		config_flags="--prefix=$(libunistring_install_dir)"; \
+		config_flags="$$config_flags --disable-shared --enable-static --with-pic"; \
+		if test -n "$(host_alias)"; then \
+			config_flags="$$config_flags --host=$(host_alias)"; \
+		fi; \
+	}
+	./configure $$config_flags
+	$(MAKE) MAKEFLAGS=-j$(SUBJOBS)
+	$(MAKE) install MAKEFLAGS=
+
+libidn2-$(LIBIDN2_VERSION).tar.gz:
+	curl -L $(LIBIDN2_URL) -o libidn2-$(LIBIDN2_VERSION).tar.gz
+
+$(libidn2_static_libs): libidn2-$(LIBIDN2_VERSION).tar.gz $(libunistring_static_libs)
+	tar -xf libidn2-$(LIBIDN2_VERSION).tar.gz
+	cd libidn2-$(LIBIDN2_VERSION)
+	{ \
+		config_flags="--prefix=$(libidn2_install_dir)"; \
+		config_flags="$$config_flags --disable-shared --enable-static --with-pic --disable-nls"; \
+		if test -n "$(host_alias)"; then \
+			config_flags="$$config_flags --host=$(host_alias)"; \
+		fi; \
+	}
+	PKG_CONFIG_PATH="$(libunistring_install_dir)/lib/pkgconfig" \
+		./configure $$config_flags
+	$(MAKE) MAKEFLAGS=-j$(SUBJOBS)
+	$(MAKE) install MAKEFLAGS=
+
 $(CURL_VERSION).tar.gz:
 	curl -L "https://github.com/curl/curl/archive/$(CURL_VERSION).tar.gz" \
 		-o "$(CURL_VERSION).tar.gz"
@@ -319,7 +364,9 @@ $(CURL_VERSION)/.chrome: $(chrome_libs)	$(CURL_VERSION).tar.gz $(CURL_VERSION)/.
 	  config_flags="$$config_flags --with-nghttp2=$(nghttp2_install_dir)"; \
 	  config_flags="$$config_flags --with-ngtcp2=$(ngtcp2_install_dir)"; \
 	  config_flags="$$config_flags --with-nghttp3=$(nghttp3_install_dir)"; \
+	  config_flags="$$config_flags --with-libidn2=$(libidn2_install_dir)"; \
 	  config_flags="$$config_flags --with-openssl=$(boringssl_dir)"; \
+	  config_flags="$$config_flags --without-librtmp"; \
 	  config_flags="$$config_flags --without-libpsl"; \
 	  config_flags="$$config_flags --enable-websockets"; \
 	  config_flags="$$config_flags --enable-ech"; \

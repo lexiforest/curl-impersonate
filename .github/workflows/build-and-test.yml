@@ -281,12 +281,8 @@ jobs:
           brew install pkg-config make cmake ninja autoconf automake libtool gpatch
           # Chrome version dependencies, install only not installed.
           which go || brew install go
-          # Needed to compile 'minicurl'
-          brew install curl
-          # More dependencies for the tests
-          brew install tcpdump nghttp2
-          # zstd
-          brew install zstd
+          # Dependencies for the tests
+          brew install tcpdump curl nghttp2
 
       - name: Check out the repo
         uses: actions/checkout@v2
@@ -306,10 +302,20 @@ jobs:
           # Make sure curl will link with libz.so.1 and not libz.so
           rm -f ${{ runner.temp }}/zlib/lib/libz.so
 
+      - name: Build libzstd
+        run: |
+          curl -LO https://github.com/facebook/zstd/releases/download/v1.5.6/zstd-1.5.6.tar.gz
+          tar xf zstd-1.5.6.tar.gz
+          cd zstd-1.5.6
+          make
+          make install PREFIX=${{ runner.temp }}/zstd
+
       - name: Run configure script
         run: |
           mkdir ${{ runner.temp }}/install
-          ./configure LDFLAGS="-L$(brew --prefix zstd)/lib" CPPFLAGS="-I$(brew --prefix zstd)/include" --prefix=${{ runner.temp }}/install
+          ./configure --prefix=${{ runner.temp }}/install \
+                      --with-zlib=${{ runner.temp }}/zlib \
+                      --with-zstd=${{ runner.temp }}/zstd
 
       # Cache the build of BoringSSL, which is the longest part of the build
       # We must cache the .zip as well, otherwise the Makefile will
@@ -346,7 +352,7 @@ jobs:
       - name: Prepare the tests
         run: |
           # Compile 'minicurl' which is used by the tests
-          gcc -Wall -Werror -o ${{ runner.temp }}/install/bin/minicurl tests/minicurl.c `curl-config --libs`
+          gcc -Wall -Werror -o ${{ runner.temp }}/install/bin/minicurl tests/minicurl.c `${{ runner.temp }}/install/bin/curl-config --libs`
 
       # For now we can only run the tests when not cross compiling, since the
       # tests run the curl-impersonate binary locally.
@@ -374,9 +380,10 @@ jobs:
 
       - name: Reconfigure statically
         run: |
-          ./configure LDFLAGS="-L$(brew --prefix zstd)/lib" CPPFLAGS="-I$(brew --prefix zstd)/include" \
-            --prefix=${{ runner.temp }}/install \
-            --enable-static
+          ./configure --prefix=${{ runner.temp }}/install \
+            --enable-static \
+            --with-zlib=${{ runner.temp }}/zlib \
+            --with-zstd=${{ runner.temp }}/zstd
 
       - name: Rebuild statically
         run: |
