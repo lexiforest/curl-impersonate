@@ -111,11 +111,10 @@ ifeq ($(host),$(build))
 	./src/curl-impersonate -V | grep -q brotli
 	./src/curl-impersonate -V | grep -q nghttp2
 	./src/curl-impersonate -V | grep -q BoringSSL
-	if test "$(host_os)" = "darwin"; then \
-	  ./src/curl-impersonate -V | grep -q AppleIDN; \
-	else \
-	  ./src/curl-impersonate -V | grep -q libidn2; \
-	fi
+	case "$(host_os)" in \
+	  darwin*) ./src/curl-impersonate -V | grep -q AppleIDN ;; \
+	  *) ./src/curl-impersonate -V | grep -q libidn2 ;; \
+	esac
 	$(info Build OK)
 else
 	$(info Cross compiling, skipping checkbuild)
