@@ -177,8 +177,11 @@ zstd-$(ZSTD_VERSION).tar.gz:
 $(zstd_static_libs): zstd-$(ZSTD_VERSION).tar.gz
 	tar xf zstd-$(ZSTD_VERSION).tar.gz
 	cd zstd-$(ZSTD_VERSION)
-	$(MAKE) BUILD_SHARED=0 BUILD_STATIC=1 MAKEFLAGS=-j$(SUBJOBS)
-	$(MAKE) install PREFIX=$(zstd_install_dir) BUILD_SHARED=0 BUILD_STATIC=1 MAKEFLAGS=
+	$(MAKE) BUILD_SHARED=0 BUILD_STATIC=1 MAKEFLAGS=-j$(SUBJOBS) libzstd.a
+	mkdir -p $(zstd_install_dir)/lib
+	mkdir -p $(zstd_install_dir)/include
+	cp lib/libzstd.a $(zstd_install_dir)/lib/
+	cp lib/*.h $(zstd_install_dir)/include/
 
 brotli-$(BROTLI_VERSION).tar.gz:
 	curl -L "https://github.com/google/brotli/archive/refs/tags/v${BROTLI_VERSION}.tar.gz" \
