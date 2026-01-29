@@ -4,15 +4,13 @@ WORKDIR /build
 
 RUN apk update && \
     apk add git ninja cmake make patch linux-headers autoconf automake pkgconfig libtool \
-    clang llvm lld libc-dev libc++-dev \
-    llvm-libunwind llvm-libunwind-static xz-libs xz-dev xz-static \
+    build-base libc-dev \
+    xz-libs xz-dev xz-static \
     ca-certificates curl bash \
     python3 python3-dev \
     go bzip2 xz unzip
 
 COPY . /build
-
-ENV CC=clang CXX=clang++
 
 # dynamic build
 RUN mkdir /build/install && \
@@ -36,7 +34,7 @@ RUN ./configure --prefix=/build/install \
 FROM alpine:3.21
 
 RUN apk update && \
-    apk add ca-certificates libc++ \
+    apk add ca-certificates libstdc++ \
     && rm -rf /var/cache/apk/*
 
 COPY --from=builder /build/install /usr/local

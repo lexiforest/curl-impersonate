@@ -4,14 +4,11 @@ WORKDIR /build
 
 RUN apt-get update && \
     apt-get install -y git ninja-build cmake autoconf automake pkg-config libtool \
-    clang llvm lld libc++-dev libc++abi-dev \
     ca-certificates curl \
     curl \
     golang-go bzip2 xz-utils unzip
 
 COPY . /build
-
-ENV CC=clang CXX=clang++
 
 # dynamic build
 RUN mkdir /build/install && \
@@ -35,7 +32,7 @@ RUN ./configure --prefix=/build/install \
 FROM debian:bookworm-slim
 
 RUN apt-get update && \
-    apt-get install -y ca-certificates libc++1 libc++abi1 \
+    apt-get install -y ca-certificates libstdc++6 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /build/install /usr/local

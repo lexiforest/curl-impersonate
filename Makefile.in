@@ -416,6 +416,8 @@ $(CURL_VERSION)/.chrome: $(chrome_libs)	$(CURL_VERSION).tar.gz $(CURL_VERSION)/.
 	  config_flags="$$config_flags --with-nghttp3=$(nghttp3_install_dir)"; \
 	  config_flags="$$config_flags --with-libidn2=$(libidn2_install_dir)"; \
 	  config_flags="$$config_flags --with-openssl=$(boringssl_dir)"; \
+	  config_flags="$$config_flags --with-zlib=$(with_zlib)"; \
+	  config_flags="$$config_flags --with-zstd=$(with_zstd)"; \
 	  config_flags="$$config_flags --without-librtmp"; \
 	  config_flags="$$config_flags --without-libpsl"; \
 	  config_flags="$$config_flags --enable-websockets"; \
@@ -429,23 +431,17 @@ $(CURL_VERSION)/.chrome: $(chrome_libs)	$(CURL_VERSION).tar.gz $(CURL_VERSION)/.
 	  if test -n "$(host_alias)"; then \
 	    config_flags="$$config_flags --host=$(host_alias)"; \
 	  fi; \
-	  if test -n "$(with_zlib)"; then \
-	    config_flags="$$config_flags --with-zlib=$(with_zlib)"; \
-	  else \
-	    config_flags+=" --with-zlib"; \
-	  fi; \
-	  if test -n "$(with_zstd)"; then \
-	    config_flags="$$config_flags --with-zstd=$(with_zstd)"; \
-	  else \
-	    config_flags+=" --with-zstd"; \
-	  fi; \
 	  if test -n "$(with_ca_bundle)"; then \
 		config_flags="$$config_flags --with-ca-bundle=$(with_ca_bundle)"; \
 	  fi; \
 	  if test -n "$(with_ca_path)"; then \
 		config_flags="$$config_flags --with-ca-path=$(with_ca_path)"; \
 	  fi; \
-	  add_libs="-pthread -lc++"; \
+	  if test "$(host_os)" = "darwin"; then \
+	    add_libs="-pthread -lc++"; \
+	  else \
+	    add_libs="-pthread -lstdc++"; \
+	  fi; \
 	}
 
 	echo "Configuring curl with: $$config_flags"
