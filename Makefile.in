@@ -67,14 +67,9 @@ host_os = @host_os@
 build = @build@
 # Whether to link curl-impersonate with libcurl-impersonate statically.
 static_build = @static_build@
-# Whether the user provided a specific find for zlib
-with_zlib = @with_zlib@
-# Use the locally built zstd unless overridden.
+# Use the locally built zlib/zstd unless overridden.
+with_zlib ?= $(zlib_install_dir)
 with_zstd ?= $(zstd_install_dir)
-# Default to the locally built deps when configure did not specify a path.
-ifeq ($(strip $(with_zlib)),)
-  with_zlib := $(zlib_install_dir)
-endif
 # Path to be passed to curl's --with-ca-bundle configure option.
 with_ca_bundle = @with_ca_bundle@
 # Path to be passed to curl's --with-ca-path configure option.

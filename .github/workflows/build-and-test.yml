@@ -18,8 +18,6 @@ permissions:
 
 env:
   BORING_SSL_COMMIT: 673e61fc215b178a90c0e67858bbf162c8158993
-  ZLIB_VERSION: 1.3.1
-  ZSTD_VERSION: 1.5.6
   MACOSX_DEPLOYMENT_TARGET: 11.0
 
 jobs:
@@ -92,8 +90,6 @@ jobs:
           mkdir ${{ runner.temp }}/install
           ./configure --prefix=${{ runner.temp }}/install \
                       --host=${{ matrix.host }} \
-                      --with-zlib=${{ github.workspace }}/zlib-${{ env.ZLIB_VERSION }}/installed \
-                      --with-zstd=${{ github.workspace }}/zstd-${{ env.ZSTD_VERSION }}/installed \
                       --with-ca-path=/etc/ssl/certs \
                       --with-ca-bundle=/etc/ssl/certs/ca-certificates.crt \
 
@@ -158,8 +154,8 @@ jobs:
        # Upload pre-compiled binaries to GitHub releases page and Github actions archives.
       - name: Create tar release files for libcurl-impersonate
         run: |
-          cp ${{ github.workspace }}/zlib-${{ env.ZLIB_VERSION }}/installed/lib/lib*.a ${{ runner.temp }}/install/lib
-          cp ${{ github.workspace }}/zstd-${{ env.ZSTD_VERSION }}/installed/lib/lib*.a ${{ runner.temp }}/install/lib
+          cp zlib-*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
+          cp zstd-*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
           cp nghttp2*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
           cp nghttp3*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
           cp ngtcp2*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
@@ -200,8 +196,6 @@ jobs:
           set -e
           ./configure --prefix=${{ runner.temp }}/install --enable-static \
                       --host=${{ matrix.host }} \
-                      --with-zlib=${{ github.workspace }}/zlib-${{ env.ZLIB_VERSION }}/installed \
-                      --with-zstd=${{ github.workspace }}/zstd-${{ env.ZSTD_VERSION }}/installed \
                       --with-ca-path=/etc/ssl/certs \
                       --with-ca-bundle=/etc/ssl/certs/ca-certificates.crt \
 
@@ -289,8 +283,6 @@ jobs:
         run: |
           mkdir ${{ runner.temp }}/install
           ./configure --prefix=${{ runner.temp }}/install \
-                      --with-zlib=${{ github.workspace }}/zlib-${{ env.ZLIB_VERSION }}/installed \
-                      --with-zstd=${{ github.workspace }}/zstd-${{ env.ZSTD_VERSION }}/installed
 
       # Cache the build of BoringSSL, which is the longest part of the build
       # We must cache the .zip as well, otherwise the Makefile will
@@ -365,8 +357,6 @@ jobs:
         run: |
           ./configure --prefix=${{ runner.temp }}/install \
             --enable-static \
-            --with-zlib=${{ github.workspace }}/zlib-${{ env.ZLIB_VERSION }}/installed \
-            --with-zstd=${{ github.workspace }}/zstd-${{ env.ZSTD_VERSION }}/installed
 
       - name: Rebuild statically
         run: |
