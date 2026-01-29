@@ -36,26 +36,6 @@ AS_IF(
     # User provided --with-zlib with a path.
     [AC_SUBST([with_zlib], ["$with_zlib"])])
 
-# Let the user optionally specify the path to zstd, the same for zlib
-AC_ARG_WITH([zstd],
-    [AS_HELP_STRING([--with-zstd=PATH],
-        [Search for zstd in PATH. Useful when cross compiling])],
-    [with_zstd="$withval"],
-    [with_zstd="check"])
-
-AS_IF(
-    # User provided --without-zstd, which we don't support
-    [test x"$with_zstd" = xno],
-    [AC_MSG_ERROR(building without zstd is not supported)],
-    # User didn't provide --with-zstd at all, or provided --with-zstd without
-    # a path. Check if zstd can be linked against using the default linker flags.
-    [test x"$with_zstd" = xcheck -o x"$with_zstd" = xyes],
-        [AC_CHECK_LIB([zstd], [ZSTD_decompress],
-            [AC_SUBST([with_zstd], [""])],
-            [AC_MSG_ERROR(failed to find zstd)])],
-    # User provided --with-zstd with a path.
-    [AC_SUBST([with_zstd], ["$with_zstd"])])
-
 # Path to CA certificates.
 # These options will be passed as-is to curl's configure script.
 # Useful when cross compiling, since curl's configure script doesn't know

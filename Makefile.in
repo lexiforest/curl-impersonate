@@ -21,6 +21,10 @@ NGTCP2_VERSION := 1.11.0
 NGTCP2_URL := https://github.com/ngtcp2/ngtcp2/releases/download/v$(NGTCP2_VERSION)/ngtcp2-$(NGTCP2_VERSION).tar.bz2
 NGHTTP3_VERSION := 1.9.0
 NGHTTP3_URL := https://github.com/ngtcp2/nghttp3/releases/download/v$(NGHTTP3_VERSION)/nghttp3-$(NGHTTP3_VERSION).tar.bz2
+ZLIB_VERSION := 1.3.1
+ZLIB_URL := https://zlib.net/fossils/zlib-$(ZLIB_VERSION).tar.gz
+ZSTD_VERSION := 1.5.6
+ZSTD_URL := https://github.com/facebook/zstd/releases/download/v$(ZSTD_VERSION)/zstd-$(ZSTD_VERSION).tar.gz
 LIBUNISTRING_VERSION := 1.1
 LIBUNISTRING_URL := https://ftp.gnu.org/gnu/libunistring/libunistring-$(LIBUNISTRING_VERSION).tar.gz
 LIBIDN2_VERSION := 2.3.7
@@ -39,18 +43,23 @@ ngtcp2_install_dir := $(abspath ngtcp2-$(NGTCP2_VERSION)/installed)
 ngtcp2_static_libs := $(ngtcp2_install_dir)/lib/libngtcp2.a
 nghttp3_install_dir := $(abspath nghttp3-$(NGHTTP3_VERSION)/installed)
 nghttp3_static_libs := $(nghttp3_install_dir)/lib/libnghttp3.a
+zlib_install_dir := $(abspath zlib-$(ZLIB_VERSION)/installed)
+zlib_static_libs := $(zlib_install_dir)/lib/libz.a
+zstd_install_dir := $(abspath zstd-$(ZSTD_VERSION)/installed)
+zstd_static_libs := $(zstd_install_dir)/lib/libzstd.a
 libunistring_install_dir := $(abspath libunistring-$(LIBUNISTRING_VERSION)/installed)
 libunistring_static_libs := $(libunistring_install_dir)/lib/libunistring.a
 libidn2_install_dir := $(abspath libidn2-$(LIBIDN2_VERSION)/installed)
 libidn2_static_libs := $(libidn2_install_dir)/lib/libidn2.a
 
 # Dependencies needed to compile the Chrome version
-chrome_libs := $(brotli_static_libs) $(boringssl_static_libs) $(nghttp2_static_libs) $(ngtcp2_static_libs) $(nghttp3_static_libs) $(libidn2_static_libs)
+chrome_libs := $(zlib_static_libs) $(zstd_static_libs) $(brotli_static_libs) $(boringssl_static_libs) $(nghttp2_static_libs) $(ngtcp2_static_libs) $(nghttp3_static_libs) $(libidn2_static_libs)
 
 # The following variables will be set by the configure script.
 prefix = @prefix@
 exec_prefix = @exec_prefix@
 srcdir = @abs_srcdir@
+DESTDIR ?=
 host = @host@
 host_alias = @host_alias@
 host_cpu = @host_cpu@
@@ -60,8 +69,12 @@ build = @build@
 static_build = @static_build@
 # Whether the user provided a specific find for zlib
 with_zlib = @with_zlib@
-# Whether the user provided a specific find for libzstd
-with_zstd = @with_zstd@
+# Use the locally built zstd unless overridden.
+with_zstd ?= $(zstd_install_dir)
+# Default to the locally built deps when configure did not specify a path.
+ifeq ($(strip $(with_zlib)),)
+  with_zlib := $(zlib_install_dir)
+endif
 # Path to be passed to curl's --with-ca-bundle configure option.
 with_ca_bundle = @with_ca_bundle@
 # Path to be passed to curl's --with-ca-path configure option.
@@ -89,9 +102,11 @@ ifeq ($(host),$(build))
 	cd $(CURL_VERSION)
 	# Make sure all needed features were compiled in
 	./src/curl-impersonate -V | grep -q zlib
+	./src/curl-impersonate -V | grep -q zstd
 	./src/curl-impersonate -V | grep -q brotli
 	./src/curl-impersonate -V | grep -q nghttp2
 	./src/curl-impersonate -V | grep -q BoringSSL
+	./src/curl-impersonate -V | grep -q libidn2
 	$(info Build OK)
 else
 	$(info Cross compiling, skipping checkbuild)
@@ -100,25 +115,25 @@ endif
 
 install:
 	cd $(CURL_VERSION)
-	$(MAKE) install-exec MAKEFLAGS=
+	$(MAKE) install-exec DESTDIR="$(DESTDIR)" MAKEFLAGS=
 	# Wrapper scripts for the cli shortcut (e.g. 'curl_chrome99')
-	install $(srcdir)/bin/curl_* @bindir@
+	install $(srcdir)/bin/curl_* "$(DESTDIR)@bindir@"
 .PHONY: install
 
 install-strip: ## Like 'install', but strip binaries for smaller size
 	cd $(CURL_VERSION)
-	$(MAKE) install-exec MAKEFLAGS=
+	$(MAKE) install-exec DESTDIR="$(DESTDIR)" MAKEFLAGS=
 	# We could have used 'install-strip' but then the docs would be installed as well.
 	# Instead strip manually.
-	$(STRIP) @bindir@/curl-impersonate
+	$(STRIP) "$(DESTDIR)@bindir@/curl-impersonate"
 	# Wrapper scripts for the cli shortcut (e.g. 'curl_chrome99')
-	install $(srcdir)/bin/curl_* @bindir@
+	install $(srcdir)/bin/curl_* "$(DESTDIR)@bindir@"
 .PHONY: install-strip
 
 uninstall: ## Uninstall the Chrome version of curl-impersonate after 'make install'
 	cd $(CURL_VERSION)
-	$(MAKE) uninstall MAKEFLAGS=
-	rm -Rf @bindir@/curl_*
+	$(MAKE) uninstall DESTDIR="$(DESTDIR)" MAKEFLAGS=
+	rm -Rf "$(DESTDIR)@bindir@/curl_*"
 .PHONY: uninstall
 
 clean:
@@ -128,11 +143,41 @@ clean:
 	rm -Rf nghttp2-$(NGHTTP2_VERSION).tar.bz2 nghttp2-$(NGHTTP2_VERSION)
 	rm -Rf ngtcp2-$(NGTCP2_VERSION).tar.bz2 ngtcp2-$(NGTCP2_VERSION)
 	rm -Rf nghttp3-$(NGHTTP3_VERSION).tar.bz2 nghttp3-$(NGHTTP3_VERSION)
+	rm -Rf zlib-$(ZLIB_VERSION).tar.gz zlib-$(ZLIB_VERSION)
+	rm -Rf zstd-$(ZSTD_VERSION).tar.gz zstd-$(ZSTD_VERSION)
 	rm -Rf libunistring-$(LIBUNISTRING_VERSION).tar.gz libunistring-$(LIBUNISTRING_VERSION)
 	rm -Rf libidn2-$(LIBIDN2_VERSION).tar.gz libidn2-$(LIBIDN2_VERSION)
 	rm -Rf $(CURL_VERSION).tar.gz $(CURL_VERSION)
 .PHONY: clean
 
+
+zlib-$(ZLIB_VERSION).tar.gz:
+	curl -L $(ZLIB_URL) -o zlib-$(ZLIB_VERSION).tar.gz
+
+$(zlib_static_libs): zlib-$(ZLIB_VERSION).tar.gz
+	tar xf zlib-$(ZLIB_VERSION).tar.gz
+	cd zlib-$(ZLIB_VERSION)
+	{ \
+		config_flags="--prefix=$(zlib_install_dir) --static"; \
+		if test -n "$(host_alias)"; then \
+			CHOST="$(host_alias)" ./configure $$config_flags; \
+		else \
+			./configure $$config_flags; \
+		fi; \
+	}
+	$(MAKE) MAKEFLAGS=-j$(SUBJOBS)
+	$(MAKE) install MAKEFLAGS=
+	# Make sure curl doesn't link against an unversioned .so (Linux only).
+	rm -f $(zlib_install_dir)/lib/libz.so
+
+zstd-$(ZSTD_VERSION).tar.gz:
+	curl -L $(ZSTD_URL) -o zstd-$(ZSTD_VERSION).tar.gz
+
+$(zstd_static_libs): zstd-$(ZSTD_VERSION).tar.gz
+	tar xf zstd-$(ZSTD_VERSION).tar.gz
+	cd zstd-$(ZSTD_VERSION)
+	$(MAKE) BUILD_SHARED=0 BUILD_STATIC=1 MAKEFLAGS=-j$(SUBJOBS)
+	$(MAKE) install PREFIX=$(zstd_install_dir) BUILD_SHARED=0 BUILD_STATIC=1 MAKEFLAGS=
 
 brotli-$(BROTLI_VERSION).tar.gz:
 	curl -L "https://github.com/google/brotli/archive/refs/tags/v${BROTLI_VERSION}.tar.gz" \
@@ -400,8 +445,13 @@ $(CURL_VERSION)/.chrome: $(chrome_libs)	$(CURL_VERSION).tar.gz $(CURL_VERSION)/.
 
 	echo "Configuring curl with: $$config_flags"
 
-	LDFLAGS="-Wl,-rpath,$(ngtcp2_install_dir)/lib" \
-			 ./configure \
+	{ \
+		lib_path="$(nghttp2_install_dir)/lib:$(ngtcp2_install_dir)/lib:$(nghttp3_install_dir)/lib:$(zstd_install_dir)/lib:$(zlib_install_dir)/lib:$(brotli_install_dir)/lib:$(libidn2_install_dir)/lib:$(libunistring_install_dir)/lib"; \
+	}
+
+	DYLD_LIBRARY_PATH="$$lib_path" \
+	LD_LIBRARY_PATH="$$lib_path" \
+		./configure \
 			 $$config_flags \
 			 LIBS="$$add_libs" \
 			 PKG_CONFIG_PATH="$(ngtcp2_install_dir)/crypto/boringssl/"
