@@ -21,127 +21,48 @@ env:
   MACOSX_DEPLOYMENT_TARGET: 11.0
 
 jobs:
-  build-and-test-linux:
+  build:
     name: (${{ matrix.host }}) Build curl-impersonate
-    runs-on: ubuntu-latest
-    env:
-      CC: ${{ github.workspace }}/zigshim/cc
-      CXX: ${{ github.workspace }}/zigshim/cxx
-      AR: ${{ github.workspace }}/zigshim/ar
-      ZIG_FLAGS: ${{ matrix.zigflags }}
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - arch: x86_64
+          - os: ubuntu-latest
+            arch: x86_64
             host: x86_64-linux-gnu
             zigflags: -target x86_64-linux-gnu.2.17
-          - arch: x86_64
+            make: make
+          - os: ubuntu-latest
+            arch: x86_64
             host: x86_64-linux-musl
             zigflags: -target x86_64-linux-musl -fPIC
-          - arch: i386
+            make: make
+          - os: ubuntu-latest
+            arch: i386
             host: i386-linux-gnu
             zigflags: -target x86-linux-gnu.2.17
-          - arch: aarch64
+            make: make
+          - os: ubuntu-latest
+            arch: aarch64
             host: aarch64-linux-gnu
             zigflags: -target aarch64-linux-gnu.2.17
-          - arch: aarch64
+            make: make
+          - os: ubuntu-latest
+            arch: aarch64
             host: aarch64-linux-musl
             zigflags: -target aarch64-linux-musl -fPIC -mno-outline-atomics
-          - arch: arm
+            make: make
+          - os: ubuntu-latest
+            arch: arm
             host: arm-linux-gnueabihf
             zigflags: -target arm-linux-gnueabihf.2.17 -mcpu=arm1176jzf_s
-          - arch: riscv64
+            make: make
+          - os: ubuntu-latest
+            arch: riscv64
             host: riscv64-linux-gnu
             zigflags: -target riscv64-linux-gnu.2.27
-    steps:
-      - name: Check out the repo
-        uses: actions/checkout@v2
-
-      - name: Set up zig
-        uses: goto-bus-stop/setup-zig@v2
-        with:
-          version: 0.14.0
-
-      - name: Install Ubuntu dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install build-essential pkg-config cmake ninja-build curl autoconf automake libtool
-          sudo apt-get install gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf gcc-riscv64-linux-gnu
-          sudo apt-get install golang-go
-
-      - name: Configure statically
-        run: |
-          set -e
-          mkdir ${{ runner.temp }}/install
-          ./configure --prefix=${{ runner.temp }}/install --enable-static --disable-shared \
-                      --host=${{ matrix.host }} \
-                      --with-ca-path=/etc/ssl/certs \
-                      --with-ca-bundle=/etc/ssl/certs/ca-certificates.crt \
-
-      - name: Build statically
-        run: |
-          set -e
-          make build
-          make checkbuild
-          if [[ "${{ endsWith(matrix.host, 'musl') }}" == "true" ]]; then
-            make install
-          else
-            make install-strip
-          fi
-
-      - name: Create tar release files
-        run: |
-          cp zlib-*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
-          cp zstd-*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
-          cp nghttp2*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
-          cp nghttp3*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
-          cp ngtcp2*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
-          cp brotli*/out/installed/lib/lib*.a ${{ runner.temp }}/install/lib
-          cp boringssl*/lib/lib*.a ${{ runner.temp }}/install/lib
-          cp libidn2*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
-          cp libunistring*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
-
-          cd ${{ runner.temp }}/install/lib
-          ls -lah .
-          if [[ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]]; then
-            tar -c -z -f ${{ runner.temp }}/libcurl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz lib*
-          else
-            tar -c -z -f ${{ runner.temp }}/libcurl-impersonate.${{ matrix.host }}.tar.gz lib*
-          fi
-          echo "release_file_lib=${{ runner.temp }}/libcurl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz" >> $GITHUB_ENV
-
-          cd ${{ runner.temp }}/install/bin
-          if [[ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]]; then
-            tar -c -z -f ${{ runner.temp }}/curl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz curl-impersonate curl_*
-          else
-            tar -c -z -f ${{ runner.temp }}/curl-impersonate.${{ matrix.host }}.tar.gz curl-impersonate curl_*
-          fi
-          echo "release_file_bin=${{ runner.temp }}/curl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz" >> $GITHUB_ENV
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: output.${{ matrix.host }}
-          path: |
-            ${{ runner.temp }}/libcurl-impersonate*.tar.gz
-            ${{ runner.temp }}/curl-impersonate*.tar.gz
-
-      - name: Upload release files
-        uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
-        with:
-          files: |
-              ${{ env.release_file_lib }}
-              ${{ env.release_file_bin }}
-
-  build-and-test-macos:
-    name: (macOS ${{ matrix.arch }}) Build curl-impersonate
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [macos-15-intel, macos-14]
-        include:
+            make: make
           - os: macos-15-intel
             arch: x86_64
             host: x86_64-macos
@@ -151,11 +72,39 @@ jobs:
             host: arm64-macos
             make: gmake
     steps:
-      - uses: actions/setup-python@v4
+      - name: Check out the repo
+        uses: actions/checkout@v2
+
+      - name: Set up zig
+        if: runner.os == 'Linux'
+        uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: 0.14.0
+
+      - name: Set zig env
+        if: runner.os == 'Linux'
+        run: |
+          echo "CC=${{ github.workspace }}/zigshim/cc" >> $GITHUB_ENV
+          echo "CXX=${{ github.workspace }}/zigshim/cxx" >> $GITHUB_ENV
+          echo "AR=${{ github.workspace }}/zigshim/ar" >> $GITHUB_ENV
+          echo "ZIG_FLAGS=${{ matrix.zigflags }}" >> $GITHUB_ENV
+
+      - name: Install Ubuntu dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install build-essential pkg-config cmake ninja-build curl autoconf automake libtool
+          sudo apt-get install gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf gcc-riscv64-linux-gnu
+          sudo apt-get install golang-go
+
+      - name: Set up Python
+        if: runner.os == 'macOS'
+        uses: actions/setup-python@v4
         with:
           python-version: '3.10'
 
       - name: Install macOS dependencies
+        if: runner.os == 'macOS'
         run: |
           brew install pkg-config make cmake ninja autoconf automake libtool gpatch
           # Chrome version dependencies, install only not installed.
@@ -163,20 +112,30 @@ jobs:
           # Dependencies for the tests
           brew install tcpdump curl nghttp2
 
-      - name: Check out the repo
-        uses: actions/checkout@v2
-
       - name: Run configure script
         run: |
+          set -e
           mkdir ${{ runner.temp }}/install
-          ./configure --prefix=${{ runner.temp }}/install \
-            --enable-static --disable-shared
+          if [[ "${{ runner.os }}" == "Linux" ]]; then
+            ./configure --prefix=${{ runner.temp }}/install --enable-static --disable-shared \
+                        --host=${{ matrix.host }} \
+                        --with-ca-path=/etc/ssl/certs \
+                        --with-ca-bundle=/etc/ssl/certs/ca-certificates.crt \
+          else
+            ./configure --prefix=${{ runner.temp }}/install \
+                        --enable-static --disable-shared
+          fi
 
-      - name: Build the Chrome version of curl-impersonate
+      - name: Build statically
         run: |
+          set -e
           ${{ matrix.make }} build
           ${{ matrix.make }} checkbuild
-          ${{ matrix.make }} install-strip
+          if [[ "${{ runner.os }}" == "Linux" && "${{ endsWith(matrix.host, 'musl') }}" == "true" ]]; then
+            ${{ matrix.make }} install
+          else
+            ${{ matrix.make }} install-strip
+          fi
 
       - name: Create tar release files
         run: |
@@ -187,12 +146,17 @@ jobs:
           cp ngtcp2*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
           cp brotli*/out/installed/lib/lib*.a ${{ runner.temp }}/install/lib
           cp boringssl*/lib/lib*.a ${{ runner.temp }}/install/lib
+          if [[ "${{ runner.os }}" == "Linux" ]]; then
+            cp libidn2*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
+            cp libunistring*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
+          fi
 
           cd ${{ runner.temp }}/install/lib
+          ls -lah .
           if [[ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]]; then
-            tar -c -z -f ${{ runner.temp }}/libcurl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz libcurl-impersonate*
+            tar -c -z -f ${{ runner.temp }}/libcurl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz lib*
           else
-            tar -c -z -f ${{ runner.temp }}/libcurl-impersonate.${{ matrix.host }}.tar.gz libcurl-impersonate*
+            tar -c -z -f ${{ runner.temp }}/libcurl-impersonate.${{ matrix.host }}.tar.gz lib*
           fi
           echo "release_file_lib=${{ runner.temp }}/libcurl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz" >> $GITHUB_ENV
 
