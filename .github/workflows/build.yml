@@ -1,4 +1,4 @@
-name: "Build on Linux/macOS"
+name: "Build on Linux/Darwin"
 
 on:
   push:
@@ -76,6 +76,20 @@ jobs:
             arch: aarch64
             host: aarch64-linux-android
             make: make
+          - os: macos-14
+            platform: ios
+            arch: arm64
+            host: arm64-apple-ios
+            ios_sdk: iphoneos
+            ios_min_version: "13.0"
+            make: gmake
+          - os: macos-14
+            platform: ios
+            arch: arm64-simulator
+            host: arm64-apple-ios-simulator
+            ios_sdk: iphonesimulator
+            ios_min_version: "13.0"
+            make: gmake
           - os: macos-15-intel
             platform: macos
             arch: x86_64
@@ -127,6 +141,30 @@ jobs:
           echo "RANLIB=$TOOLCHAIN/bin/llvm-ranlib" >> $GITHUB_ENV
           echo "STRIP=$TOOLCHAIN/bin/llvm-strip" >> $GITHUB_ENV
 
+      - name: Set iOS toolchain env
+        if: matrix.platform == 'ios'
+        run: |
+          SDKROOT="$(xcrun --sdk ${{ matrix.ios_sdk }} --show-sdk-path)"
+          CC="$(xcrun --sdk ${{ matrix.ios_sdk }} --find clang)"
+          CXX="$(xcrun --sdk ${{ matrix.ios_sdk }} --find clang++)"
+          AR="$(xcrun --sdk ${{ matrix.ios_sdk }} --find ar)"
+          RANLIB="$(xcrun --sdk ${{ matrix.ios_sdk }} --find ranlib)"
+          STRIP="$(xcrun --sdk ${{ matrix.ios_sdk }} --find strip)"
+          if [[ "${{ matrix.ios_sdk }}" == "iphoneos" ]]; then
+            min_flag="-miphoneos-version-min=${{ matrix.ios_min_version }}"
+          else
+            min_flag="-mios-simulator-version-min=${{ matrix.ios_min_version }}"
+          fi
+          echo "SDKROOT=$SDKROOT" >> $GITHUB_ENV
+          echo "CC=$CC" >> $GITHUB_ENV
+          echo "CXX=$CXX" >> $GITHUB_ENV
+          echo "AR=$AR" >> $GITHUB_ENV
+          echo "RANLIB=$RANLIB" >> $GITHUB_ENV
+          echo "STRIP=$STRIP" >> $GITHUB_ENV
+          echo "CFLAGS=-isysroot $SDKROOT -arch arm64 $min_flag -fPIC" >> $GITHUB_ENV
+          echo "CXXFLAGS=-isysroot $SDKROOT -arch arm64 $min_flag -fPIC" >> $GITHUB_ENV
+          echo "LDFLAGS=-isysroot $SDKROOT -arch arm64 $min_flag" >> $GITHUB_ENV
+
       - name: Install Ubuntu dependencies
         if: runner.os == 'Linux'
         run: |
@@ -148,7 +186,10 @@ jobs:
         run: |
           set -e
           mkdir ${{ runner.temp }}/install
-          if [[ "${{ runner.os }}" == "Linux" ]]; then
+          if [[ "${{ matrix.platform }}" == "ios" ]]; then
+            ./configure --prefix=${{ runner.temp }}/install --enable-static --disable-shared \
+                        --host=${{ matrix.host }}
+          elif [[ "${{ runner.os }}" == "Linux" ]]; then
             ./configure --prefix=${{ runner.temp }}/install --enable-static --disable-shared \
                         --host=${{ matrix.host }} \
                         --with-ca-path=/etc/ssl/certs \
@@ -177,12 +218,29 @@ jobs:
           cp ngtcp2*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
           cp brotli*/out/installed/lib/lib*.a ${{ runner.temp }}/install/lib
           cp boringssl*/lib/lib*.a ${{ runner.temp }}/install/lib
-          if [[ "${{ matrix.platform }}" != "macos" ]]; then
+          if [[ "${{ matrix.platform }}" == "linux" || "${{ matrix.platform }}" == "android" ]]; then
             cp libidn2*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
             cp libunistring*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
           fi
 
           cd ${{ runner.temp }}/install/lib
+          mv libcurl-impersonate.a libcurl-impersonate.orig.a
+          lib_list="libcurl-impersonate.orig.a libz.a libzstd.a libbrotlidec.a libbrotlicommon.a libnghttp2.a libnghttp3.a libngtcp2.a libssl.a libcrypto.a"
+          if [[ "${{ matrix.platform }}" == "linux" || "${{ matrix.platform }}" == "android" ]]; then
+            lib_list="$lib_list libidn2.a libunistring.a"
+          fi
+          if [[ "${{ runner.os }}" == "macOS" || "${{ matrix.platform }}" == "ios" ]]; then
+            libtool -static -o libcurl-impersonate.a $lib_list
+          else
+            $CC -r -o libcurl-impersonate.full.o -Wl,--whole-archive $lib_list -Wl,--no-whole-archive
+            ar rcs libcurl-impersonate.a libcurl-impersonate.full.o
+            rm -f libcurl-impersonate.full.o
+          fi
+          rm -f libz.a libzstd.a libbrotlidec.a libbrotlicommon.a libnghttp2.a libnghttp3.a libngtcp2.a libssl.a libcrypto.a
+          if [[ "${{ matrix.platform }}" == "linux" || "${{ matrix.platform }}" == "android" ]]; then
+            rm -f libidn2.a libunistring.a
+          fi
+          rm -f libcurl-impersonate.orig.a
           ls -lah .
           if [[ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]]; then
             tar -c -z -f ${{ runner.temp }}/libcurl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz lib*
@@ -199,6 +257,14 @@ jobs:
           fi
           echo "release_file_bin=${{ runner.temp }}/curl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz" >> $GITHUB_ENV
 
+      - name: Create iOS XCFramework slice
+        if: matrix.platform == 'ios'
+        run: |
+          slice_dir="${{ runner.temp }}/ios-slice"
+          mkdir -p "$slice_dir/lib"
+          cp -R ${{ runner.temp }}/install/include "$slice_dir/"
+          cp ${{ runner.temp }}/install/lib/libcurl-impersonate.a "$slice_dir/lib/"
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -207,6 +273,13 @@ jobs:
             ${{ runner.temp }}/libcurl-impersonate*.tar.gz
             ${{ runner.temp }}/curl-impersonate*.tar.gz
 
+      - name: Upload iOS slice artifact
+        if: matrix.platform == 'ios'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-slice.${{ matrix.host }}
+          path: ${{ runner.temp }}/ios-slice
+
       - name: Upload release files
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
@@ -214,3 +287,50 @@ jobs:
           files: |
               ${{ env.release_file_lib }}
               ${{ env.release_file_bin }}
+
+  ios-xcframework:
+    name: (iOS) Create XCFramework
+    runs-on: macos-14
+    needs: build
+    steps:
+      - name: Download device slice
+        uses: actions/download-artifact@v4
+        with:
+          name: ios-slice.arm64-apple-ios
+          path: ${{ runner.temp }}/ios/device
+
+      - name: Download simulator slice
+        uses: actions/download-artifact@v4
+        with:
+          name: ios-slice.arm64-apple-ios-simulator
+          path: ${{ runner.temp }}/ios/simulator
+
+      - name: Create XCFramework
+        run: |
+          xcodebuild -create-xcframework \
+            -library ${{ runner.temp }}/ios/device/lib/libcurl-impersonate.a \
+            -headers ${{ runner.temp }}/ios/device/include \
+            -library ${{ runner.temp }}/ios/simulator/lib/libcurl-impersonate.a \
+            -headers ${{ runner.temp }}/ios/simulator/include \
+            -output ${{ runner.temp }}/libcurl-impersonate.xcframework
+
+          cd ${{ runner.temp }}
+          if [[ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]]; then
+            tar -c -z -f ${{ runner.temp }}/libcurl-impersonate-${{ github.ref_name }}.ios-xcframework.tar.gz libcurl-impersonate.xcframework
+          else
+            tar -c -z -f ${{ runner.temp }}/libcurl-impersonate.ios-xcframework.tar.gz libcurl-impersonate.xcframework
+          fi
+          echo "release_file_xcframework=${{ runner.temp }}/libcurl-impersonate-${{ github.ref_name }}.ios-xcframework.tar.gz" >> $GITHUB_ENV
+
+      - name: Upload XCFramework artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifacts.ios-xcframework
+          path: ${{ runner.temp }}/libcurl-impersonate*.ios-xcframework.tar.gz
+
+      - name: Upload XCFramework release file
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            ${{ env.release_file_xcframework }}

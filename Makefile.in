@@ -31,34 +31,6 @@ LIBIDN2_VERSION := 2.3.7
 LIBIDN2_URL := https://ftp.gnu.org/gnu/libidn/libidn2-$(LIBIDN2_VERSION).tar.gz
 CURL_VERSION := curl-8_15_0
 
-# https://github.com/google/brotli/commit/641bec0e30bea648b3da1cd90fc6b44deb429f71
-brotli_install_dir := $(abspath brotli-$(BROTLI_VERSION)/out/installed)
-brotli_static_libs := $(brotli_install_dir)/lib/libbrotlicommon.a $(brotli_install_dir)/lib/libbrotlidec.a
-boringssl_dir := $(abspath boringssl-$(BORING_SSL_COMMIT))
-boringssl_install_dir := $(boringssl_dir)/build
-boringssl_static_libs := $(boringssl_dir)/lib/libssl.a $(boringssl_dir)/lib/libcrypto.a
-nghttp2_install_dir := $(abspath nghttp2-$(NGHTTP2_VERSION)/installed)
-nghttp2_static_libs := $(nghttp2_install_dir)/lib/libnghttp2.a
-ngtcp2_install_dir := $(abspath ngtcp2-$(NGTCP2_VERSION)/installed)
-ngtcp2_static_libs := $(ngtcp2_install_dir)/lib/libngtcp2.a
-nghttp3_install_dir := $(abspath nghttp3-$(NGHTTP3_VERSION)/installed)
-nghttp3_static_libs := $(nghttp3_install_dir)/lib/libnghttp3.a
-zlib_install_dir := $(abspath zlib-$(ZLIB_VERSION)/installed)
-zlib_static_libs := $(zlib_install_dir)/lib/libz.a
-zstd_install_dir := $(abspath zstd-$(ZSTD_VERSION)/installed)
-zstd_static_libs := $(zstd_install_dir)/lib/libzstd.a
-libunistring_install_dir := $(abspath libunistring-$(LIBUNISTRING_VERSION)/installed)
-libunistring_static_libs := $(libunistring_install_dir)/lib/libunistring.a
-libidn2_install_dir := $(abspath libidn2-$(LIBIDN2_VERSION)/installed)
-libidn2_static_libs := $(libidn2_install_dir)/lib/libidn2.a
-
-# Dependencies needed to compile the Chrome version
-ifeq ($(findstring darwin,$(host_os)),darwin)
-chrome_libs := $(zlib_static_libs) $(zstd_static_libs) $(brotli_static_libs) $(boringssl_static_libs) $(nghttp2_static_libs) $(ngtcp2_static_libs) $(nghttp3_static_libs)
-else
-chrome_libs := $(zlib_static_libs) $(zstd_static_libs) $(brotli_static_libs) $(boringssl_static_libs) $(nghttp2_static_libs) $(ngtcp2_static_libs) $(nghttp3_static_libs) $(libidn2_static_libs)
-endif
-
 # The following variables will be set by the configure script.
 prefix = @prefix@
 exec_prefix = @exec_prefix@
@@ -89,6 +61,36 @@ cxx_compiler := $(firstword $(cxx_words))
 cc_extra_flags := $(filter -%,$(wordlist 2,$(words $(cc_words)),$(cc_words)))
 cxx_extra_flags := $(filter -%,$(wordlist 2,$(words $(cxx_words)),$(cxx_words)))
 
+# https://github.com/google/brotli/commit/641bec0e30bea648b3da1cd90fc6b44deb429f71
+brotli_install_dir := $(abspath brotli-$(BROTLI_VERSION)/out/installed)
+brotli_static_libs := $(brotli_install_dir)/lib/libbrotlicommon.a $(brotli_install_dir)/lib/libbrotlidec.a
+boringssl_dir := $(abspath boringssl-$(BORING_SSL_COMMIT))
+boringssl_install_dir := $(boringssl_dir)/build
+boringssl_static_libs := $(boringssl_dir)/lib/libssl.a $(boringssl_dir)/lib/libcrypto.a
+nghttp2_install_dir := $(abspath nghttp2-$(NGHTTP2_VERSION)/installed)
+nghttp2_static_libs := $(nghttp2_install_dir)/lib/libnghttp2.a
+ngtcp2_install_dir := $(abspath ngtcp2-$(NGTCP2_VERSION)/installed)
+ngtcp2_static_libs := $(ngtcp2_install_dir)/lib/libngtcp2.a
+nghttp3_install_dir := $(abspath nghttp3-$(NGHTTP3_VERSION)/installed)
+nghttp3_static_libs := $(nghttp3_install_dir)/lib/libnghttp3.a
+zlib_install_dir := $(abspath zlib-$(ZLIB_VERSION)/installed)
+zlib_static_libs := $(zlib_install_dir)/lib/libz.a
+zstd_install_dir := $(abspath zstd-$(ZSTD_VERSION)/installed)
+zstd_static_libs := $(zstd_install_dir)/lib/libzstd.a
+libunistring_install_dir := $(abspath libunistring-$(LIBUNISTRING_VERSION)/installed)
+libunistring_static_libs := $(libunistring_install_dir)/lib/libunistring.a
+libidn2_install_dir := $(abspath libidn2-$(LIBIDN2_VERSION)/installed)
+libidn2_static_libs := $(libidn2_install_dir)/lib/libidn2.a
+
+apple_host_os := $(filter darwin% ios% tvos% watchos%,$(host_os))
+
+# Dependencies needed to compile the Chrome version
+ifneq ($(apple_host_os),)
+chrome_libs := $(zlib_static_libs) $(zstd_static_libs) $(brotli_static_libs) $(boringssl_static_libs) $(nghttp2_static_libs) $(ngtcp2_static_libs) $(nghttp3_static_libs)
+else
+chrome_libs := $(zlib_static_libs) $(zstd_static_libs) $(brotli_static_libs) $(boringssl_static_libs) $(nghttp2_static_libs) $(ngtcp2_static_libs) $(nghttp3_static_libs) $(libidn2_static_libs)
+endif
+
 # Auto-generate Makefile help.
 # Borrowed from https://marmelab.com/blog/2016/02/29/auto-documented-makefile.html
 help: ## Show this help message
@@ -112,7 +114,7 @@ ifeq ($(host),$(build))
 	./src/curl-impersonate -V | grep -q nghttp2
 	./src/curl-impersonate -V | grep -q BoringSSL
 	case "$(host_os)" in \
-	  darwin*) ./src/curl-impersonate -V | grep -q AppleIDN ;; \
+	  darwin*|ios*|tvos*|watchos*) ./src/curl-impersonate -V | grep -q AppleIDN ;; \
 	  *) ./src/curl-impersonate -V | grep -q libidn2 ;; \
 	esac
 	$(info Build OK)
@@ -249,7 +251,7 @@ $(boringssl_static_libs): boringssl-$(BORING_SSL_COMMIT).zip boringssl-$(BORING_
 		linux*)                 \
 			system_name=Linux   \
 			;;                  \
-		darwin*)                \
+		darwin*|ios*|tvos*|watchos*) \
 			system_name=Darwin  \
 			;;                  \
 		*)                      \
@@ -422,7 +424,7 @@ $(CURL_VERSION)/.chrome: $(chrome_libs)	$(CURL_VERSION).tar.gz $(CURL_VERSION)/.
 	  config_flags="$$config_flags --with-ngtcp2=$(ngtcp2_install_dir)"; \
 	  config_flags="$$config_flags --with-nghttp3=$(nghttp3_install_dir)"; \
 	  case "$(host_os)" in \
-	    darwin*) \
+	    darwin*|ios*|tvos*|watchos*) \
 	      config_flags="$$config_flags --with-apple-idn --without-libidn2"; \
 	      ;; \
 	    *) \
@@ -452,7 +454,7 @@ $(CURL_VERSION)/.chrome: $(chrome_libs)	$(CURL_VERSION).tar.gz $(CURL_VERSION)/.
 		config_flags="$$config_flags --with-ca-path=$(with_ca_path)"; \
 	  fi; \
 	  case "$(host_os)" in \
-	    darwin*) add_libs="-pthread -lc++" ;; \
+	    darwin*|ios*|tvos*|watchos*) add_libs="-pthread -lc++" ;; \
 	    *) add_libs="-pthread -lstdc++ -L$(libunistring_install_dir)/lib -lunistring" ;; \
 	  esac; \
 	}
@@ -462,7 +464,7 @@ $(CURL_VERSION)/.chrome: $(chrome_libs)	$(CURL_VERSION).tar.gz $(CURL_VERSION)/.
 	{ \
 		lib_path="$(nghttp2_install_dir)/lib:$(ngtcp2_install_dir)/lib:$(nghttp3_install_dir)/lib:$(zstd_install_dir)/lib:$(zlib_install_dir)/lib:$(brotli_install_dir)/lib"; \
 		case "$(host_os)" in \
-		  darwin*) ;; \
+		  darwin*|ios*|tvos*|watchos*) ;; \
 		  *) lib_path="$$lib_path:$(libidn2_install_dir)/lib:$(libunistring_install_dir)/lib" ;; \
 		esac; \
 	}
