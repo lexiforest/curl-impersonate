@@ -1,4 +1,4 @@
-name: "Build on *nix"
+name: "Build on Linux/macOS"
 
 on:
   push:
@@ -22,7 +22,7 @@ env:
 
 jobs:
   build-and-test-linux:
-    name: (${{ matrix.host }}) Build curl-impersonate and run the tests
+    name: (${{ matrix.host }}) Build curl-impersonate
     runs-on: ubuntu-latest
     env:
       CC: ${{ github.workspace }}/zigshim/cc
@@ -35,31 +35,24 @@ jobs:
         include:
           - arch: x86_64
             host: x86_64-linux-gnu
-            capture_interface: eth0
             zigflags: -target x86_64-linux-gnu.2.17
           - arch: x86_64
             host: x86_64-linux-musl
-            capture_interface: eth0
             zigflags: -target x86_64-linux-musl -fPIC
           - arch: i386
             host: i386-linux-gnu
-            capture_interface: eth0
             zigflags: -target x86-linux-gnu.2.17
           - arch: aarch64
             host: aarch64-linux-gnu
-            capture_interface: eth0
             zigflags: -target aarch64-linux-gnu.2.17
           - arch: aarch64
             host: aarch64-linux-musl
-            capture_interface: eth0
             zigflags: -target aarch64-linux-musl -fPIC -mno-outline-atomics
           - arch: arm
             host: arm-linux-gnueabihf
-            capture_interface: eth0
             zigflags: -target arm-linux-gnueabihf.2.17 -mcpu=arm1176jzf_s
           - arch: riscv64
             host: riscv64-linux-gnu
-            capture_interface: eth0
             zigflags: -target riscv64-linux-gnu.2.27
     steps:
       - name: Check out the repo
@@ -76,32 +69,6 @@ jobs:
           sudo apt-get install build-essential pkg-config cmake ninja-build curl autoconf automake libtool
           sudo apt-get install gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf gcc-riscv64-linux-gnu
           sudo apt-get install golang-go
-
-      # Cache the build of BoringSSL, which is the longest part of the build
-      # We must cache the .zip as well, otherwise the Makefile will
-      # rebuild BoringSSL. This whole thing is a bit hacky, but necessary to
-      # reduce the insanely long build times.
-      - name: Cache BoringSSL source
-        uses: actions/cache@v4
-        with:
-          path: boringssl.zip
-          key: ${{ runner.os }}-${{ matrix.host }}-boring-source-${{ env.BORING_SSL_COMMIT }}
-
-      - name: Cache BoringSSL build
-        id: cache-boringssl
-        uses: actions/cache@v4
-        with:
-          path: boringssl/build
-          key: ${{ runner.os }}-${{ matrix.host }}-boring-build-${{ env.BORING_SSL_COMMIT }}-${{ hashFiles('patches/boringssl.patch') }}
-
-      # Trick the Makefile into skipping the BoringSSL build step
-      # if it was found in the cache. See Makefile.in
-      - name: Post BoringSSL cache restore
-        if: ${{ steps.cache-boringssl.outputs.cache-hit != false }}
-        run: |
-          touch boringssl.zip
-          touch boringssl/.patched
-          find boringssl/build -type f | xargs touch
 
       - name: Configure statically
         run: |
@@ -123,7 +90,6 @@ jobs:
             make install-strip
           fi
 
-       # Upload pre-compiled binaries to GitHub releases page and Github actions archives.
       - name: Create tar release files
         run: |
           cp zlib-*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
@@ -156,7 +122,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: curl-impersonate.${{ matrix.host }}.tar.gz
+          name: output.${{ matrix.host }}
           path: |
             ${{ runner.temp }}/libcurl-impersonate*.tar.gz
             ${{ runner.temp }}/curl-impersonate*.tar.gz
@@ -170,7 +136,7 @@ jobs:
               ${{ env.release_file_bin }}
 
   build-and-test-macos:
-    name: (macOS ${{ matrix.arch }}) Build curl-impersonate and run the tests
+    name: (macOS ${{ matrix.arch }}) Build curl-impersonate
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -179,12 +145,10 @@ jobs:
           - os: macos-15-intel
             arch: x86_64
             host: x86_64-macos
-            capture_interface: en0
             make: gmake
           - os: macos-14
             arch: arm64
             host: arm64-macos
-            capture_interface: en0
             make: gmake
     steps:
       - uses: actions/setup-python@v4
@@ -202,41 +166,11 @@ jobs:
       - name: Check out the repo
         uses: actions/checkout@v2
 
-      - name: Install dependencies for the tests script
-        run: |
-          pip3 install -r tests/requirements.txt
-
       - name: Run configure script
         run: |
           mkdir ${{ runner.temp }}/install
           ./configure --prefix=${{ runner.temp }}/install \
             --enable-static --disable-shared
-
-      # Cache the build of BoringSSL, which is the longest part of the build
-      # We must cache the .zip as well, otherwise the Makefile will
-      # rebuild BoringSSL. This whole thing is a bit hacky, but necessary to
-      # reduce the insanely long build times.
-      - name: Cache BoringSSL source
-        uses: actions/cache@v3
-        with:
-          path: boringssl.zip
-          key: ${{ runner.os }}-${{ matrix.arch }}-boring-source-${{ env.BORING_SSL_COMMIT }}
-
-      - name: Cache BoringSSL build
-        id: cache-boringssl
-        uses: actions/cache@v3
-        with:
-          path: boringssl/build
-          key: ${{ runner.os }}-${{ matrix.arch }}-boring-build-${{ env.BORING_SSL_COMMIT }}-${{ hashFiles('chrome/patches/boringssl*.patch') }}
-
-      # Trick the Makefile into skipping the BoringSSL build step
-      # if it was found in the cache. See Makefile.in
-      - name: Post BoringSSL cache restore
-        if: ${{ steps.cache-boringssl.outputs.cache-hit != false }}
-        run: |
-          touch boringssl.zip
-          touch boringssl/.patched
-          find boringssl/build -type f | xargs touch
 
       - name: Build the Chrome version of curl-impersonate
         run: |
@@ -244,23 +178,16 @@ jobs:
           ${{ matrix.make }} checkbuild
           ${{ matrix.make }} install-strip
 
-      - name: Prepare the tests
-        run: |
-          # Compile 'minicurl' which is used by the tests
-          gcc -Wall -Werror -o ${{ runner.temp }}/install/bin/minicurl tests/minicurl.c `curl-config --libs`
-
-      # For now we can only run the tests when not cross compiling, since the
-      # tests run the curl-impersonate binary locally.
-      # - name: Run the tests
-      #   run: |
-      #     cd tests
-      #     # sudo is needed for capturing packets
-      #     python_bin=$(which python3)
-      #     sudo $python_bin -m pytest . --log-cli-level DEBUG --install-dir ${{ runner.temp }}/install --capture-interface ${{ matrix.capture_interface }}
-
-       # Upload pre-compiled binaries to GitHub releases page.
       - name: Create tar release files
         run: |
+          cp zlib-*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
+          cp zstd-*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
+          cp nghttp2*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
+          cp nghttp3*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
+          cp ngtcp2*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
+          cp brotli*/out/installed/lib/lib*.a ${{ runner.temp }}/install/lib
+          cp boringssl*/lib/lib*.a ${{ runner.temp }}/install/lib
+
           cd ${{ runner.temp }}/install/lib
           if [[ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]]; then
             tar -c -z -f ${{ runner.temp }}/libcurl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz libcurl-impersonate*
@@ -280,7 +207,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: curl-impersonate.${{ matrix.host }}.tar.gz
+          name: output.${{ matrix.host }}
           path: |
             ${{ runner.temp }}/libcurl-impersonate*.tar.gz
             ${{ runner.temp }}/curl-impersonate*.tar.gz
