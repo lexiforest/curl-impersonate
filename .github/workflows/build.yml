@@ -238,7 +238,7 @@ jobs:
 
           cd ${{ runner.temp }}/install/lib
           mv libcurl-impersonate.a libcurl-impersonate.orig.a
-          lib_list="libcurl-impersonate.orig.a libz.a libzstd.a libbrotlidec.a libbrotlicommon.a libnghttp2.a libnghttp3.a libngtcp2.a libssl.a libcrypto.a"
+          lib_list="libcurl-impersonate.orig.a libz.a libzstd.a libbrotlidec.a libbrotlicommon.a libbrotlienc.a libnghttp2.a libnghttp3.a libngtcp2.a libngtcp2_crypto_boringssl.a libssl.a libcrypto.a"
           if [[ "${{ matrix.platform }}" == "linux" || "${{ matrix.platform }}" == "android" ]]; then
             lib_list="$lib_list libidn2.a"
           fi
@@ -249,7 +249,7 @@ jobs:
             ar rcs libcurl-impersonate.a libcurl-impersonate.full.o
             rm -f libcurl-impersonate.full.o
           fi
-          rm -f libz.a libzstd.a libbrotlidec.a libbrotlicommon.a libnghttp2.a libnghttp3.a libngtcp2.a libssl.a libcrypto.a
+          rm -f libz.a libzstd.a libbrotlidec.a libbrotlicommon.a libbrotlienc.a libnghttp2.a libnghttp3.a libngtcp2.a libngtcp2_crypto_boringssl.a libssl.a libcrypto.a
           if [[ "${{ matrix.platform }}" == "linux" || "${{ matrix.platform }}" == "android" ]]; then
             rm -f libidn2.a libunistring.a
           fi
@@ -290,7 +290,7 @@ jobs:
         if: matrix.platform == 'ios'
         uses: actions/upload-artifact@v4
         with:
-          name: ios-slice.${{ matrix.host }}
+          name: ios-slice.${{ matrix.host_label }}
           path: ${{ runner.temp }}/ios-slice
 
       - name: Upload release files
