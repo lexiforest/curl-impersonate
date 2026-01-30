@@ -19,6 +19,7 @@ permissions:
 env:
   BORING_SSL_COMMIT: 673e61fc215b178a90c0e67858bbf162c8158993
   MACOSX_DEPLOYMENT_TARGET: 11.0
+  API: "30"  # Targeting android API version, Android 11
 
 jobs:
   build:
@@ -29,45 +30,59 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
+            platform: linux
             arch: x86_64
             host: x86_64-linux-gnu
             zigflags: -target x86_64-linux-gnu.2.17
             make: make
           - os: ubuntu-latest
+            platform: linux
             arch: x86_64
             host: x86_64-linux-musl
             zigflags: -target x86_64-linux-musl -fPIC
             make: make
           - os: ubuntu-latest
+            platform: linux
             arch: i386
             host: i386-linux-gnu
             zigflags: -target x86-linux-gnu.2.17
             make: make
           - os: ubuntu-latest
+            platform: linux
             arch: aarch64
             host: aarch64-linux-gnu
             zigflags: -target aarch64-linux-gnu.2.17
             make: make
           - os: ubuntu-latest
+            platform: linux
             arch: aarch64
             host: aarch64-linux-musl
             zigflags: -target aarch64-linux-musl -fPIC -mno-outline-atomics
             make: make
           - os: ubuntu-latest
+            platform: linux
             arch: arm
             host: arm-linux-gnueabihf
             zigflags: -target arm-linux-gnueabihf.2.17 -mcpu=arm1176jzf_s
             make: make
           - os: ubuntu-latest
+            platform: linux
             arch: riscv64
             host: riscv64-linux-gnu
             zigflags: -target riscv64-linux-gnu.2.27
             make: make
+          - os: ubuntu-latest
+            platform: android
+            arch: aarch64
+            host: aarch64-linux-android
+            make: make
           - os: macos-15-intel
+            platform: macos
             arch: x86_64
             host: x86_64-macos
             make: gmake
           - os: macos-14
+            platform: macos
             arch: arm64
             host: arm64-macos
             make: gmake
@@ -76,18 +91,41 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Set up zig
-        if: runner.os == 'Linux'
+        if: matrix.platform == 'linux'
         uses: goto-bus-stop/setup-zig@v2
         with:
           version: 0.14.0
 
       - name: Set zig env
-        if: runner.os == 'Linux'
+        if: matrix.platform == 'linux'
         run: |
           echo "CC=${{ github.workspace }}/zigshim/cc" >> $GITHUB_ENV
           echo "CXX=${{ github.workspace }}/zigshim/cxx" >> $GITHUB_ENV
           echo "AR=${{ github.workspace }}/zigshim/ar" >> $GITHUB_ENV
           echo "ZIG_FLAGS=${{ matrix.zigflags }}" >> $GITHUB_ENV
+
+      - name: Set up Android NDK
+        if: matrix.platform == 'android'
+        uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: r21e
+          local-cache: true
+
+      - name: Set Android toolchain env
+        if: matrix.platform == 'android'
+        env:
+          NDK: ${{ steps.setup-ndk.outputs.ndk-path }}
+        run: |
+          TOOLCHAIN="$NDK/toolchains/llvm/prebuilt/linux-x86_64"
+          TARGET="${{ matrix.host }}"
+          echo "AR=$TOOLCHAIN/bin/llvm-ar" >> $GITHUB_ENV
+          echo "CC=$TOOLCHAIN/bin/${TARGET}${API}-clang" >> $GITHUB_ENV
+          echo "AS=$TOOLCHAIN/bin/${TARGET}${API}-clang" >> $GITHUB_ENV
+          echo "CXX=$TOOLCHAIN/bin/${TARGET}${API}-clang++" >> $GITHUB_ENV
+          echo "LD=$TOOLCHAIN/bin/ld" >> $GITHUB_ENV
+          echo "RANLIB=$TOOLCHAIN/bin/llvm-ranlib" >> $GITHUB_ENV
+          echo "STRIP=$TOOLCHAIN/bin/llvm-strip" >> $GITHUB_ENV
 
       - name: Install Ubuntu dependencies
         if: runner.os == 'Linux'
@@ -139,7 +177,7 @@ jobs:
           cp ngtcp2*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
           cp brotli*/out/installed/lib/lib*.a ${{ runner.temp }}/install/lib
           cp boringssl*/lib/lib*.a ${{ runner.temp }}/install/lib
-          if [[ "${{ runner.os }}" == "Linux" ]]; then
+          if [[ "${{ matrix.platform }}" != "macos" ]]; then
             cp libidn2*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
             cp libunistring*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
           fi
