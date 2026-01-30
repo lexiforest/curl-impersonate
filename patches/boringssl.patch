@@ -1,5 +1,5 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 50f5e3799..00866966e 100644
+index 50f5e3799..853470cbe 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -124,7 +124,7 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CLANG)
@@ -29,7 +29,14 @@ index 50f5e3799..00866966e 100644
  add_executable(decrepit_test ${DECREPIT_TEST_SOURCES})
  target_link_libraries(decrepit_test test_support_lib boringssl_gtest
                        decrepit crypto)
-@@ -717,9 +713,8 @@ target_link_libraries(bssl ssl crypto)
+@@ -710,16 +706,13 @@ set_target_properties(
+   PROPERTIES
+   COMPILE_FLAGS "${PKI_CXX_FLAGS}")
+ 
+-add_executable(bssl ${BSSL_SOURCES})
+-target_link_libraries(bssl ssl crypto)
+ 
+ # Historically, targets were built in subdirectories. For compatibility with
  # existing tools, we, for now, copy the targets into the subdirectories. This
  # will be removed sometime in 2024.
  copy_post_build(crypto crypto crypto_test urandom_test)
@@ -40,7 +47,7 @@ index 50f5e3799..00866966e 100644
  
  if(FUZZ)
    if(LIBFUZZER_FROM_DEPS)
-@@ -777,30 +772,6 @@ file(STRINGS util/go_tests.txt GO_TESTS)
+@@ -777,33 +770,8 @@ file(STRINGS util/go_tests.txt GO_TESTS)
  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
               util/go_tests.txt)
  
@@ -70,7 +77,10 @@ index 50f5e3799..00866966e 100644
 -
  if(INSTALL_ENABLED)
    install(TARGETS crypto ssl EXPORT OpenSSLTargets)
-   install(TARGETS bssl)
+-  install(TARGETS bssl)
+   install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+   install(EXPORT OpenSSLTargets
+           FILE OpenSSLTargets.cmake
 diff --git a/crypto/cipher/e_tls.cc b/crypto/cipher/e_tls.cc
 index ccb677bad..55bba4e3f 100644
 --- a/crypto/cipher/e_tls.cc
@@ -624,7 +634,7 @@ index 4bd5c5d69..1adae1322 100644
      if (!kExtensions[i].add_clienthello(hs, &extensions, &extensions, type)) {
        OPENSSL_PUT_ERROR(SSL, SSL_R_ERROR_ADDING_EXTENSION);
 diff --git a/ssl/handshake_client.cc b/ssl/handshake_client.cc
-index 4ce8d1802..94fa868d8 100644
+index 4ce8d1802..967c91a29 100644
 --- a/ssl/handshake_client.cc
 +++ b/ssl/handshake_client.cc
 @@ -26,6 +26,8 @@
@@ -636,7 +646,7 @@ index 4ce8d1802..94fa868d8 100644
  #include <openssl/ec_key.h>
  #include <openssl/ecdsa.h>
  #include <openssl/err.h>
-@@ -125,15 +127,43 @@ static bool ssl_write_client_cipher_list(const SSL_HANDSHAKE *hs, CBB *out,
+@@ -125,15 +127,44 @@ static bool ssl_write_client_cipher_list(const SSL_HANDSHAKE *hs, CBB *out,
          TLS1_3_CK_AES_128_GCM_SHA256 & 0xffff,
          TLS1_3_CK_CHACHA20_POLY1305_SHA256 & 0xffff,
      };
@@ -657,13 +667,14 @@ index 4ce8d1802..94fa868d8 100644
 +    };
 +
 +#define TLS13_CIPHER_LEN 74
-+
-+    const char *order = hs->config->cipher_order;
-+    // printf("CIPHER ORDER IS %s\n", order);
  
 -    const bool has_aes_hw = ssl->config->aes_hw_override
 -                                ? ssl->config->aes_hw_override_value
 -                                : EVP_has_aes_hardware();
++    const char *order = hs->config->cipher_order;
++    // printf("CIPHER ORDER IS %s\n", order);
++
++    // This may seem silly at the first sight, but it's actually faster and easier.
      const bssl::Span<const uint16_t> ciphers =
 -        ssl->config->compliance_policy == ssl_compliance_policy_cnsa_202407
 -            ? bssl::Span<const uint16_t>(kCiphersCNSA)
@@ -687,7 +698,7 @@ index 4ce8d1802..94fa868d8 100644
  
      for (auto cipher : ciphers) {
        if (!ssl_add_tls13_cipher(&child, cipher,
-@@ -431,8 +461,10 @@ static enum ssl_hs_wait_t do_start_connect(SSL_HANDSHAKE *hs) {
+@@ -431,8 +462,10 @@ static enum ssl_hs_wait_t do_start_connect(SSL_HANDSHAKE *hs) {
      hs->early_data_offered = true;
    }
  
@@ -698,7 +709,7 @@ index 4ce8d1802..94fa868d8 100644
        !ssl_encrypt_client_hello(hs, Span(ech_enc, ech_enc_len)) ||
        !ssl_add_client_hello(hs)) {
      return ssl_hs_error;
-@@ -1026,7 +1058,28 @@ static enum ssl_hs_wait_t do_read_server_key_exchange(SSL_HANDSHAKE *hs) {
+@@ -1026,7 +1059,28 @@ static enum ssl_hs_wait_t do_read_server_key_exchange(SSL_HANDSHAKE *hs) {
      hs->peer_psk_identity_hint.reset(raw);
    }
  
@@ -728,7 +739,7 @@ index 4ce8d1802..94fa868d8 100644
      // Parse the server parameters.
      uint8_t group_type;
      uint16_t group_id;
-@@ -1366,7 +1419,9 @@ static enum ssl_hs_wait_t do_send_client_key_exchange(SSL_HANDSHAKE *hs) {
+@@ -1366,7 +1420,9 @@ static enum ssl_hs_wait_t do_send_client_key_exchange(SSL_HANDSHAKE *hs) {
      ssl_key_usage_t intended_use = (alg_k & SSL_kRSA)
                                         ? key_usage_encipherment
                                         : key_usage_digital_signature;
@@ -739,7 +750,7 @@ index 4ce8d1802..94fa868d8 100644
        if (hs->config->enforce_rsa_key_usage ||
            EVP_PKEY_id(hs->peer_pubkey.get()) != EVP_PKEY_RSA) {
          return ssl_hs_error;
-@@ -1440,6 +1495,64 @@ static enum ssl_hs_wait_t do_send_client_key_exchange(SSL_HANDSHAKE *hs) {
+@@ -1440,6 +1496,64 @@ static enum ssl_hs_wait_t do_send_client_key_exchange(SSL_HANDSHAKE *hs) {
          !CBB_flush(&body)) {
        return ssl_hs_error;
      }
