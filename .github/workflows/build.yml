@@ -109,7 +109,7 @@ jobs:
         uses: nttld/setup-ndk@v1
         id: setup-ndk
         with:
-          ndk-version: r21e
+          ndk-version: r26d
           local-cache: true
 
       - name: Set Android toolchain env
