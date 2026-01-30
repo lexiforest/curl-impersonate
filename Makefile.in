@@ -126,7 +126,8 @@ endif
 install:
 	cd $(CURL_VERSION)
 	$(MAKE) install-exec DESTDIR="$(DESTDIR)" MAKEFLAGS=
-	$(MAKE) install-headers DESTDIR="$(DESTDIR)" MAKEFLAGS=
+	mkdir -p "$(DESTDIR)@includedir@"
+	cp -R include/curl "$(DESTDIR)@includedir@"
 	# Wrapper scripts for the cli shortcut (e.g. 'curl_chrome99')
 	install $(srcdir)/bin/curl_* "$(DESTDIR)@bindir@"
 .PHONY: install
@@ -134,7 +135,8 @@ install:
 install-strip: ## Like 'install', but strip binaries for smaller size
 	cd $(CURL_VERSION)
 	$(MAKE) install-exec DESTDIR="$(DESTDIR)" MAKEFLAGS=
-	$(MAKE) install-headers DESTDIR="$(DESTDIR)" MAKEFLAGS=
+	mkdir -p "$(DESTDIR)@includedir@"
+	cp -R include/curl "$(DESTDIR)@includedir@"
 	# We could have used 'install-strip' but then the docs would be installed as well.
 	# Instead strip manually.
 	$(STRIP) "$(DESTDIR)@bindir@/curl-impersonate"
