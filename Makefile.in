@@ -207,6 +207,9 @@ $(brotli_static_libs): brotli-$(BROTLI_VERSION).tar.gz
 		linux*)                      \
 			system_name=Linux        \
 			;;                       \
+		ios*)                        \
+			system_name=iOS          \
+			;;                       \
 		darwin*)                     \
 			system_name=Darwin       \
 			;;                       \
@@ -225,6 +228,8 @@ $(brotli_static_libs): brotli-$(BROTLI_VERSION).tar.gz
 		-DCMAKE_SYSTEM_NAME=$$system_name \
 		-DCMAKE_SYSTEM_PROCESSOR=$(host_cpu) \
 		-DBUILD_SHARED_LIBS=OFF \
+		-DBROTLI_DISABLE_TESTS=ON \
+		-DBROTLI_DISABLE_TOOLS=ON \
 		..
 
 	@cmake@ --build . --config Release --target install --parallel $(SUBJOBS)
@@ -289,6 +294,8 @@ $(boringssl_static_libs): boringssl-$(BORING_SSL_COMMIT).zip boringssl-$(BORING_
 			-DCMAKE_SYSTEM_NAME=$$system_name \
 			-DCMAKE_SYSTEM_PROCESSOR=$(host_cpu) \
 			$$cmake_osx_flags \
+			-DBUILD_TOOL=OFF \
+			-DBUILD_TESTING=OFF \
 			-GNinja \
 			..
 	@ninja@ -j$(SUBJOBS)
