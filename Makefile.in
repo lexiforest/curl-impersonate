@@ -9,7 +9,7 @@ SHELL := bash
 # MAKEFLAGS += --no-builtin-rules
 SUBJOBS := 4
 
-BROTLI_VERSION := 1.1.0
+BROTLI_VERSION := 1.2.0
 # Chrome 135.0.7049.41
 # In case this is changed, update build-and-test-make.yml and build-win as well
 BORING_SSL_COMMIT := 673e61fc215b178a90c0e67858bbf162c8158993
@@ -230,6 +230,8 @@ $(brotli_static_libs): brotli-$(BROTLI_VERSION).tar.gz
 		-DBUILD_SHARED_LIBS=OFF \
 		-DBROTLI_DISABLE_TESTS=ON \
 		-DBROTLI_DISABLE_TOOLS=ON \
+		-DBROTLI_BUILD_TOOLS=OFF \
+		-DCMAKE_MACOSX_BUNDLE=OFF \
 		..
 
 	@cmake@ --build . --config Release --target install --parallel $(SUBJOBS)
