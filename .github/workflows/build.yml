@@ -240,7 +240,7 @@ jobs:
           mv libcurl-impersonate.a libcurl-impersonate.orig.a
           lib_list="libcurl-impersonate.orig.a libz.a libzstd.a libbrotlidec.a libbrotlicommon.a libnghttp2.a libnghttp3.a libngtcp2.a libssl.a libcrypto.a"
           if [[ "${{ matrix.platform }}" == "linux" || "${{ matrix.platform }}" == "android" ]]; then
-            lib_list="$lib_list libidn2.a libunistring.a"
+            lib_list="$lib_list libidn2.a"
           fi
           if [[ "${{ runner.os }}" == "macOS" || "${{ matrix.platform }}" == "ios" ]]; then
             libtool -static -o libcurl-impersonate.a $lib_list
