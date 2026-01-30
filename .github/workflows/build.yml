@@ -23,7 +23,7 @@ env:
 
 jobs:
   build:
-    name: (${{ matrix.host }}) Build curl-impersonate
+    name: (${{ matrix.host_label }}) Build curl-impersonate
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -33,60 +33,70 @@ jobs:
             platform: linux
             arch: x86_64
             host: x86_64-linux-gnu
+            host_label: x86_64-linux-gnu
             zigflags: -target x86_64-linux-gnu.2.17
             make: make
           - os: ubuntu-latest
             platform: linux
             arch: x86_64
             host: x86_64-linux-musl
+            host_label: x86_64-linux-musl
             zigflags: -target x86_64-linux-musl -fPIC
             make: make
           - os: ubuntu-latest
             platform: linux
             arch: i386
             host: i386-linux-gnu
+            host_label: i386-linux-gnu
             zigflags: -target x86-linux-gnu.2.17
             make: make
           - os: ubuntu-latest
             platform: linux
             arch: aarch64
             host: aarch64-linux-gnu
+            host_label: aarch64-linux-gnu
             zigflags: -target aarch64-linux-gnu.2.17
             make: make
           - os: ubuntu-latest
             platform: linux
             arch: aarch64
             host: aarch64-linux-musl
+            host_label: aarch64-linux-musl
             zigflags: -target aarch64-linux-musl -fPIC -mno-outline-atomics
             make: make
           - os: ubuntu-latest
             platform: linux
             arch: arm
             host: arm-linux-gnueabihf
+            host_label: arm-linux-gnueabihf
             zigflags: -target arm-linux-gnueabihf.2.17 -mcpu=arm1176jzf_s
             make: make
           - os: ubuntu-latest
             platform: linux
             arch: riscv64
             host: riscv64-linux-gnu
+            host_label: riscv64-linux-gnu
             zigflags: -target riscv64-linux-gnu.2.27
             make: make
           - os: ubuntu-latest
             platform: android
             arch: aarch64
             host: aarch64-linux-android
+            host_label: aarch64-linux-android
             make: make
           - os: macos-14
             platform: ios
             arch: arm64
             host: arm64-apple-ios
+            host_label: arm64-apple-ios
             ios_sdk: iphoneos
             ios_min_version: "13.0"
             make: gmake
           - os: macos-14
             platform: ios
             arch: arm64-simulator
-            host: arm64-apple-ios-simulator
+            host: arm64-apple-ios
+            host_label: arm64-apple-ios-simulator
             ios_sdk: iphonesimulator
             ios_min_version: "13.0"
             make: gmake
@@ -94,11 +104,13 @@ jobs:
             platform: macos
             arch: x86_64
             host: x86_64-macos
+            host_label: x86_64-macos
             make: gmake
           - os: macos-14
             platform: macos
             arch: arm64
             host: arm64-macos
+            host_label: arm64-macos
             make: gmake
     steps:
       - name: Check out the repo
@@ -156,6 +168,7 @@ jobs:
             min_flag="-mios-simulator-version-min=${{ matrix.ios_min_version }}"
           fi
           echo "SDKROOT=$SDKROOT" >> $GITHUB_ENV
+          echo "IOS_MIN_VERSION=${{ matrix.ios_min_version }}" >> $GITHUB_ENV
           echo "CC=$CC" >> $GITHUB_ENV
           echo "CXX=$CXX" >> $GITHUB_ENV
           echo "AR=$AR" >> $GITHUB_ENV
@@ -243,19 +256,19 @@ jobs:
           rm -f libcurl-impersonate.orig.a
           ls -lah .
           if [[ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]]; then
-            tar -c -z -f ${{ runner.temp }}/libcurl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz lib*
+            tar -c -z -f ${{ runner.temp }}/libcurl-impersonate-${{ github.ref_name }}.${{ matrix.host_label }}.tar.gz lib*
           else
-            tar -c -z -f ${{ runner.temp }}/libcurl-impersonate.${{ matrix.host }}.tar.gz lib*
+            tar -c -z -f ${{ runner.temp }}/libcurl-impersonate.${{ matrix.host_label }}.tar.gz lib*
           fi
-          echo "release_file_lib=${{ runner.temp }}/libcurl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz" >> $GITHUB_ENV
+          echo "release_file_lib=${{ runner.temp }}/libcurl-impersonate-${{ github.ref_name }}.${{ matrix.host_label }}.tar.gz" >> $GITHUB_ENV
 
           cd ${{ runner.temp }}/install/bin
           if [[ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]]; then
-            tar -c -z -f ${{ runner.temp }}/curl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz curl-impersonate curl_*
+            tar -c -z -f ${{ runner.temp }}/curl-impersonate-${{ github.ref_name }}.${{ matrix.host_label }}.tar.gz curl-impersonate curl_*
           else
-            tar -c -z -f ${{ runner.temp }}/curl-impersonate.${{ matrix.host }}.tar.gz curl-impersonate curl_*
+            tar -c -z -f ${{ runner.temp }}/curl-impersonate.${{ matrix.host_label }}.tar.gz curl-impersonate curl_*
           fi
-          echo "release_file_bin=${{ runner.temp }}/curl-impersonate-${{ github.ref_name }}.${{ matrix.host }}.tar.gz" >> $GITHUB_ENV
+          echo "release_file_bin=${{ runner.temp }}/curl-impersonate-${{ github.ref_name }}.${{ matrix.host_label }}.tar.gz" >> $GITHUB_ENV
 
       - name: Create iOS XCFramework slice
         if: matrix.platform == 'ios'
@@ -268,7 +281,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: artifacts.${{ matrix.host }}
+          name: artifacts.${{ matrix.host_label }}
           path: |
             ${{ runner.temp }}/libcurl-impersonate*.tar.gz
             ${{ runner.temp }}/curl-impersonate*.tar.gz

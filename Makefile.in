@@ -251,13 +251,30 @@ $(boringssl_static_libs): boringssl-$(BORING_SSL_COMMIT).zip boringssl-$(BORING_
 		linux*)                 \
 			system_name=Linux   \
 			;;                  \
-		darwin*|ios*|tvos*|watchos*) \
+		ios*)                   \
+			system_name=iOS     \
+			;;                  \
+		darwin*|tvos*|watchos*) \
 			system_name=Darwin  \
 			;;                  \
 		*)                      \
 			system_name=Linux   \
 			;;                  \
 	esac
+
+	{ \
+		cmake_osx_flags=""; \
+		case "$(host_os)" in \
+			ios*) \
+				if test -n "$(SDKROOT)"; then \
+					cmake_osx_flags="$$cmake_osx_flags -DCMAKE_OSX_SYSROOT=$(SDKROOT)"; \
+				fi; \
+				if test -n "$(IOS_MIN_VERSION)"; then \
+					cmake_osx_flags="$$cmake_osx_flags -DCMAKE_OSX_DEPLOYMENT_TARGET=$(IOS_MIN_VERSION)"; \
+				fi; \
+				;; \
+		esac; \
+	}
 
 	# The extra CMAKE_C_FLAGS are needed because otherwise boringssl fails to
 	# compile in release mode on some systems with gcc 12 (e.g. Fedora).
@@ -271,6 +288,7 @@ $(boringssl_static_libs): boringssl-$(BORING_SSL_COMMIT).zip boringssl-$(BORING_
 			-DCMAKE_C_COMPILER=$(cc_compiler) \
 			-DCMAKE_SYSTEM_NAME=$$system_name \
 			-DCMAKE_SYSTEM_PROCESSOR=$(host_cpu) \
+			$$cmake_osx_flags \
 			-GNinja \
 			..
 	@ninja@ -j$(SUBJOBS)
