@@ -97,12 +97,6 @@ jobs:
           sudo apt-get install gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf gcc-riscv64-linux-gnu
           sudo apt-get install golang-go
 
-      - name: Set up Python
-        if: runner.os == 'macOS'
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-
       - name: Install macOS dependencies
         if: runner.os == 'macOS'
         run: |
@@ -120,10 +114,9 @@ jobs:
             ./configure --prefix=${{ runner.temp }}/install --enable-static --disable-shared \
                         --host=${{ matrix.host }} \
                         --with-ca-path=/etc/ssl/certs \
-                        --with-ca-bundle=/etc/ssl/certs/ca-certificates.crt \
+                        --with-ca-bundle=/etc/ssl/certs/ca-certificates.crt
           else
-            ./configure --prefix=${{ runner.temp }}/install \
-                        --enable-static --disable-shared
+            ./configure --prefix=${{ runner.temp }}/install --enable-static --disable-shared
           fi
 
       - name: Build statically
@@ -171,7 +164,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: output.${{ matrix.host }}
+          name: artifacts.${{ matrix.host }}
           path: |
             ${{ runner.temp }}/libcurl-impersonate*.tar.gz
             ${{ runner.temp }}/curl-impersonate*.tar.gz
