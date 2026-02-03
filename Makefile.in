@@ -198,11 +198,16 @@ brotli-$(BROTLI_VERSION).tar.gz:
 	curl -L "https://github.com/google/brotli/archive/refs/tags/v${BROTLI_VERSION}.tar.gz" \
 		-o "brotli-${BROTLI_VERSION}.tar.gz"
 
-$(brotli_static_libs): brotli-$(BROTLI_VERSION).tar.gz
+# Patch brotli and use a dummy '.patched' file to mark it patched
+brotli-$(BROTLI_VERSION)/.patched: $(srcdir)/patches/brotli.patch
 	tar xf brotli-$(BROTLI_VERSION).tar.gz
 	cd brotli-$(BROTLI_VERSION)
-	mkdir -p out
-	cd out
+	for p in $^; do patch -p1 < $$p; done
+	touch .patched
+
+$(brotli_static_libs): brotli-$(BROTLI_VERSION).tar.gz brotli-$(BROTLI_VERSION)/.patched
+	mkdir -p brotli-$(BROTLI_VERSION)/out
+	cd brotli-$(BROTLI_VERSION)/out
 
 	# Convert autoconf style os name to CMake style os name.
 	case $(host_os) in               \
