@@ -18,6 +18,7 @@ dir=${0%/*}
     -H "accept-language: en-US,en;q=0.9" \
     -H "priority: u=0, i" \
     -H "accept-encoding: gzip, deflate, br" \
+    --split-cookies \
     --http2 \
     --http2-settings '2:0;3:100;4:2097152;8:1;9:1' \
     --http2-pseudo-headers-order 'msap' \

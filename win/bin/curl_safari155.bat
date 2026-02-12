@@ -10,6 +10,7 @@
     -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" ^
     -H "Accept-Language: en-GB,en-US;q=0.9,en;q=0.8" ^
     -H "Accept-Encoding: gzip, deflate, br" ^
+    --split-cookies ^
     --http2 ^
     --http2-settings "4:4194304;3:100" ^
     --http2-pseudo-headers-order "mspa" ^

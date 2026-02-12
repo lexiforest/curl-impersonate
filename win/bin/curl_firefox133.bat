@@ -16,6 +16,7 @@
     -H "Sec-Fetch-User: ?1" ^
     -H "Priority: u=0, i" ^
     -H "TE: Trailers" ^
+    --split-cookies ^
     --http2 ^
     --http2-settings "1:65536;2:0;4:131072;5:16384" ^
     --http2-pseudo-headers-order "mpas" ^

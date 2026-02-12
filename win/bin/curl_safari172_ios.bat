@@ -13,6 +13,7 @@
     -H "User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1" ^
     -H "Accept-Language: en-US,en;q=0.9" ^
     -H "Sec-Fetch-Dest: document" ^
+    --split-cookies ^
     --http2 ^
     --http2-settings "2:0;4:2097152;3:100" ^
     --http2-pseudo-headers-order "mspa" ^

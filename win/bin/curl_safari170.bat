@@ -13,6 +13,7 @@
     -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15" ^
     -H "Accept-Language: en-US,en;q=0.9" ^
     -H "Sec-Fetch-Dest: document" ^
+    --split-cookies ^
     --http2 ^
     --http2-settings "2:0;4:4194304;3:100" ^
     --http2-pseudo-headers-order "mspa" ^
