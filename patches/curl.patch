@@ -456,10 +456,10 @@ index 0000000000..0b981b811c
 +git df curl-8_15_0 > chrome.patch
 +mv chrome.patch ../curl-impersonate/patches/curl.patch
 diff --git a/include/curl/curl.h b/include/curl/curl.h
-index 7ef5b99349..eff6dc3a05 100644
+index 7ef5b99349..f746ffc210 100644
 --- a/include/curl/curl.h
 +++ b/include/curl/curl.h
-@@ -2249,6 +2249,96 @@ typedef enum {
+@@ -2249,6 +2249,99 @@ typedef enum {
    /* set TLS supported signature algorithms */
    CURLOPT(CURLOPT_SSL_SIGNATURE_ALGORITHMS, CURLOPTTYPE_STRINGPOINT, 328),
  
@@ -553,6 +553,9 @@ index 7ef5b99349..eff6dc3a05 100644
 +  /* curl-impersonate: Split cookies into separate Cookie headers */
 +  CURLOPT(CURLOPT_SPLIT_COOKIES, CURLOPTTYPE_LONG, 1023),
 +
++  /* curl-impersonate: Set multipart/form-data boundary style */
++  CURLOPT(CURLOPT_FORM_BOUNDARY, CURLOPTTYPE_STRINGPOINT, 1024),
++
    CURLOPT_LASTENTRY /* the last unused */
  } CURLoption;
  
@@ -591,6 +594,18 @@ index 56f8060e04..1a348c502c 100644
  /*
   * NAME curl_easy_getinfo()
   *
+diff --git a/include/curl/typecheck-gcc.h b/include/curl/typecheck-gcc.h
+index ca0c0ef9d6..1d04e2120f 100644
+--- a/include/curl/typecheck-gcc.h
++++ b/include/curl/typecheck-gcc.h
+@@ -345,6 +345,7 @@ CURLWARNING(_curl_easy_getinfo_err_curl_off_t,
+    (option) == CURLOPT_FTP_ACCOUNT ||                                   \
+    (option) == CURLOPT_FTP_ALTERNATIVE_TO_USER ||                       \
+    (option) == CURLOPT_FTPPORT ||                                       \
++   (option) == CURLOPT_FORM_BOUNDARY ||                                 \
+    (option) == CURLOPT_HAPROXY_CLIENT_IP ||                             \
+    (option) == CURLOPT_HSTS ||                                          \
+    (option) == CURLOPT_INTERFACE ||                                     \
 diff --git a/lib/Makefile.am b/lib/Makefile.am
 index 75fbbdf4b9..2d57e33670 100644
 --- a/lib/Makefile.am
@@ -802,7 +817,7 @@ index e533dcc369..84d8c5d701 100644
  bool Curl_dynhds_contains(struct dynhds *dynhds,
                            const char *name, size_t namelen);
 diff --git a/lib/easy.c b/lib/easy.c
-index 9c1f1c6969..bbdff24fd5 100644
+index 9c1f1c6969..b365dfd67e 100644
 --- a/lib/easy.c
 +++ b/lib/easy.c
 @@ -77,6 +77,8 @@
@@ -814,7 +829,7 @@ index 9c1f1c6969..bbdff24fd5 100644
  
  #include "easy_lock.h"
  
-@@ -345,6 +347,293 @@ CURLsslset curl_global_sslset(curl_sslbackend id, const char *name,
+@@ -345,6 +347,300 @@ CURLsslset curl_global_sslset(curl_sslbackend id, const char *name,
    return rc;
  }
  
@@ -1025,6 +1040,13 @@ index 9c1f1c6969..bbdff24fd5 100644
 +  if(ret)
 +    return ret;
 +
++  if(opts->form_boundary) {
++    ret = curl_easy_setopt(data, CURLOPT_FORM_BOUNDARY,
++                           opts->form_boundary);
++    if(ret)
++      return ret;
++  }
++
 +  return CURLE_OK;
 +}
 +
@@ -1108,7 +1130,7 @@ index 9c1f1c6969..bbdff24fd5 100644
  /*
   * curl_easy_init() is the external interface to alloc, setup and init an
   * easy handle that is returned. If anything goes wrong, NULL is returned.
-@@ -353,6 +642,8 @@ CURL *curl_easy_init(void)
+@@ -353,6 +649,8 @@ CURL *curl_easy_init(void)
  {
    CURLcode result;
    struct Curl_easy *data;
@@ -1117,7 +1139,7 @@ index 9c1f1c6969..bbdff24fd5 100644
  
    /* Make sure we inited the global SSL stuff */
    global_init_lock();
-@@ -375,6 +666,29 @@ CURL *curl_easy_init(void)
+@@ -375,6 +673,29 @@ CURL *curl_easy_init(void)
      return NULL;
    }
  
@@ -1147,7 +1169,7 @@ index 9c1f1c6969..bbdff24fd5 100644
    return data;
  }
  
-@@ -1017,6 +1331,13 @@ CURL *curl_easy_duphandle(CURL *d)
+@@ -1017,6 +1338,13 @@ CURL *curl_easy_duphandle(CURL *d)
      outcurl->state.referer_alloc = TRUE;
    }
  
@@ -1161,7 +1183,7 @@ index 9c1f1c6969..bbdff24fd5 100644
    /* Reinitialize an SSL engine for the new handle
     * note: the engine name has already been copied by dupset */
    if(outcurl->set.str[STRING_SSL_ENGINE]) {
-@@ -1073,6 +1394,9 @@ fail:
+@@ -1073,6 +1401,9 @@ fail:
   */
  void curl_easy_reset(CURL *d)
  {
@@ -1171,7 +1193,7 @@ index 9c1f1c6969..bbdff24fd5 100644
    struct Curl_easy *data = d;
    Curl_req_hard_reset(&data->req, data);
    Curl_hash_clean(&data->meta_hash);
-@@ -1106,6 +1430,22 @@ void curl_easy_reset(CURL *d)
+@@ -1106,6 +1437,22 @@ void curl_easy_reset(CURL *d)
    Curl_http_auth_cleanup_digest(data);
  #endif
    data->master_mid = UINT_MAX;
@@ -1195,10 +1217,18 @@ index 9c1f1c6969..bbdff24fd5 100644
  
  /*
 diff --git a/lib/easyoptions.c b/lib/easyoptions.c
-index 03d676df0e..035a93b35c 100644
+index 03d676df0e..9f10ece1ee 100644
 --- a/lib/easyoptions.c
 +++ b/lib/easyoptions.c
-@@ -134,7 +134,13 @@ const struct curl_easyoption Curl_easyopts[] = {
+@@ -98,6 +98,7 @@ const struct curl_easyoption Curl_easyopts[] = {
+   {"FNMATCH_FUNCTION", CURLOPT_FNMATCH_FUNCTION, CURLOT_FUNCTION, 0},
+   {"FOLLOWLOCATION", CURLOPT_FOLLOWLOCATION, CURLOT_LONG, 0},
+   {"FORBID_REUSE", CURLOPT_FORBID_REUSE, CURLOT_LONG, 0},
++  {"FORM_BOUNDARY", CURLOPT_FORM_BOUNDARY, CURLOT_STRING, 0},
+   {"FRESH_CONNECT", CURLOPT_FRESH_CONNECT, CURLOT_LONG, 0},
+   {"FTPAPPEND", CURLOPT_APPEND, CURLOT_LONG, CURLOT_FLAG_ALIAS},
+   {"FTPLISTONLY", CURLOPT_DIRLISTONLY, CURLOT_LONG, CURLOT_FLAG_ALIAS},
+@@ -134,7 +135,13 @@ const struct curl_easyoption Curl_easyopts[] = {
    {"HSTS_CTRL", CURLOPT_HSTS_CTRL, CURLOT_LONG, 0},
    {"HTTP09_ALLOWED", CURLOPT_HTTP09_ALLOWED, CURLOT_LONG, 0},
    {"HTTP200ALIASES", CURLOPT_HTTP200ALIASES, CURLOT_SLIST, 0},
@@ -1212,7 +1242,7 @@ index 03d676df0e..035a93b35c 100644
    {"HTTPGET", CURLOPT_HTTPGET, CURLOT_LONG, 0},
    {"HTTPHEADER", CURLOPT_HTTPHEADER, CURLOT_SLIST, 0},
    {"HTTPPOST", CURLOPT_HTTPPOST, CURLOT_OBJECT, 0},
-@@ -146,6 +152,7 @@ const struct curl_easyoption Curl_easyopts[] = {
+@@ -146,6 +153,7 @@ const struct curl_easyoption Curl_easyopts[] = {
    {"INFILE", CURLOPT_READDATA, CURLOT_CBPTR, CURLOT_FLAG_ALIAS},
    {"INFILESIZE", CURLOPT_INFILESIZE, CURLOT_LONG, 0},
    {"INFILESIZE_LARGE", CURLOPT_INFILESIZE_LARGE, CURLOT_OFF_T, 0},
@@ -1220,7 +1250,7 @@ index 03d676df0e..035a93b35c 100644
    {"INTERFACE", CURLOPT_INTERFACE, CURLOT_STRING, 0},
    {"INTERLEAVEDATA", CURLOPT_INTERLEAVEDATA, CURLOT_CBPTR, 0},
    {"INTERLEAVEFUNCTION", CURLOPT_INTERLEAVEFUNCTION, CURLOT_FUNCTION, 0},
-@@ -221,6 +228,7 @@ const struct curl_easyoption Curl_easyopts[] = {
+@@ -221,6 +229,7 @@ const struct curl_easyoption Curl_easyopts[] = {
    {"PROXY_CAINFO", CURLOPT_PROXY_CAINFO, CURLOT_STRING, 0},
    {"PROXY_CAINFO_BLOB", CURLOPT_PROXY_CAINFO_BLOB, CURLOT_BLOB, 0},
    {"PROXY_CAPATH", CURLOPT_PROXY_CAPATH, CURLOT_STRING, 0},
@@ -1228,7 +1258,7 @@ index 03d676df0e..035a93b35c 100644
    {"PROXY_CRLFILE", CURLOPT_PROXY_CRLFILE, CURLOT_STRING, 0},
    {"PROXY_ISSUERCERT", CURLOPT_PROXY_ISSUERCERT, CURLOT_STRING, 0},
    {"PROXY_ISSUERCERT_BLOB", CURLOPT_PROXY_ISSUERCERT_BLOB, CURLOT_BLOB, 0},
-@@ -284,6 +292,7 @@ const struct curl_easyoption Curl_easyopts[] = {
+@@ -284,6 +293,7 @@ const struct curl_easyoption Curl_easyopts[] = {
    {"SOCKS5_AUTH", CURLOPT_SOCKS5_AUTH, CURLOT_LONG, 0},
    {"SOCKS5_GSSAPI_NEC", CURLOPT_SOCKS5_GSSAPI_NEC, CURLOT_LONG, 0},
    {"SOCKS5_GSSAPI_SERVICE", CURLOPT_SOCKS5_GSSAPI_SERVICE, CURLOT_STRING, 0},
@@ -1236,7 +1266,7 @@ index 03d676df0e..035a93b35c 100644
    {"SSH_AUTH_TYPES", CURLOPT_SSH_AUTH_TYPES, CURLOT_VALUES, 0},
    {"SSH_COMPRESSION", CURLOPT_SSH_COMPRESSION, CURLOT_LONG, 0},
    {"SSH_HOSTKEYDATA", CURLOPT_SSH_HOSTKEYDATA, CURLOT_CBPTR, 0},
-@@ -308,23 +317,29 @@ const struct curl_easyoption Curl_easyopts[] = {
+@@ -308,23 +318,29 @@ const struct curl_easyoption Curl_easyopts[] = {
    {"SSLKEYTYPE", CURLOPT_SSLKEYTYPE, CURLOT_STRING, 0},
    {"SSLKEY_BLOB", CURLOPT_SSLKEY_BLOB, CURLOT_BLOB, 0},
    {"SSLVERSION", CURLOPT_SSLVERSION, CURLOT_VALUES, 0},
@@ -1266,7 +1296,7 @@ index 03d676df0e..035a93b35c 100644
    {"STREAM_WEIGHT", CURLOPT_STREAM_WEIGHT, CURLOT_LONG, 0},
    {"SUPPRESS_CONNECT_HEADERS", CURLOPT_SUPPRESS_CONNECT_HEADERS,
     CURLOT_LONG, 0},
-@@ -346,6 +361,15 @@ const struct curl_easyoption Curl_easyopts[] = {
+@@ -346,6 +362,15 @@ const struct curl_easyoption Curl_easyopts[] = {
    {"TLSAUTH_PASSWORD", CURLOPT_TLSAUTH_PASSWORD, CURLOT_STRING, 0},
    {"TLSAUTH_TYPE", CURLOPT_TLSAUTH_TYPE, CURLOT_STRING, 0},
    {"TLSAUTH_USERNAME", CURLOPT_TLSAUTH_USERNAME, CURLOT_STRING, 0},
@@ -1282,12 +1312,12 @@ index 03d676df0e..035a93b35c 100644
    {"TRAILERDATA", CURLOPT_TRAILERDATA, CURLOT_CBPTR, 0},
    {"TRAILERFUNCTION", CURLOPT_TRAILERFUNCTION, CURLOT_FUNCTION, 0},
    {"TRANSFERTEXT", CURLOPT_TRANSFERTEXT, CURLOT_LONG, 0},
-@@ -380,6 +404,6 @@ const struct curl_easyoption Curl_easyopts[] = {
+@@ -380,6 +405,6 @@ const struct curl_easyoption Curl_easyopts[] = {
   */
  int Curl_easyopts_check(void)
  {
 -  return (CURLOPT_LASTENTRY % 10000) != (328 + 1);
-+  return ((CURLOPT_LASTENTRY%10000) != (1023 + 1));
++  return ((CURLOPT_LASTENTRY%10000) != (1024 + 1));
  }
  #endif
 diff --git a/lib/http.c b/lib/http.c
@@ -2172,10 +2202,10 @@ index 93cc2d44f2..52e80ce9c1 100644
   * Store nghttp2 version info in this buffer.
 diff --git a/lib/impersonate.c b/lib/impersonate.c
 new file mode 100644
-index 0000000000..5ba40b4612
+index 0000000000..362d7e822a
 --- /dev/null
 +++ b/lib/impersonate.c
-@@ -0,0 +1,2014 @@
+@@ -0,0 +1,2048 @@
 +#include "curl_setup.h"
 +
 +#include <curl/curl.h>
@@ -2232,6 +2262,7 @@ index 0000000000..5ba40b4612
 +    .tls_signed_cert_timestamps = true,
 +    .tls_grease = true,
 +    .split_cookies = true,
++    .form_boundary = "webkit",
 +  },
 +  {
 +    .target = "chrome101",
@@ -2282,6 +2313,7 @@ index 0000000000..5ba40b4612
 +    .tls_signed_cert_timestamps = true,
 +    .tls_grease = true,
 +    .split_cookies = true,
++    .form_boundary = "webkit",
 +  },
 +  {
 +    .target = "chrome104",
@@ -2332,6 +2364,7 @@ index 0000000000..5ba40b4612
 +    .tls_signed_cert_timestamps = true,
 +    .tls_grease = true,
 +    .split_cookies = true,
++    .form_boundary = "webkit",
 +  },
 +  {
 +    .target = "chrome107",
@@ -2382,6 +2415,7 @@ index 0000000000..5ba40b4612
 +    .tls_signed_cert_timestamps = true,
 +    .tls_grease = true,
 +    .split_cookies = true,
++    .form_boundary = "webkit",
 +  },
 +  {
 +    .target = "chrome110",
@@ -2433,6 +2467,7 @@ index 0000000000..5ba40b4612
 +    .tls_signed_cert_timestamps = true,
 +    .tls_grease = true,
 +    .split_cookies = true,
++    .form_boundary = "webkit",
 +  },
 +  {
 +    .target = "chrome116",
@@ -2484,6 +2519,7 @@ index 0000000000..5ba40b4612
 +    .tls_signed_cert_timestamps = true,
 +    .tls_grease = true,
 +    .split_cookies = true,
++    .form_boundary = "webkit",
 +  },
 +  {
 +    .target = "chrome119",
@@ -2536,6 +2572,7 @@ index 0000000000..5ba40b4612
 +    .tls_signed_cert_timestamps = true,
 +    .tls_grease = true,
 +    .split_cookies = true,
++    .form_boundary = "webkit",
 +  },
 +  {
 +    .target = "chrome120",
@@ -2588,6 +2625,7 @@ index 0000000000..5ba40b4612
 +    .tls_signed_cert_timestamps = true,
 +    .tls_grease = true,
 +    .split_cookies = true,
++    .form_boundary = "webkit",
 +  },
 +  {
 +    .target = "chrome123",
@@ -2640,6 +2678,7 @@ index 0000000000..5ba40b4612
 +    .tls_signed_cert_timestamps = true,
 +    .tls_grease = true,
 +    .split_cookies = true,
++    .form_boundary = "webkit",
 +  },
 +  {
 +    .target = "chrome124",
@@ -2694,6 +2733,7 @@ index 0000000000..5ba40b4612
 +    .tls_signed_cert_timestamps = true,
 +    .tls_grease = true,
 +    .split_cookies = true,
++    .form_boundary = "webkit",
 +  },
 +  {
 +    .target = "chrome131",
@@ -2748,6 +2788,7 @@ index 0000000000..5ba40b4612
 +    .tls_signed_cert_timestamps = true,
 +    .tls_grease = true,
 +    .split_cookies = true,
++    .form_boundary = "webkit",
 +  },
 +  {
 +    .target = "chrome131_android",
@@ -2802,6 +2843,7 @@ index 0000000000..5ba40b4612
 +    .tls_signed_cert_timestamps = true,
 +    .tls_grease = true,
 +    .split_cookies = true,
++    .form_boundary = "webkit",
 +  },
 +  {
 +    .target = "chrome133a",
@@ -2856,6 +2898,7 @@ index 0000000000..5ba40b4612
 +    .tls_signed_cert_timestamps = true,
 +    .tls_grease = true,
 +    .split_cookies = true,
++    .form_boundary = "webkit",
 +  },
 +  {
 +    .target = "chrome136",
@@ -2910,6 +2953,7 @@ index 0000000000..5ba40b4612
 +    .tls_signed_cert_timestamps = true,
 +    .tls_grease = true,
 +    .split_cookies = true,
++    .form_boundary = "webkit",
 +  },
 +  {
 +    .target = "chrome142",
@@ -2964,6 +3008,7 @@ index 0000000000..5ba40b4612
 +    .tls_signed_cert_timestamps = true,
 +    .tls_grease = true,
 +    .split_cookies = true,
++    .form_boundary = "webkit",
 +  },
 +  {
 +    .target = "chrome99",
@@ -3014,6 +3059,7 @@ index 0000000000..5ba40b4612
 +    .tls_signed_cert_timestamps = true,
 +    .tls_grease = true,
 +    .split_cookies = true,
++    .form_boundary = "webkit",
 +  },
 +  {
 +    .target = "chrome99_android",
@@ -3064,6 +3110,7 @@ index 0000000000..5ba40b4612
 +    .tls_signed_cert_timestamps = true,
 +    .tls_grease = true,
 +    .split_cookies = true,
++    .form_boundary = "webkit",
 +  },
 +  {
 +    .target = "edge101",
@@ -3114,6 +3161,7 @@ index 0000000000..5ba40b4612
 +    .tls_signed_cert_timestamps = true,
 +    .tls_grease = true,
 +    .split_cookies = true,
++    .form_boundary = "webkit",
 +  },
 +  {
 +    .target = "edge99",
@@ -3164,6 +3212,7 @@ index 0000000000..5ba40b4612
 +    .tls_signed_cert_timestamps = true,
 +    .tls_grease = true,
 +    .split_cookies = true,
++    .form_boundary = "webkit",
 +  },
 +  {
 +    .target = "firefox133",
@@ -3228,6 +3277,7 @@ index 0000000000..5ba40b4612
 +    .tls_signed_cert_timestamps = false,
 +    .tls_key_shares_limit = 3,
 +    .split_cookies = true,
++    .form_boundary = "firefox",
 +  },
 +  {
 +    .target = "firefox135",
@@ -3293,6 +3343,7 @@ index 0000000000..5ba40b4612
 +    .tls_signed_cert_timestamps = true,
 +    .tls_key_shares_limit = 3,
 +    .split_cookies = true,
++    .form_boundary = "firefox",
 +  },
 +  {
 +    .target = "firefox144",
@@ -3359,6 +3410,7 @@ index 0000000000..5ba40b4612
 +    .tls_signed_cert_timestamps = true,
 +    .tls_key_shares_limit = 3,
 +    .split_cookies = true,
++    .form_boundary = "firefox",
 +  },
 +  {
 +    .target = "okhttp4_android",
@@ -3488,6 +3540,7 @@ index 0000000000..5ba40b4612
 +    .tls_signed_cert_timestamps = true,
 +    .tls_grease = true,
 +    .split_cookies = true,
++    .form_boundary = "webkit",
 +  },
 +  {
 +    .target = "safari155",
@@ -3549,6 +3602,7 @@ index 0000000000..5ba40b4612
 +    .tls_signed_cert_timestamps = true,
 +    .tls_grease = true,
 +    .split_cookies = true,
++    .form_boundary = "webkit",
 +  },
 +  {
 +    .target = "safari170",
@@ -3613,6 +3667,7 @@ index 0000000000..5ba40b4612
 +    .tls_signed_cert_timestamps = true,
 +    .tls_grease = true,
 +    .split_cookies = true,
++    .form_boundary = "webkit",
 +  },
 +  {
 +    .target = "safari172_ios",
@@ -3677,6 +3732,7 @@ index 0000000000..5ba40b4612
 +    .tls_signed_cert_timestamps = true,
 +    .tls_grease = true,
 +    .split_cookies = true,
++    .form_boundary = "webkit",
 +  },
 +  {
 +    .target = "safari180",
@@ -3741,6 +3797,7 @@ index 0000000000..5ba40b4612
 +    .tls_signed_cert_timestamps = true,
 +    .tls_grease = true,
 +    .split_cookies = true,
++    .form_boundary = "webkit",
 +  },
 +  {
 +    .target = "safari180_ios",
@@ -3805,6 +3862,7 @@ index 0000000000..5ba40b4612
 +    .tls_signed_cert_timestamps = true,
 +    .tls_grease = true,
 +    .split_cookies = true,
++    .form_boundary = "webkit",
 +  },
 +  {
 +    .target = "safari184",
@@ -3869,6 +3927,7 @@ index 0000000000..5ba40b4612
 +    .tls_signed_cert_timestamps = true,
 +    .tls_grease = true,
 +    .split_cookies = true,
++    .form_boundary = "webkit",
 +  },
 +  {
 +    .target = "safari184_ios",
@@ -3933,6 +3992,7 @@ index 0000000000..5ba40b4612
 +    .tls_signed_cert_timestamps = true,
 +    .tls_grease = true,
 +    .split_cookies = true,
++    .form_boundary = "webkit",
 +  },
 +  {
 +    .target = "safari260",
@@ -3996,6 +4056,7 @@ index 0000000000..5ba40b4612
 +    .tls_signed_cert_timestamps = true,
 +    .tls_grease = true,
 +    .split_cookies = true,
++    .form_boundary = "webkit",
 +  },
 +  {
 +    .target = "safari2601",
@@ -4059,6 +4120,7 @@ index 0000000000..5ba40b4612
 +    .tls_signed_cert_timestamps = true,
 +    .tls_grease = true,
 +    .split_cookies = true,
++    .form_boundary = "webkit",
 +  },
 +  {
 +    .target = "safari260_ios",
@@ -4122,6 +4184,7 @@ index 0000000000..5ba40b4612
 +    .tls_signed_cert_timestamps = true,
 +    .tls_grease = true,
 +    .split_cookies = true,
++    .form_boundary = "webkit",
 +  },
 +  {
 +    .target = "tor145",  // tor 14.5, based on firefox 128
@@ -4186,16 +4249,17 @@ index 0000000000..5ba40b4612
 +    .tls_signed_cert_timestamps = true,
 +    .tls_key_shares_limit = 2,
 +    .split_cookies = true,
++    .form_boundary = "firefox",
 +  }
 +};
 +
 +const size_t num_impersonations = sizeof(impersonations) / sizeof(impersonations[0]);
 diff --git a/lib/impersonate.h b/lib/impersonate.h
 new file mode 100644
-index 0000000000..9a13871aa0
+index 0000000000..55acacf375
 --- /dev/null
 +++ b/lib/impersonate.h
-@@ -0,0 +1,63 @@
+@@ -0,0 +1,64 @@
 +#ifndef HEADER_CURL_IMPERSONATE_H
 +#define HEADER_CURL_IMPERSONATE_H
 +
@@ -4246,6 +4310,7 @@ index 0000000000..9a13871aa0
 +  bool http2_no_priority;  // disable http2 priority in header frame
 +  bool proxy_credential_no_reuse;  // do not reuse TLS sessions or connections from different proxy credentials
 +  bool split_cookies;  // split cookies into one Cookie header per pair
++  const char *form_boundary;
 +
 +  /* Other TLS options will come here in the future once they are
 +   * configurable through curl_easy_setopt() */
@@ -4271,6 +4336,164 @@ index 43e26f655c..8537a108e5 100644
  curl_easy_nextheader
  curl_easy_option_by_id
  curl_easy_option_by_name
+diff --git a/lib/mime.c b/lib/mime.c
+index 06cd221abf..2e2e723f9b 100644
+--- a/lib/mime.c
++++ b/lib/mime.c
+@@ -79,6 +79,62 @@ static size_t encoder_qp_read(char *buffer, size_t size, bool ateof,
+ static curl_off_t encoder_qp_size(curl_mimepart *part);
+ static curl_off_t mime_size(curl_mimepart *part);
+ 
++static CURLcode mime_set_boundary(struct Curl_easy *easy, curl_mime *mime)
++{
++  const char *form_boundary = NULL;
++
++  if(easy)
++    form_boundary = easy->set.str[STRING_FORM_BOUNDARY];
++
++  if(form_boundary && curl_strequal(form_boundary, "webkit")) {
++    memcpy(mime->boundary, MIME_WEBKIT_BOUNDARY_PREFIX,
++           sizeof(MIME_WEBKIT_BOUNDARY_PREFIX) - 1);
++    return Curl_rand_alnum(easy,
++                           (unsigned char *)
++                           &mime->boundary[sizeof(MIME_WEBKIT_BOUNDARY_PREFIX)
++                                           - 1],
++                           MIME_WEBKIT_BOUNDARY_CHARS + 1);
++  }
++  if(form_boundary && curl_strequal(form_boundary, "firefox")) {
++    memcpy(mime->boundary, MIME_FIREFOX_BOUNDARY_PREFIX,
++           sizeof(MIME_FIREFOX_BOUNDARY_PREFIX) - 1);
++    return Curl_rand_hex(easy,
++                         (unsigned char *)
++                         &mime->boundary[sizeof(MIME_FIREFOX_BOUNDARY_PREFIX)
++                                         - 1],
++                         MIME_FIREFOX_BOUNDARY_CHARS + 1);
++  }
++
++  memset(mime->boundary, '-', MIME_BOUNDARY_DASHES);
++  return Curl_rand_alnum(easy,
++                         (unsigned char *)
++                         &mime->boundary[MIME_BOUNDARY_DASHES],
++                         MIME_RAND_BOUNDARY_CHARS + 1);
++}
++
++CURLcode Curl_mime_set_form_boundary(struct Curl_easy *easy, curl_mime *mime)
++{
++  CURLcode result;
++  curl_mimepart *part;
++
++  if(!mime)
++    return CURLE_OK;
++
++  result = mime_set_boundary(easy, mime);
++  if(result)
++    return result;
++
++  for(part = mime->firstpart; part; part = part->nextpart) {
++    if(part->kind == MIMEKIND_MULTIPART) {
++      result = Curl_mime_set_form_boundary(easy, (curl_mime *) part->arg);
++      if(result)
++        return result;
++    }
++  }
++
++  return CURLE_OK;
++}
++
+ static const struct mime_encoder encoders[] = {
+   {"binary", encoder_nop_read, encoder_nop_size},
+   {"8bit", encoder_nop_read, encoder_nop_size},
+@@ -999,6 +1055,7 @@ static size_t mime_subparts_read(char *buffer, size_t size, size_t nitems,
+                                  void *instream, bool *hasread)
+ {
+   curl_mime *mime = (curl_mime *) instream;
++  size_t boundarylen = strlen(mime->boundary);
+   size_t cursize = 0;
+   (void) size;   /* Always 1. */
+ 
+@@ -1023,10 +1080,10 @@ static size_t mime_subparts_read(char *buffer, size_t size, size_t nitems,
+     case MIMESTATE_BOUNDARY2:
+       if(part)
+         sz = readback_bytes(&mime->state, buffer, nitems, mime->boundary,
+-                            MIME_BOUNDARY_LEN, STRCONST("\r\n"));
++                            boundarylen, STRCONST("\r\n"));
+       else
+         sz = readback_bytes(&mime->state, buffer, nitems, mime->boundary,
+-                            MIME_BOUNDARY_LEN, STRCONST("--\r\n"));
++                            boundarylen, STRCONST("--\r\n"));
+       if(!sz) {
+         mimesetstate(&mime->state, MIMESTATE_CONTENT, part);
+       }
+@@ -1280,6 +1337,7 @@ CURLcode Curl_mime_duppart(struct Curl_easy *data,
+ /* Create a mime handle. */
+ curl_mime *curl_mime_init(void *easy)
+ {
++  struct Curl_easy *data = (struct Curl_easy *) easy;
+   curl_mime *mime;
+ 
+   mime = (curl_mime *) malloc(sizeof(*mime));
+@@ -1289,10 +1347,7 @@ curl_mime *curl_mime_init(void *easy)
+     mime->firstpart = NULL;
+     mime->lastpart = NULL;
+ 
+-    memset(mime->boundary, '-', MIME_BOUNDARY_DASHES);
+-    if(Curl_rand_alnum(easy,
+-                       (unsigned char *) &mime->boundary[MIME_BOUNDARY_DASHES],
+-                       MIME_RAND_BOUNDARY_CHARS + 1)) {
++    if(Curl_mime_set_form_boundary(data, mime)) {
+       /* failed to get random separator, bail out */
+       free(mime);
+       return NULL;
+@@ -1640,7 +1695,7 @@ static curl_off_t multipart_size(curl_mime *mime)
+   if(!mime)
+     return 0;           /* Not present -> empty. */
+ 
+-  boundarysize = 4 + MIME_BOUNDARY_LEN + 2;
++  boundarysize = 4 + (curl_off_t) strlen(mime->boundary) + 2;
+   size = boundarysize;  /* Final boundary - CRLF after headers. */
+ 
+   for(part = mime->firstpart; part; part = part->nextpart) {
+diff --git a/lib/mime.h b/lib/mime.h
+index 5073a38f70..f5fe2b499f 100644
+--- a/lib/mime.h
++++ b/lib/mime.h
+@@ -28,6 +28,10 @@
+ 
+ #define MIME_BOUNDARY_DASHES            24  /* leading boundary dashes */
+ #define MIME_RAND_BOUNDARY_CHARS        22  /* Nb. of random boundary chars. */
++#define MIME_WEBKIT_BOUNDARY_PREFIX "------WebKitFormBoundary"
++#define MIME_WEBKIT_BOUNDARY_CHARS      16
++#define MIME_FIREFOX_BOUNDARY_PREFIX "------geckoformboundary"
++#define MIME_FIREFOX_BOUNDARY_CHARS     32
+ #define MAX_ENCODED_LINE_LENGTH         76  /* Maximum encoded line length. */
+ #define ENCODING_BUFFER_SIZE            256 /* Encoding temp buffers size. */
+ 
+@@ -95,7 +99,8 @@ struct mime_state {
+ };
+ 
+ /* Boundary string length. */
+-#define MIME_BOUNDARY_LEN (MIME_BOUNDARY_DASHES + MIME_RAND_BOUNDARY_CHARS)
++#define MIME_BOUNDARY_LEN (sizeof(MIME_FIREFOX_BOUNDARY_PREFIX) - 1 + \
++                           MIME_FIREFOX_BOUNDARY_CHARS)
+ 
+ /* A mime multipart. */
+ struct curl_mime {
+@@ -151,6 +156,7 @@ CURLcode Curl_mime_prepare_headers(struct Curl_easy *data,
+                                    const char *contenttype,
+                                    const char *disposition,
+                                    enum mimestrategy strategy);
++CURLcode Curl_mime_set_form_boundary(struct Curl_easy *easy, curl_mime *mime);
+ size_t Curl_mime_read(char *buffer, size_t size, size_t nitems,
+                       void *instream);
+ const char *Curl_mime_contenttype(const char *filename);
+@@ -168,6 +174,7 @@ CURLcode Curl_creader_set_mime(struct Curl_easy *data, curl_mimepart *part);
+ #define Curl_mime_duppart(x,y,z) CURLE_OK /* Nothing to duplicate. Succeed */
+ #define Curl_mime_set_subparts(a,b,c) CURLE_NOT_BUILT_IN
+ #define Curl_mime_prepare_headers(a,b,c,d,e) CURLE_NOT_BUILT_IN
++#define Curl_mime_set_form_boundary(a,b) CURLE_NOT_BUILT_IN
+ #define Curl_mime_read NULL
+ #define Curl_creader_set_mime(x,y) ((void)x, CURLE_NOT_BUILT_IN)
+ #endif
 diff --git a/lib/multi.c b/lib/multi.c
 index b3a7938e33..5da6f894e7 100644
 --- a/lib/multi.c
@@ -4286,7 +4509,7 @@ index b3a7938e33..5da6f894e7 100644
  
    if(Curl_uint_bset_resize(&multi->process, xfer_table_size) ||
 diff --git a/lib/setopt.c b/lib/setopt.c
-index 1380c33db6..60e3454f85 100644
+index 1380c33db6..1d9f7b5247 100644
 --- a/lib/setopt.c
 +++ b/lib/setopt.c
 @@ -52,6 +52,7 @@
@@ -4297,7 +4520,20 @@ index 1380c33db6..60e3454f85 100644
  #include "strdup.h"
  #include "escape.h"
  
-@@ -658,6 +659,9 @@ static CURLcode setopt_long(struct Curl_easy *data, CURLoption option,
+@@ -108,6 +109,12 @@ CURLcode Curl_setstropt(char **charp, const char *s)
+   return CURLE_OK;
+ }
+ 
++static bool setopt_valid_form_boundary(const char *value)
++{
++  return curl_strequal(value, "webkit") ||
++         curl_strequal(value, "firefox");
++}
++
+ CURLcode Curl_setblobopt(struct curl_blob **blobp,
+                          const struct curl_blob *blob)
+ {
+@@ -658,6 +665,9 @@ static CURLcode setopt_long(struct Curl_easy *data, CURLoption option,
       */
      data->set.cookiesession = enabled;
      break;
@@ -4307,7 +4543,7 @@ index 1380c33db6..60e3454f85 100644
  #endif
    case CURLOPT_AUTOREFERER:
      /*
-@@ -747,6 +751,12 @@ static CURLcode setopt_long(struct Curl_easy *data, CURLoption option,
+@@ -747,6 +757,12 @@ static CURLcode setopt_long(struct Curl_easy *data, CURLoption option,
    case CURLOPT_HTTP_VERSION:
      return setopt_HTTP_VERSION(data, arg);
  
@@ -4320,7 +4556,7 @@ index 1380c33db6..60e3454f85 100644
    case CURLOPT_EXPECT_100_TIMEOUT_MS:
      /*
       * Time to wait for a response to an HTTP request containing an
-@@ -834,6 +844,9 @@ static CURLcode setopt_long(struct Curl_easy *data, CURLoption option,
+@@ -834,6 +850,9 @@ static CURLcode setopt_long(struct Curl_easy *data, CURLoption option,
      /* Update the current connection proxy_ssl_config. */
      Curl_ssl_conn_config_update(data, TRUE);
      break;
@@ -4330,7 +4566,7 @@ index 1380c33db6..60e3454f85 100644
  #endif /* ! CURL_DISABLE_PROXY */
  
  #if defined(HAVE_GSSAPI) || defined(USE_WINDOWS_SSPI)
-@@ -1334,6 +1347,38 @@ static CURLcode setopt_long(struct Curl_easy *data, CURLoption option,
+@@ -1334,6 +1353,38 @@ static CURLcode setopt_long(struct Curl_easy *data, CURLoption option,
    case CURLOPT_SSL_ENABLE_ALPN:
      data->set.ssl_enable_alpn = enabled;
      break;
@@ -4369,7 +4605,7 @@ index 1380c33db6..60e3454f85 100644
    case CURLOPT_PATH_AS_IS:
      data->set.path_as_is = enabled;
      break;
-@@ -1370,9 +1415,17 @@ static CURLcode setopt_long(struct Curl_easy *data, CURLoption option,
+@@ -1370,9 +1421,17 @@ static CURLcode setopt_long(struct Curl_easy *data, CURLoption option,
      break;
    case CURLOPT_MAXAGE_CONN:
      return setopt_set_timeout_sec(&data->set.conn_max_idle_ms, arg);
@@ -4388,7 +4624,7 @@ index 1380c33db6..60e3454f85 100644
  
  #ifndef CURL_DISABLE_HSTS
    case CURLOPT_HSTS_CTRL:
-@@ -1500,6 +1553,21 @@ static CURLcode setopt_slist(struct Curl_easy *data, CURLoption option,
+@@ -1500,6 +1559,21 @@ static CURLcode setopt_slist(struct Curl_easy *data, CURLoption option,
       */
      data->set.headers = slist;
      break;
@@ -4410,7 +4646,17 @@ index 1380c33db6..60e3454f85 100644
  #endif
  #ifndef CURL_DISABLE_TELNET
    case CURLOPT_TELNETOPTIONS:
-@@ -1689,6 +1757,46 @@ static CURLcode setopt_cptr(struct Curl_easy *data, CURLoption option,
+@@ -1555,6 +1629,9 @@ static CURLcode setopt_pointers(struct Curl_easy *data, CURLoption option,
+     result = Curl_mime_set_subparts(&data->set.mimepost,
+                                     va_arg(param, curl_mime *),
+                                     FALSE);
++    if(!result && data->set.str[STRING_FORM_BOUNDARY]) {
++      result = Curl_mime_set_form_boundary(data, (curl_mime *) data->set.mimepost.arg);
++    }
+     if(!result) {
+       data->set.method = HTTPREQ_POST_MIME;
+       data->set.opt_no_body = FALSE; /* this is implied */
+@@ -1689,6 +1766,54 @@ static CURLcode setopt_cptr(struct Curl_easy *data, CURLoption option,
      }
      else
        return CURLE_NOT_BUILT_IN;
@@ -4421,6 +4667,14 @@ index 1380c33db6..60e3454f85 100644
 +      return result;
 +    // for the master option, we simply call the easy_impersonate method here.
 +    return curl_easy_impersonate(data, data->set.str[STRING_IMPERSONATE], true);
++    break;
++  case CURLOPT_FORM_BOUNDARY:
++    if(ptr && !setopt_valid_form_boundary(ptr))
++      return CURLE_BAD_FUNCTION_ARGUMENT;
++    result = Curl_setstropt(&data->set.str[STRING_FORM_BOUNDARY], ptr);
++    if(result)
++      return result;
++    return Curl_mime_set_form_boundary(data, (curl_mime *) data->set.mimepost.arg);
 +    break;
 +  case CURLOPT_TLS_EXTENSION_ORDER:
 +    return Curl_setstropt(&data->set.str[STRING_TLS_EXTENSION_ORDER], ptr);
@@ -4457,7 +4711,7 @@ index 1380c33db6..60e3454f85 100644
  #ifndef CURL_DISABLE_PROXY
    case CURLOPT_PROXY_TLS13_CIPHERS:
      if(Curl_ssl_supports(data, SSLSUPP_TLS13_CIPHERSUITES))
-@@ -3039,6 +3147,7 @@ CURLcode Curl_vsetopt(struct Curl_easy *data, CURLoption option, va_list param)
+@@ -3039,6 +3164,7 @@ CURLcode Curl_vsetopt(struct Curl_easy *data, CURLoption option, va_list param)
         way than being listed explicitly */
      switch(option) {
      case CURLOPT_HTTPHEADER:
@@ -5439,7 +5693,7 @@ index e4f250f54a..8ab233a130 100644
  
      if(waitpipe) {
 diff --git a/lib/urldata.h b/lib/urldata.h
-index e54721dd98..a6b4655ff2 100644
+index e54721dd98..937d30d558 100644
 --- a/lib/urldata.h
 +++ b/lib/urldata.h
 @@ -275,6 +275,8 @@ struct ssl_primary_config {
@@ -5491,15 +5745,16 @@ index e54721dd98..a6b4655ff2 100644
  #ifndef CURL_DISABLE_VERBOSE_STRINGS
    struct curl_trc_feat *feat; /* opt. trace feature transfer is part of */
  #endif
-@@ -1225,6 +1246,7 @@ enum dupstring {
+@@ -1225,6 +1246,8 @@ enum dupstring {
    STRING_SSL_CRLFILE,     /* crl file to check certificate */
    STRING_SSL_ISSUERCERT, /* issuer cert file to check certificate */
    STRING_SERVICE_NAME,    /* Service name */
 +  STRING_IMPERSONATE,     /* curl-impersonate */
++  STRING_FORM_BOUNDARY,   /* CURLOPT_FORM_BOUNDARY */
  #ifndef CURL_DISABLE_PROXY
    STRING_CERT_PROXY,      /* client certificate filename */
    STRING_CERT_TYPE_PROXY, /* format for certificate (default: PEM)*/
-@@ -1334,6 +1356,13 @@ enum dupstring {
+@@ -1334,6 +1357,13 @@ enum dupstring {
  #endif
    STRING_ECH_CONFIG,            /* CURLOPT_ECH_CONFIG */
    STRING_ECH_PUBLIC,            /* CURLOPT_ECH_PUBLIC */
@@ -5513,7 +5768,7 @@ index e54721dd98..a6b4655ff2 100644
    STRING_SSL_SIGNATURE_ALGORITHMS, /* CURLOPT_SSL_SIGNATURE_ALGORITHMS */
  
    /* -- end of null-terminated strings -- */
-@@ -1579,6 +1608,7 @@ struct UserDefined {
+@@ -1579,6 +1609,7 @@ struct UserDefined {
    BIT(sep_headers);     /* handle host and proxy headers separately */
  #ifndef CURL_DISABLE_COOKIES
    BIT(cookiesession);   /* new cookie session? */
@@ -5521,7 +5776,7 @@ index e54721dd98..a6b4655ff2 100644
  #endif
    BIT(crlf);            /* convert crlf on ftp upload(?) */
  #ifdef USE_SSH
-@@ -1595,6 +1625,7 @@ struct UserDefined {
+@@ -1595,6 +1626,7 @@ struct UserDefined {
    BIT(get_filetime);     /* get the time and get of the remote file */
  #ifndef CURL_DISABLE_PROXY
    BIT(tunnel_thru_httpproxy); /* use CONNECT through an HTTP proxy */
@@ -5529,7 +5784,7 @@ index e54721dd98..a6b4655ff2 100644
  #endif
    BIT(prefer_ascii);     /* ASCII rather than binary */
    BIT(remote_append);    /* append, not overwrite, on upload */
-@@ -1641,6 +1672,14 @@ struct UserDefined {
+@@ -1641,6 +1673,14 @@ struct UserDefined {
    BIT(tcp_keepalive);  /* use TCP keepalives */
    BIT(tcp_fastopen);   /* use TCP Fast Open */
    BIT(ssl_enable_alpn);/* TLS ALPN extension? */
@@ -5544,7 +5799,7 @@ index e54721dd98..a6b4655ff2 100644
    BIT(path_as_is);     /* allow dotdots? */
    BIT(pipewait);       /* wait for multiplex status before starting a new
                            connection */
-@@ -1662,10 +1701,15 @@ struct UserDefined {
+@@ -1662,10 +1702,15 @@ struct UserDefined {
    BIT(doh_verifystatus);   /* DoH certificate status verification */
  #endif
    BIT(http09_allowed); /* allow HTTP/0.9 responses */
