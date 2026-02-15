@@ -6177,7 +6177,7 @@ index 691c0d3fa7..cf29e5952c 100644
      failf(data, "HTTP/3 is not supported over an HTTP proxy");
      return CURLE_URL_MALFORMAT;
 diff --git a/lib/vtls/openssl.c b/lib/vtls/openssl.c
-index b0f91cf400..7c4de5fc6f 100644
+index b0f91cf400..20877389c1 100644
 --- a/lib/vtls/openssl.c
 +++ b/lib/vtls/openssl.c
 @@ -82,9 +82,20 @@
@@ -6498,7 +6498,85 @@ index b0f91cf400..7c4de5fc6f 100644
  /*
   * Our callback from the SSL/TLS layers.
   */
-@@ -3871,6 +4165,8 @@ static CURLcode ossl_init_ssl(struct ossl_ctx *octx,
+@@ -3739,6 +4033,9 @@ static CURLcode ossl_init_ech(struct ossl_ctx *octx,
+   size_t ech_config_len = 0;
+   char *outername = data->set.str[STRING_ECH_PUBLIC];
+   int trying_ech_now = 0;
++  int fallback_grease = ((data->set.tls_ech & CURLECH_ENABLE) &&
++                         !(data->set.tls_ech & CURLECH_HARD) &&
++                         !(data->set.tls_ech & CURLECH_CLA_CFG));
+   CURLcode result;
+ 
+   if(!ECH_ENABLED(data))
+@@ -3804,7 +4101,15 @@ static CURLcode ossl_init_ech(struct ossl_ctx *octx,
+                               cf->conn->ip_version);
+     if(!dns) {
+       infof(data, "ECH: requested but no DNS info available");
+-      if(data->set.tls_ech & CURLECH_HARD)
++      if(fallback_grease) {
++        infof(data, "ECH: falling back to GREASE");
++# if defined(OPENSSL_IS_BORINGSSL) || defined(OPENSSL_IS_AWSLC)
++        SSL_set_enable_ech_grease(octx->ssl, 1);
++# else
++        SSL_set_options(octx->ssl, SSL_OP_ECH_GREASE);
++# endif
++      }
++      else if(data->set.tls_ech & CURLECH_HARD)
+         return CURLE_SSL_CONNECT_ERROR;
+     }
+     else {
+@@ -3820,6 +4125,14 @@ static CURLcode ossl_init_ech(struct ossl_ctx *octx,
+           infof(data, "ECH: SSL_set1_ech_config_list failed");
+           if(data->set.tls_ech & CURLECH_HARD)
+             return CURLE_SSL_CONNECT_ERROR;
++          if(fallback_grease) {
++            infof(data, "ECH: falling back to GREASE");
++# if defined(OPENSSL_IS_BORINGSSL) || defined(OPENSSL_IS_AWSLC)
++            SSL_set_enable_ech_grease(octx->ssl, 1);
++# else
++            SSL_set_options(octx->ssl, SSL_OP_ECH_GREASE);
++# endif
++          }
+         }
+         else {
+           trying_ech_now = 1;
+@@ -3828,7 +4141,15 @@ static CURLcode ossl_init_ech(struct ossl_ctx *octx,
+       }
+       else {
+         infof(data, "ECH: requested but no ECHConfig available");
+-        if(data->set.tls_ech & CURLECH_HARD)
++        if(fallback_grease) {
++          infof(data, "ECH: falling back to GREASE");
++# if defined(OPENSSL_IS_BORINGSSL) || defined(OPENSSL_IS_AWSLC)
++          SSL_set_enable_ech_grease(octx->ssl, 1);
++# else
++          SSL_set_options(octx->ssl, SSL_OP_ECH_GREASE);
++# endif
++        }
++        else if(data->set.tls_ech & CURLECH_HARD)
+           return CURLE_SSL_CONNECT_ERROR;
+       }
+       Curl_resolv_unlink(data, &dns);
+@@ -3852,11 +4173,18 @@ static CURLcode ossl_init_ech(struct ossl_ctx *octx,
+     }
+   }
+ # endif  /* OPENSSL_IS_BORINGSSL || OPENSSL_IS_AWSLC */
++  /*
++   * BoringSSL/AWS-LC handle ECH's TLS version rules internally between
++   * ClientHelloInner/Outer. Do not force a global TLS minimum here so the
++   * outer behavior can match browsers.
++   */
++#if !defined(OPENSSL_IS_BORINGSSL) && !defined(OPENSSL_IS_AWSLC)
+   if(trying_ech_now
+      && SSL_set_min_proto_version(octx->ssl, TLS1_3_VERSION) != 1) {
+     infof(data, "ECH: cannot force TLSv1.3 [ERROR]");
+     return CURLE_SSL_CONNECT_ERROR;
+   }
++#endif
+ 
+   return CURLE_OK;
+ }
+@@ -3871,6 +4199,8 @@ static CURLcode ossl_init_ssl(struct ossl_ctx *octx,
                                void *ssl_user_data,
                                Curl_ossl_init_session_reuse_cb *sess_reuse_cb)
  {
@@ -6507,7 +6585,7 @@ index b0f91cf400..7c4de5fc6f 100644
    /* Let's make an SSL structure */
    if(octx->ssl)
      SSL_free(octx->ssl);
-@@ -3882,6 +4178,29 @@ static CURLcode ossl_init_ssl(struct ossl_ctx *octx,
+@@ -3882,6 +4212,29 @@ static CURLcode ossl_init_ssl(struct ossl_ctx *octx,
  
    SSL_set_app_data(octx->ssl, ssl_user_data);
  
@@ -6537,7 +6615,7 @@ index b0f91cf400..7c4de5fc6f 100644
  #if !defined(OPENSSL_NO_TLSEXT) && !defined(OPENSSL_NO_OCSP)
    if(Curl_ssl_cf_get_primary_config(cf)->verifystatus)
      SSL_set_tlsext_status_type(octx->ssl, TLSEXT_STATUSTYPE_ocsp);
-@@ -4002,6 +4321,7 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
+@@ -4002,6 +4355,7 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
    const struct curl_blob *ssl_cert_blob = ssl_config->primary.cert_blob;
    const char * const ssl_cert_type = ssl_config->cert_type;
    const bool verifypeer = conn_config->verifypeer;
@@ -6545,7 +6623,7 @@ index b0f91cf400..7c4de5fc6f 100644
    unsigned int ssl_version_min;
    char error_buffer[256];
  
-@@ -4084,7 +4404,14 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
+@@ -4084,7 +4438,14 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
    ctx_options = SSL_OP_ALL;
  
  #ifdef SSL_OP_NO_TICKET
@@ -6561,7 +6639,7 @@ index b0f91cf400..7c4de5fc6f 100644
  #endif
  
  #ifdef SSL_OP_NO_COMPRESSION
-@@ -4156,6 +4483,20 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
+@@ -4156,6 +4517,20 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
    SSL_CTX_set_mode(octx->ssl_ctx, SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
  #endif
  
@@ -6582,7 +6660,7 @@ index b0f91cf400..7c4de5fc6f 100644
    ciphers = conn_config->cipher_list;
    if(!ciphers && (peer->transport != TRNSPRT_QUIC))
      ciphers = DEFAULT_CIPHER_SELECTION;
-@@ -4229,6 +4570,35 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
+@@ -4229,6 +4604,35 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
    }
  #endif
  
@@ -6618,7 +6696,7 @@ index b0f91cf400..7c4de5fc6f 100644
  #ifdef USE_OPENSSL_SRP
    if(ssl_config->primary.username && Curl_auth_allowed_to_host(data)) {
      char * const ssl_username = ssl_config->primary.username;
-@@ -4254,6 +4624,55 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
+@@ -4254,6 +4658,55 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
    }
  #endif
  
@@ -7176,7 +7254,7 @@ index 78e2f81243..6cff00a82f 100644
  # if unit tests are enabled, build a static library to link them with
  if BUILD_UNITTESTS
 diff --git a/src/config2setopts.c b/src/config2setopts.c
-index 8e4af65bae..0c5010b1e4 100644
+index 8e4af65bae..61cf71e523 100644
 --- a/src/config2setopts.c
 +++ b/src/config2setopts.c
 @@ -418,6 +418,51 @@ static CURLcode ssl_setopts(struct OperationConfig *config, CURL *curl)
@@ -7296,14 +7374,17 @@ index 8e4af65bae..0c5010b1e4 100644
    return CURLE_OK;
  }
  
-@@ -1117,5 +1206,10 @@ CURLcode config2setopts(struct OperationConfig *config,
+@@ -1117,5 +1206,13 @@ CURLcode config2setopts(struct OperationConfig *config,
    /* new in 8.13.0 */
    if(config->upload_flags)
      my_setopt_long(curl, CURLOPT_UPLOAD_FLAGS, config->upload_flags);
 +
 +  /* curl-impersonate */
-+  if(config->impersonate)
-+    my_setopt_str(curl, CURLOPT_IMPERSONATE, config->impersonate);
++  if(config->impersonate) {
++    result = my_setopt_str(curl, CURLOPT_IMPERSONATE, config->impersonate);
++    if(result)
++      return result;
++  }
 +
    return result;
  }

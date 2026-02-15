@@ -29,7 +29,7 @@
     --http2-stream-weight 256 ^
     --http2-stream-exclusive 1 ^
     --compressed ^
-    --ech grease ^
+    --ech true ^
     --tlsv1.2 --alps --tls-permute-extensions ^
     --cert-compression brotli ^
     --tls-grease ^
