@@ -7841,20 +7841,38 @@ index beb034eeaf..7fe96e0783 100644
     "Set a CRL list for proxy",
     CURLHELP_PROXY | CURLHELP_TLS},
 diff --git a/src/tool_paramhlp.c b/src/tool_paramhlp.c
-index 97a6b6e2ee..37a01eae1b 100644
+index 97a6b6e2ee..bd6ef802bf 100644
 --- a/src/tool_paramhlp.c
 +++ b/src/tool_paramhlp.c
-@@ -718,8 +718,8 @@ CURLcode get_args(struct OperationConfig *config, const size_t i)
+@@ -697,6 +697,7 @@ CURLcode get_args(struct OperationConfig *config, const size_t i)
+ {
+   CURLcode result = CURLE_OK;
+   bool last = (config->next ? FALSE : TRUE);
++  char *env_target = NULL;
+ 
+   if(config->jsoned) {
+     ParameterError err = PARAM_OK;
+@@ -718,14 +719,18 @@ CURLcode get_args(struct OperationConfig *config, const size_t i)
    if(!result && config->proxyuserpwd)
      result = checkpasswd("proxy", i, last, &config->proxyuserpwd);
  
 -  /* Check if we have a user agent */
 -  if(!result && !config->useragent) {
++  env_target = curl_getenv("CURL_IMPERSONATE");
++
 +  /* Check if we have a user agent, do not override impersonate value */
-+  if(!result && !config->useragent && !config->impersonate) {
++  if(!result && !config->useragent &&
++     !config->impersonate && !env_target) {
      config->useragent = my_useragent();
      if(!config->useragent) {
        errorf(config->global, "out of memory");
+       result = CURLE_OUT_OF_MEMORY;
+     }
+   }
++  curl_free(env_target);
+ 
+   return result;
+ }
 diff --git a/src/tool_setopt.c b/src/tool_setopt.c
 index 89505979c9..89305b0f7d 100644
 --- a/src/tool_setopt.c
