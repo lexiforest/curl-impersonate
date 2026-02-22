@@ -14,7 +14,7 @@
 > 5. Upgrade to more recent version of curl, 8.15.0 as of August, 2025.
 > 6. Ability to change extension orders and enable/disable TLS grease.
 > 7. Single binary to support Chrome, Safari and Firefox.
-> 8. Built with http/3 enabled.
+> 8. Built with http/3 enabled, http/3 and quic fingerprints are also supported.
 > 9. A user-friendly Python binding: [curl_cffi](https://github.com/lexiforest/curl_cffi).
 > 10. More prebuilt binaries, including Windows, Arm, and even RISC-V!
 > 11. Commercial support at [impersonate.pro](https://impersonate.pro).
@@ -69,7 +69,7 @@ Read the original technical description in the blog posts: [part a](https://lwth
 
 The following browsers can be impersonated.
 
-| Browser | Version | Build | OS | Target name | Wrapper script |
+| Browser | Version | Build | OS | Target name | Wrapper script | H3 fingerprints |
 | --- | --- | --- | --- | --- | --- |
 | ![Chrome](https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome_24x24.png "Chrome") | 99 | 99.0.4844.51 | Windows 10 | `chrome99` | [curl_chrome99](bin/curl_chrome99) |
 | ![Chrome](https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome_24x24.png "Chrome") | 100 | 100.0.4896.75 | Windows 10 | `chrome100` | [curl_chrome100](bin/curl_chrome100) |
@@ -86,7 +86,9 @@ The following browsers can be impersonated.
 | ![Chrome](https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome_24x24.png "Chrome") | 133 | 133.0.6943.55 | macOS Sequoia | `chrome133a` | [curl_chrome133a](bin/curl_chrome133a) |
 | ![Chrome](https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome_24x24.png "Chrome") | 136 | 136.0.7103.93 | macOS Sequoia | `chrome136` | [curl_chrome136](bin/curl_chrome136) |
 | ![Chrome](https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome_24x24.png "Chrome") | 142 | 142.0.7103.93 | macOS Tahoe | `chrome142` | [curl_chrome142](bin/curl_chrome142) |
+| ![Chrome](https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome_24x24.png "Chrome") | 145 | 145.0.7103.93 | macOS Tahoe | `chrome145` | [curl_chrome145](bin/curl_chrome145) | ✅ |
 | ![Chrome](https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome_24x24.png "Chrome") | 99 | 99.0.4844.73 | Android 12 | `chrome99_android` | [curl_chrome99_android](bin/curl_chrome99_android) |
+| ![Chrome](https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome_24x24.png "Chrome") | 131 | 131.0.6778.81 | Android 14 | `chrome131_android` | [curl_chrome131_android](bin/curl_chrome131_android) |
 | ![Chrome](https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome_24x24.png "Chrome") | 131 | 131.0.6778.81 | Android 14 | `chrome131_android` | [curl_chrome131_android](bin/curl_chrome131_android) |
 | ![Edge](https://raw.githubusercontent.com/alrra/browser-logos/main/src/edge/edge_24x24.png "Edge") | 99 | 99.0.1150.30 | Windows 10 | `edge99` | [curl_edge99](bin/curl_edge99) |
 | ![Edge](https://raw.githubusercontent.com/alrra/browser-logos/main/src/edge/edge_24x24.png "Edge") | 101 | 101.0.1210.47 | Windows 10 | `edge101` | [curl_edge101](bin/curl_edge101) |
@@ -103,6 +105,7 @@ The following browsers can be impersonated.
 | ![Firefox](https://github.com/alrra/browser-logos/blob/main/src/firefox/firefox_24x24.png "Firefox") | 133.0 | 133.0.3 | macOS Sonoma | `firefox133` | [curl_firefox133](bin/curl_firefox133) |
 | ![Firefox](https://github.com/alrra/browser-logos/blob/main/src/firefox/firefox_24x24.png "Firefox") | 135.0 | 135.0.1 | macOS Sonoma | `firefox135` | [curl_firefox135](bin/curl_firefox135) |
 | ![Firefox](https://github.com/alrra/browser-logos/blob/main/src/firefox/firefox_24x24.png "Firefox") | 144.0 | 144.0.0 | macOS Tahoe | `firefox144` | [curl_firefox144](bin/curl_firefox144) |
+| ![Firefox](https://github.com/alrra/browser-logos/blob/main/src/firefox/firefox_24x24.png "Firefox") | 147.0 | 147.0.0 | macOS Tahoe | `firefox147` | [curl_firefox147](bin/curl_firefox147) | ✅ |
 | ![Tor](https://github.com/alrra/browser-logos/blob/main/src/tor/tor_24x24.png "Tor") | 14.5 | 14.5 | macOS Sonoma | `tor145` | [curl_tor145](bin/curl_tor145) |
 
 <small>
