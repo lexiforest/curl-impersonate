@@ -17,9 +17,9 @@ BORING_SSL_COMMIT := 673e61fc215b178a90c0e67858bbf162c8158993
 # See: https://nghttp2.org/blog/2025/03/02/nghttp2-v1-65-0/
 NGHTTP2_VERSION := 1.63.0
 NGHTTP2_URL := https://github.com/nghttp2/nghttp2/releases/download/v$(NGHTTP2_VERSION)/nghttp2-$(NGHTTP2_VERSION).tar.bz2
-NGTCP2_VERSION := 1.11.0
+NGTCP2_VERSION := 1.20.0
 NGTCP2_URL := https://github.com/ngtcp2/ngtcp2/releases/download/v$(NGTCP2_VERSION)/ngtcp2-$(NGTCP2_VERSION).tar.bz2
-NGHTTP3_VERSION := 1.9.0
+NGHTTP3_VERSION := 1.15.0
 NGHTTP3_URL := https://github.com/ngtcp2/nghttp3/releases/download/v$(NGHTTP3_VERSION)/nghttp3-$(NGHTTP3_VERSION).tar.bz2
 ZLIB_VERSION := 1.3.1
 ZLIB_URL := https://github.com/madler/zlib/releases/download/v$(ZLIB_VERSION)/zlib-$(ZLIB_VERSION).tar.gz
@@ -340,8 +340,14 @@ $(nghttp2_static_libs): nghttp2-$(NGHTTP2_VERSION).tar.bz2
 ngtcp2-$(NGTCP2_VERSION).tar.bz2:
 	curl -L $(NGTCP2_URL) -o ngtcp2-$(NGTCP2_VERSION).tar.bz2
 
-$(ngtcp2_static_libs): ngtcp2-$(NGTCP2_VERSION).tar.bz2 $(boringssl_static_libs)
+# Patch ngtcp2 and use a dummy '.patched' file to mark it patched
+ngtcp2-$(NGTCP2_VERSION)/.patched: $(srcdir)/patches/ngtcp2.patch
 	tar -xf ngtcp2-$(NGTCP2_VERSION).tar.bz2
+	cd ngtcp2-$(NGTCP2_VERSION)
+	for p in $^; do patch -p1 < $$p; done
+	touch .patched
+
+$(ngtcp2_static_libs): ngtcp2-$(NGTCP2_VERSION).tar.bz2 ngtcp2-$(NGTCP2_VERSION)/.patched $(boringssl_static_libs)
 	cd ngtcp2-$(NGTCP2_VERSION)
 	autoreconf -i
 
@@ -369,8 +375,14 @@ $(ngtcp2_static_libs): ngtcp2-$(NGTCP2_VERSION).tar.bz2 $(boringssl_static_libs)
 nghttp3-$(NGHTTP3_VERSION).tar.bz2:
 	curl -L $(NGHTTP3_URL) -o nghttp3-$(NGHTTP3_VERSION).tar.bz2
 
-$(nghttp3_static_libs): nghttp3-$(NGHTTP3_VERSION).tar.bz2
+# Patch nghttp3 and use a dummy '.patched' file to mark it patched
+nghttp3-$(NGHTTP3_VERSION)/.patched: $(srcdir)/patches/nghttp3.patch
 	tar -xf nghttp3-$(NGHTTP3_VERSION).tar.bz2
+	cd nghttp3-$(NGHTTP3_VERSION)
+	for p in $^; do patch -p1 < $$p; done
+	touch .patched
+
+$(nghttp3_static_libs): nghttp3-$(NGHTTP3_VERSION).tar.bz2 nghttp3-$(NGHTTP3_VERSION)/.patched
 	cd nghttp3-$(NGHTTP3_VERSION)
 
 	# Set up the configure flags to nghttp2.
@@ -496,6 +508,7 @@ $(CURL_VERSION)/.chrome: $(chrome_libs)	$(CURL_VERSION).tar.gz $(CURL_VERSION)/.
 	  esac; \
 	}
 
+	echo PKG_CONFIG_PATH="$(ngtcp2_install_dir)/lib/pkgconfig"
 	echo "Configuring curl with: $$config_flags"
 
 	{ \
@@ -509,10 +522,11 @@ $(CURL_VERSION)/.chrome: $(chrome_libs)	$(CURL_VERSION).tar.gz $(CURL_VERSION)/.
 
 	DYLD_LIBRARY_PATH="$$lib_path" \
 	LD_LIBRARY_PATH="$$lib_path" \
+	PKG_CONFIG_LIBDIR= \
+	PKG_CONFIG_PATH="$(ngtcp2_install_dir)/lib/pkgconfig" \
 		./configure \
 			 $$config_flags \
-			 LIBS="$$add_libs" \
-			 PKG_CONFIG_PATH="$(ngtcp2_install_dir)/crypto/boringssl/"
+			 LIBS="$$add_libs"
 
 	# Remove possible leftovers from a previous compilation
 	$(MAKE) clean MAKEFLAGS=

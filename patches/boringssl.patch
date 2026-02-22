@@ -357,6 +357,20 @@ index 7c6804d65..a1fd43fcc 100644
  #define SSL_CURVE_X25519_KYBER768_DRAFT00 SSL_GROUP_X25519_KYBER768_DRAFT00
  
  // SSL_get_curve_id calls |SSL_get_group_id|.
+diff --git a/include/openssl/target.h b/include/openssl/target.h
+index 147ab31fe..bc03e54f8 100644
+--- a/include/openssl/target.h
++++ b/include/openssl/target.h
+@@ -45,6 +45,9 @@
+ #define OPENSSL_RISCV64
+ #elif defined(__riscv) && __SIZEOF_POINTER__ == 4
+ #define OPENSSL_32_BIT
++#elif defined(__loongarch64)
++#define OPENSSL_64_BIT
++#define OPENSSL_LOONGARCH64
+ #elif defined(__pnacl__)
+ #define OPENSSL_32_BIT
+ #define OPENSSL_PNACL
 diff --git a/include/openssl/tls1.h b/include/openssl/tls1.h
 index 7705e9c0e..386a616ba 100644
 --- a/include/openssl/tls1.h
@@ -1482,17 +1496,3 @@ index 48a156091..23721f9c7 100644
    if (CRYPTO_is_BMI1_capable() && CRYPTO_is_BMI2_capable() &&
      CRYPTO_is_ADX_capable()) {
        fiat_p256_adx_sqr(out1, arg1);
-diff --git a/include/openssl/target.h b/include/openssl/target.h
-index 147ab31..bc03e54 100644
---- a/include/openssl/target.h
-+++ b/include/openssl/target.h
-@@ -45,6 +45,9 @@
- #define OPENSSL_RISCV64
- #elif defined(__riscv) && __SIZEOF_POINTER__ == 4
- #define OPENSSL_32_BIT
-+#elif defined(__loongarch64)
-+#define OPENSSL_64_BIT
-+#define OPENSSL_LOONGARCH64
- #elif defined(__pnacl__)
- #define OPENSSL_32_BIT
- #define OPENSSL_PNACL

@@ -21,8 +21,8 @@ env:
   BORINGSSL_COMMIT: 673e61fc215b178a90c0e67858bbf162c8158993
   CURL_TAG: curl-8_15_0  # using tags is less secure, but easier to maintain
   NGHTTP2_COMMIT: 8f44147c385fb1ed93a6f39911eeb30279bfd2dd
-  NGHTTP3_TAG: v1.9.0
-  NGTCP2_TAG: v1.11.0
+  NGHTTP3_TAG: v1.15.0
+  NGTCP2_TAG: v1.20.0
 
 jobs:
   build-windows:

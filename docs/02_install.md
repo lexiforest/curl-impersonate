@@ -1,13 +1,13 @@
 ## Installation
-There are two versions of `curl-impersonate` for technical reasons. The **chrome** version is used to impersonate Chrome, Edge and Safari.
+Unlike the original repo, there is only one versions of `curl-impersonate` here, which covers all of Chrome, Edge, Firefox and Safari.
 
 ### Pre-compiled binaries
-Pre-compiled binaries for Windows, Linux and macOS are available at the [GitHub releases](https://github.com/lexiforest/curl-impersonate/releases) page. Before you use them you may need to install zstd and CA certificates:
+Pre-compiled binaries for Windows, Linux and macOS are available at the [GitHub releases](https://github.com/lexiforest/curl-impersonate/releases) page. Before you use them all you need is CA certificates:
 
-* Ubuntu - `sudo apt install ca-certificates zstd libzstd-dev`
-* Red Hat/Fedora/CentOS - `yum install ca-certificates zstd libzstd-devel`
-* Archlinux - `pacman -S ca-certificates zstd`
-* macOS - `brew install ca-certificates zstd`
+* Ubuntu - `sudo apt install ca-certificates`
+* Red Hat/Fedora/CentOS - `yum install ca-certificates`
+* Archlinux - `pacman -S ca-certificates`
+* macOS - `brew install ca-certificates`
 
 The pre-compiled binaries contain `libcurl-impersonate` and a statically compiled `curl-impersonate` for ease of use.
 
