@@ -83,7 +83,7 @@ if(WIN32)
       "$ENV{ProgramFiles(x86)}/Git/usr/bin"
   )
 else()
-  find_program(PATCH_EXE patch)
+  find_program(PATCH_EXE NAMES gpatch patch)
 endif()
 if(NOT PATCH_EXE)
   set(PATCH_EXE patch)
@@ -305,10 +305,10 @@ if(USE_LIBIDN2)
     DOWNLOAD_EXTRACT_TIMESTAMP FALSE
     CONFIGURE_COMMAND
       ${CMAKE_COMMAND} -E env
-        ACLOCAL=true AUTOCONF=true AUTOHEADER=true AUTOMAKE=true MAKEINFO=true
+        ACLOCAL=true AUTOCONF=true AUTOHEADER=true AUTOMAKE=true MAKEINFO=true GPERF=true
         <SOURCE_DIR>/configure --prefix=<INSTALL_DIR> --disable-shared --enable-static --with-pic --disable-maintainer-mode
-    BUILD_COMMAND ${CMAKE_COMMAND} -E env MAKEINFO=true ${AUTOTOOLS_MAKE} -j${SUBJOBS}
-    INSTALL_COMMAND ${CMAKE_COMMAND} -E env MAKEINFO=true ${AUTOTOOLS_MAKE} install
+    BUILD_COMMAND ${CMAKE_COMMAND} -E env MAKEINFO=true GPERF=true ${AUTOTOOLS_MAKE} -j${SUBJOBS}
+    INSTALL_COMMAND ${CMAKE_COMMAND} -E env MAKEINFO=true GPERF=true ${AUTOTOOLS_MAKE} install
   )
 
   # libidn2
@@ -325,10 +325,10 @@ if(USE_LIBIDN2)
     CONFIGURE_COMMAND
       ${CMAKE_COMMAND} -E env
         PKG_CONFIG_PATH=${DEPS_INSTALL_DIR}/lib/pkgconfig
-        ACLOCAL=true AUTOCONF=true AUTOHEADER=true AUTOMAKE=true MAKEINFO=true HELP2MAN=true
+        ACLOCAL=true AUTOCONF=true AUTOHEADER=true AUTOMAKE=true MAKEINFO=true HELP2MAN=true GPERF=true
         <SOURCE_DIR>/configure --prefix=<INSTALL_DIR> --disable-shared --enable-static --with-pic --disable-nls --disable-maintainer-mode --with-libunistring-prefix=${DEPS_INSTALL_DIR}
-    BUILD_COMMAND ${CMAKE_COMMAND} -E env MAKEINFO=true HELP2MAN=true ${AUTOTOOLS_MAKE} LTLIBUNISTRING=${DEPS_INSTALL_DIR}/lib/libunistring.la HELP2MAN=true -j${SUBJOBS}
-    INSTALL_COMMAND ${CMAKE_COMMAND} -E env MAKEINFO=true HELP2MAN=true ${AUTOTOOLS_MAKE} LTLIBUNISTRING=${DEPS_INSTALL_DIR}/lib/libunistring.la HELP2MAN=true install
+    BUILD_COMMAND ${CMAKE_COMMAND} -E env MAKEINFO=true HELP2MAN=true GPERF=true ${AUTOTOOLS_MAKE} LTLIBUNISTRING=${DEPS_INSTALL_DIR}/lib/libunistring.la HELP2MAN=true -j${SUBJOBS}
+    INSTALL_COMMAND ${CMAKE_COMMAND} -E env MAKEINFO=true HELP2MAN=true GPERF=true ${AUTOTOOLS_MAKE} LTLIBUNISTRING=${DEPS_INSTALL_DIR}/lib/libunistring.la HELP2MAN=true install
   )
 endif()
 
@@ -400,6 +400,21 @@ if(CMAKE_MSVC_RUNTIME_LIBRARY)
   list(APPEND _curl_platform_flags "-DCMAKE_MSVC_RUNTIME_LIBRARY=${CMAKE_MSVC_RUNTIME_LIBRARY}")
 endif()
 
+set(_curl_http_stack_path_flags)
+if(NOT WIN32)
+  # Force curl to use our staged nghttp2/nghttp3/ngtcp2 artifacts. This avoids
+  # accidental pickup of system/Homebrew headers, which may miss patched APIs.
+  list(APPEND _curl_http_stack_path_flags
+    "-DNGHTTP2_INCLUDE_DIR=${DEPS_INSTALL_DIR}/include"
+    "-DNGHTTP2_LIBRARY=${DEPS_INSTALL_DIR}/lib/libnghttp2.a"
+    "-DNGHTTP3_INCLUDE_DIR=${DEPS_INSTALL_DIR}/include"
+    "-DNGHTTP3_LIBRARY=${DEPS_INSTALL_DIR}/lib/libnghttp3.a"
+    "-DNGTCP2_INCLUDE_DIR=${DEPS_INSTALL_DIR}/include"
+    "-DNGTCP2_LIBRARY=${DEPS_INSTALL_DIR}/lib/libngtcp2.a"
+    "-DNGTCP2_CRYPTO_BORINGSSL_LIBRARY=${DEPS_INSTALL_DIR}/lib/libngtcp2_crypto_boringssl.a"
+  )
+endif()
+
 ExternalProject_Add(curl
   URL "${CURL_URL}"
   SOURCE_DIR "${DEPS_SRC_DIR}/curl"
@@ -452,6 +467,7 @@ ExternalProject_Add(curl
       ${_curl_idn_flags}
       ${_curl_build_flags}
       ${_curl_platform_flags}
+      ${_curl_http_stack_path_flags}
       -GNinja
       -S <SOURCE_DIR> -B <BINARY_DIR>
   BUILD_COMMAND ${CMAKE_COMMAND} --build <BINARY_DIR> --config Release --parallel ${SUBJOBS}
