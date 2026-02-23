@@ -5,7 +5,6 @@ CMAKE ?= cmake
 CMAKE_CONFIGURE_ARGS ?=
 CMAKE_BUILD_ARGS ?=
 CMAKE_INSTALL_ARGS ?=
-STATIC_BUILD ?= ON
 TARGET ?= curl-impersonate
 CURL_BIN ?= $(BUILD_DIR)/deps/build/curl/src/curl-impersonate
 
@@ -13,7 +12,7 @@ all: build checkbuild
 .PHONY: all
 
 configure:
-	$(CMAKE) -S . -B $(BUILD_DIR) -DSTATIC_BUILD=$(STATIC_BUILD) $(CMAKE_CONFIGURE_ARGS)
+	$(CMAKE) -S . -B $(BUILD_DIR) $(CMAKE_CONFIGURE_ARGS)
 .PHONY: configure
 
 build: configure

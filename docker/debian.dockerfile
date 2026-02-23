@@ -5,28 +5,16 @@ WORKDIR /build
 RUN apt-get update && \
     apt-get install -y git ninja-build cmake autoconf automake pkg-config libtool \
     ca-certificates curl \
-    curl \
     golang-go bzip2 xz-utils unzip
 
 COPY . /build
 
-# dynamic build
+# Single build: shared+static libcurl and static curl binary
 RUN mkdir /build/install && \
-    ./configure --prefix=/build/install \
-        --with-ca-path=/etc/ssl/certs \
-        --with-ca-bundle=/etc/ssl/certs/ca-certificates.crt && \
-    make build && \
-    make checkbuild && \
-    make install
-
-# static build
-RUN ./configure --prefix=/build/install \
-        --enable-static \
-        --with-ca-path=/etc/ssl/certs \
-        --with-ca-bundle=/etc/ssl/certs/ca-certificates.crt && \
-    make build && \
-    make checkbuild && \
-    make install
+    BUILD_ARGS="-DCMAKE_INSTALL_PREFIX=/build/install -DCURL_CA_PATH=/etc/ssl/certs -DCURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt" && \
+    make build BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$BUILD_ARGS" && \
+    make checkbuild BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$BUILD_ARGS" && \
+    make install-strip BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$BUILD_ARGS"
 
 
 FROM debian:bookworm-slim

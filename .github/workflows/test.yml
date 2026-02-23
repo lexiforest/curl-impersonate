@@ -47,16 +47,24 @@ jobs:
           # More dependencies for the tests
           sudo apt-get install tcpdump nghttp2-server
 
-      - name: Run configure script
+      - name: Configure (CMake)
         run: |
-          mkdir ${{ runner.temp }}/install
-          ./configure --prefix=${{ runner.temp }}/install \
-                      --host=x86_64-linux-gnu \
-                      --with-ca-path=/etc/ssl/certs \
-                      --with-ca-bundle=/etc/ssl/certs/ca-certificates.crt
+          set -e
+          install_dir="${{ runner.temp }}/install"
+          mkdir -p "$install_dir"
+          cmake_args="-DCMAKE_INSTALL_PREFIX=$install_dir"
+          cmake_args="$cmake_args -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=x86_64"
+          cmake_args="$cmake_args -DCURL_CA_PATH=/etc/ssl/certs -DCURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt"
+          {
+            echo "CMAKE_CONFIGURE_ARGS<<EOF"
+            echo "$cmake_args"
+            echo "EOF"
+          } >> "$GITHUB_ENV"
+          make configure
 
       - name: Build curl-impersonate
         run: |
+          set -e
           make build
           make checkbuild
           make install

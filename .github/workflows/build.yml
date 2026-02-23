@@ -210,7 +210,7 @@ jobs:
           install_dir="${{ runner.temp }}/install"
           mkdir -p "$install_dir"
 
-          cmake_args="-DCMAKE_INSTALL_PREFIX=$install_dir -DSTATIC_BUILD=ON"
+          cmake_args="-DCMAKE_INSTALL_PREFIX=$install_dir"
           if [[ "${{ matrix.platform }}" == "linux" ]]; then
             cmake_args="$cmake_args -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=${{ matrix.arch }}"
             cmake_args="$cmake_args -DCURL_CA_PATH=/etc/ssl/certs -DCURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt"
