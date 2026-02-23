@@ -1,5 +1,5 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index c0cc0c57b8..0963d9b7bf 100644
+index c0cc0c57b8..00f35fbb3b 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -174,7 +174,7 @@ else()
@@ -11,7 +11,23 @@ index c0cc0c57b8..0963d9b7bf 100644
  
  set_property(DIRECTORY APPEND PROPERTY INCLUDE_DIRECTORIES "${PROJECT_SOURCE_DIR}/include")
  
-@@ -2470,7 +2470,7 @@ if(NOT CURL_DISABLE_INSTALL)
+@@ -775,8 +775,13 @@ if(CURL_USE_OPENSSL)
+ 
+   if(HAVE_BORINGSSL OR HAVE_AWSLC)
+     if(OPENSSL_USE_STATIC_LIBS AND CMAKE_C_COMPILER_ID MATCHES "Clang")
+-      list(APPEND CURL_LIBS "stdc++")
+-      list(APPEND CMAKE_REQUIRED_LIBRARIES "stdc++")
++      if(APPLE OR BSD)
++        set(_cxx_runtime_lib "c++")
++      else()
++        set(_cxx_runtime_lib "stdc++")
++      endif()
++      list(APPEND CURL_LIBS "${_cxx_runtime_lib}")
++      list(APPEND CMAKE_REQUIRED_LIBRARIES "${_cxx_runtime_lib}")
+     endif()
+   endif()
+ 
+@@ -2470,7 +2475,7 @@ if(NOT CURL_DISABLE_INSTALL)
        COMMAND ${CMAKE_COMMAND} -P "${CMAKE_CURRENT_BINARY_DIR}/CMake/cmake_uninstall.cmake")
    endif()
  
