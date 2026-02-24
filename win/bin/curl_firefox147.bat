@@ -2,4 +2,4 @@
 :: Wireshark, then converting it using this reference
 :: https://wiki.mozilla.org/Security/Cipher_Suites
 @echo off
-"%~dp0curl.exe" --compressed --impersonate "firefox147" %*
+"%~dp0curl-impersonate.exe" --compressed --impersonate "firefox147" %*
