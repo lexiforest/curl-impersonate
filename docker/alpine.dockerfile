@@ -3,7 +3,7 @@ FROM alpine:3.21 AS builder
 WORKDIR /build
 
 RUN apk update && \
-    apk add git ninja cmake make patch linux-headers autoconf automake pkgconfig libtool \
+    apk add git ninja cmake make patch linux-headers autoconf automake pkgconfig libtool gperf \
     build-base libc-dev \
     xz-libs xz-dev xz-static \
     ca-certificates curl bash \

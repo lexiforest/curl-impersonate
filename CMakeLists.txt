@@ -80,7 +80,9 @@ if(WIN32)
   find_program(PATCH_EXE patch
     HINTS
       "$ENV{ProgramFiles}/Git/usr/bin"
-      "$ENV{ProgramFiles(x86)}/Git/usr/bin"
+      "$ENV{ProgramW6432}/Git/usr/bin"
+      "C:/Program Files/Git/usr/bin"
+      "C:/Program Files (x86)/Git/usr/bin"
   )
 else()
   find_program(PATCH_EXE NAMES gpatch patch)
@@ -305,10 +307,10 @@ if(USE_LIBIDN2)
     DOWNLOAD_EXTRACT_TIMESTAMP FALSE
     CONFIGURE_COMMAND
       ${CMAKE_COMMAND} -E env
-        ACLOCAL=true AUTOCONF=true AUTOHEADER=true AUTOMAKE=true MAKEINFO=true GPERF=true
+        ACLOCAL=true AUTOCONF=true AUTOHEADER=true AUTOMAKE=true MAKEINFO=true
         <SOURCE_DIR>/configure --prefix=<INSTALL_DIR> --disable-shared --enable-static --with-pic --disable-maintainer-mode
-    BUILD_COMMAND ${CMAKE_COMMAND} -E env MAKEINFO=true GPERF=true ${AUTOTOOLS_MAKE} -j${SUBJOBS}
-    INSTALL_COMMAND ${CMAKE_COMMAND} -E env MAKEINFO=true GPERF=true ${AUTOTOOLS_MAKE} install
+    BUILD_COMMAND ${CMAKE_COMMAND} -E env MAKEINFO=true ${AUTOTOOLS_MAKE} -j${SUBJOBS}
+    INSTALL_COMMAND ${CMAKE_COMMAND} -E env MAKEINFO=true ${AUTOTOOLS_MAKE} install
   )
 
   # libidn2
@@ -325,10 +327,10 @@ if(USE_LIBIDN2)
     CONFIGURE_COMMAND
       ${CMAKE_COMMAND} -E env
         PKG_CONFIG_PATH=${DEPS_INSTALL_DIR}/lib/pkgconfig
-        ACLOCAL=true AUTOCONF=true AUTOHEADER=true AUTOMAKE=true MAKEINFO=true HELP2MAN=true GPERF=true
+        ACLOCAL=true AUTOCONF=true AUTOHEADER=true AUTOMAKE=true MAKEINFO=true HELP2MAN=true
         <SOURCE_DIR>/configure --prefix=<INSTALL_DIR> --disable-shared --enable-static --with-pic --disable-nls --disable-maintainer-mode --with-libunistring-prefix=${DEPS_INSTALL_DIR}
-    BUILD_COMMAND ${CMAKE_COMMAND} -E env MAKEINFO=true HELP2MAN=true GPERF=true ${AUTOTOOLS_MAKE} LTLIBUNISTRING=${DEPS_INSTALL_DIR}/lib/libunistring.la HELP2MAN=true -j${SUBJOBS}
-    INSTALL_COMMAND ${CMAKE_COMMAND} -E env MAKEINFO=true HELP2MAN=true GPERF=true ${AUTOTOOLS_MAKE} LTLIBUNISTRING=${DEPS_INSTALL_DIR}/lib/libunistring.la HELP2MAN=true install
+    BUILD_COMMAND ${CMAKE_COMMAND} -E env MAKEINFO=true ${AUTOTOOLS_MAKE} LTLIBUNISTRING=${DEPS_INSTALL_DIR}/lib/libunistring.la HELP2MAN=true -j${SUBJOBS}
+    INSTALL_COMMAND ${CMAKE_COMMAND} -E env MAKEINFO=true ${AUTOTOOLS_MAKE} LTLIBUNISTRING=${DEPS_INSTALL_DIR}/lib/libunistring.la HELP2MAN=true install
   )
 endif()
 

@@ -3,7 +3,7 @@ FROM python:3.12-slim-bookworm AS builder
 WORKDIR /build
 
 RUN apt-get update && \
-    apt-get install -y git ninja-build cmake autoconf automake pkg-config libtool \
+    apt-get install -y git ninja-build cmake autoconf automake pkg-config libtool gperf \
     ca-certificates curl \
     golang-go bzip2 xz-utils unzip
 
