@@ -91,15 +91,15 @@ The following browsers can be impersonated.
 | ![Chrome](https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome_24x24.png "Chrome") | 131 | Android 14 | `chrome131_android` | [curl_chrome131_android](bin/curl_chrome131_android) |
 | ![Edge](https://raw.githubusercontent.com/alrra/browser-logos/main/src/edge/edge_24x24.png "Edge") | 99 | Windows 10 | `edge99` | [curl_edge99](bin/curl_edge99) |
 | ![Edge](https://raw.githubusercontent.com/alrra/browser-logos/main/src/edge/edge_24x24.png "Edge") | 101 | Windows 10 | `edge101` | [curl_edge101](bin/curl_edge101) |
-| ![Safari](https://github.com/alrra/browser-logos/blob/main/src/safari/safari_24x24.png "Safari") | 15.3 | MacOS Big Sur | `safari153` | [curl_safari153](bin/curl_safari153) |
-| ![Safari](https://github.com/alrra/browser-logos/blob/main/src/safari/safari_24x24.png "Safari") | 15.5 | MacOS Monterey | `safari155` | [curl_safari155](bin/curl_safari155) |
-| ![Safari](https://github.com/alrra/browser-logos/blob/main/src/safari/safari_24x24.png "Safari") | 17.0 | MacOS Sonoma | `safari170` | [curl_safari170](bin/curl_safari170) |
+| ![Safari](https://github.com/alrra/browser-logos/blob/main/src/safari/safari_24x24.png "Safari") | 15.3 | macOS Big Sur | `safari153` | [curl_safari153](bin/curl_safari153) |
+| ![Safari](https://github.com/alrra/browser-logos/blob/main/src/safari/safari_24x24.png "Safari") | 15.5 | macOS Monterey | `safari155` | [curl_safari155](bin/curl_safari155) |
+| ![Safari](https://github.com/alrra/browser-logos/blob/main/src/safari/safari_24x24.png "Safari") | 17.0 | macOS Sonoma | `safari170` | [curl_safari170](bin/curl_safari170) |
 | ![Safari](https://github.com/alrra/browser-logos/blob/main/src/safari/safari_24x24.png "Safari") | 17.2 | iOS 17.2 | `safari172_ios` | [curl_safari172_ios](bin/curl_safari172_ios) |
-| ![Safari](https://github.com/alrra/browser-logos/blob/main/src/safari/safari_24x24.png "Safari") | 18.0 | MacOS Sequoia | `safari180` | [curl_safari180](bin/curl_safari180) |
+| ![Safari](https://github.com/alrra/browser-logos/blob/main/src/safari/safari_24x24.png "Safari") | 18.0 | macOS Sequoia | `safari180` | [curl_safari180](bin/curl_safari180) |
 | ![Safari](https://github.com/alrra/browser-logos/blob/main/src/safari/safari_24x24.png "Safari") | 18.0 | iOS 18.0 | `safari180_ios` | [curl_safari184_ios](bin/curl_safari180_ios) |
-| ![Safari](https://github.com/alrra/browser-logos/blob/main/src/safari/safari_24x24.png "Safari") | 18.4 | MacOS Sequoia | `safari184` | [curl_safari184](bin/curl_safari184) |
+| ![Safari](https://github.com/alrra/browser-logos/blob/main/src/safari/safari_24x24.png "Safari") | 18.4 | macOS Sequoia | `safari184` | [curl_safari184](bin/curl_safari184) |
 | ![Safari](https://github.com/alrra/browser-logos/blob/main/src/safari/safari_24x24.png "Safari") | 18.4 | iOS 18.4 | `safari184_ios` | [curl_safari180_ios](bin/curl_safari184_ios) |
-| ![Safari](https://github.com/alrra/browser-logos/blob/main/src/safari/safari_24x24.png "Safari") | 26.0 | MacOS Tahoe | `safari260` | [curl_safari260](bin/curl_safari260) |
+| ![Safari](https://github.com/alrra/browser-logos/blob/main/src/safari/safari_24x24.png "Safari") | 26.0 | macOS Tahoe | `safari260` | [curl_safari260](bin/curl_safari260) |
 | ![Safari](https://github.com/alrra/browser-logos/blob/main/src/safari/safari_24x24.png "Safari") | 26.0 | iOS 26.0 | `safari260_ios` | [curl_safari260_ios](bin/curl_safari260_ios) |
 | ![Firefox](https://github.com/alrra/browser-logos/blob/main/src/firefox/firefox_24x24.png "Firefox") | 133.0 | macOS Sonoma | `firefox133` | [curl_firefox133](bin/curl_firefox133) |
 | ![Firefox](https://github.com/alrra/browser-logos/blob/main/src/firefox/firefox_24x24.png "Firefox") | 135.0 | macOS Sonoma | `firefox135` | [curl_firefox135](bin/curl_firefox135) |
