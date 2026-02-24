@@ -14,16 +14,6 @@ on:
 permissions:
   contents: write
 
-env:
-  ZLIB_COMMIT: 09155eaa2f9270dc4ed1fa13e2b4b2613e6e4851
-  ZSTD_COMMIT: 794ea1b0afca0f020f4e57b6732332231fb23c70
-  BROTLI_COMMIT: ed738e842d2fbdf2d6459e39267a633c4a9b2f5d
-  BORINGSSL_COMMIT: 673e61fc215b178a90c0e67858bbf162c8158993
-  CURL_TAG: curl-8_15_0  # using tags is less secure, but easier to maintain
-  NGHTTP2_COMMIT: 8f44147c385fb1ed93a6f39911eeb30279bfd2dd
-  NGHTTP3_TAG: v1.15.0
-  NGTCP2_TAG: v1.20.0
-
 jobs:
   build-windows:
     name: Build windows binaries
@@ -56,15 +46,11 @@ jobs:
 
       - name: Install Ninja for Win-ARM64
         shell: pwsh
-        if: matrix.os == 'windows-11-arm'
+        if: matrix.runner == 'windows-11-arm'
         run: |
           Invoke-WebRequest https://github.com/ninja-build/ninja/releases/download/v1.13.1/ninja-winarm64.zip -OutFile ninja-winarm64.zip
           Expand-Archive ninja-winarm64.zip -DestinationPath ninja
           Copy-Item ninja\ninja.exe -Destination "C:\Windows\System32"
-
-      - name: Fetch and patch deps
-        shell: bash
-        run: ./win/deps.sh
 
       # - name: Setup tmate session for debugging
       #   uses: mxschmitt/action-tmate@v3
@@ -72,8 +58,6 @@ jobs:
       - name: Build
         shell: cmd
         run: ./win/build.bat ${{ matrix.sys }}
-        env:
-          DISABLE_ASM_ARM64: ${{ matrix.env == 'arm64' && 'true' || 'false' }}
 
       - name: Build tarball
         shell: bash

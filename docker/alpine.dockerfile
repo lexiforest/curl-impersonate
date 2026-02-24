@@ -3,7 +3,7 @@ FROM alpine:3.21 AS builder
 WORKDIR /build
 
 RUN apk update && \
-    apk add git ninja cmake make patch linux-headers autoconf automake pkgconfig libtool \
+    apk add git ninja cmake make patch linux-headers autoconf automake pkgconfig libtool gperf \
     build-base libc-dev \
     xz-libs xz-dev xz-static \
     ca-certificates curl bash \
@@ -12,23 +12,12 @@ RUN apk update && \
 
 COPY . /build
 
-# dynamic build
+# Single build: shared+static libcurl and static curl binary
 RUN mkdir /build/install && \
-    ./configure --prefix=/build/install \
-        --with-ca-path=/etc/ssl/certs \
-        --with-ca-bundle=/etc/ssl/certs/ca-certificates.crt && \
-    make build && \
-    make checkbuild && \
-    make install
-
-# static build
-RUN ./configure --prefix=/build/install \
-        --enable-static \
-        --with-ca-path=/etc/ssl/certs \
-        --with-ca-bundle=/etc/ssl/certs/ca-certificates.crt && \
-    make build && \
-    make checkbuild && \
-    make install
+    BUILD_ARGS="-DCMAKE_INSTALL_PREFIX=/build/install -DCURL_CA_PATH=/etc/ssl/certs -DCURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt" && \
+    make build BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$BUILD_ARGS" && \
+    make checkbuild BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$BUILD_ARGS" && \
+    make install-strip BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$BUILD_ARGS"
 
 
 FROM alpine:3.21
