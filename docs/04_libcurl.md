@@ -51,6 +51,21 @@ If you need precise control over the HTTP headers, set `CURL_IMPERSONATE_HEADERS
 
 Note that the `LD_PRELOAD` method will NOT WORK for `curl` itself because the curl tool overrides the TLS settings. Use the wrapper scripts instead.
 
+### Warning on http/3
+
+Avoid using `CURL_IMPERSONATE` when using HTTP/3. The environment hook
+calls `curl_easy_impersonate()` very early (during easy handle init/reset),
+before later HTTP version setup may be applied, which can lead to non-ideal
+HTTP/3 behavior.
+
+Prefer explicit impersonation setup:
+
+- CLI: use `--http3` or `--http3-only` together with `--impersonate`.
+- libcurl: set `CURLOPT_HTTP_VERSION` first, then call `curl_easy_impersonate()`.
+
+We are also building more language bindings (including Go and Node.js) to make
+this ordering easier to control from higher-level APIs.
+
 ### Notes on dependencies 
 
 If you intend to copy the self-compiled artifacts to another system, or use the [Pre-compiled binaries](#pre-compiled-binaries) provided by the project, make sure that all the additional dependencies are met on the target system as well. 
