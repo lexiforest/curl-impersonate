@@ -401,49 +401,6 @@ endif()
 if(CMAKE_MSVC_RUNTIME_LIBRARY)
   list(APPEND _curl_platform_flags "-DCMAKE_MSVC_RUNTIME_LIBRARY=${CMAKE_MSVC_RUNTIME_LIBRARY}")
 endif()
-if(NOT WIN32)
-  # Static BoringSSL/AWS-LC are C++ archives. curl's configure-time symbol
-  # probes are C-link checks and can fail unless C++ runtime libs are explicit.
-  set(_curl_cxx_link_libs)
-  foreach(_lib IN LISTS CMAKE_CXX_IMPLICIT_LINK_LIBRARIES)
-    if(_lib STREQUAL "stdc++" OR _lib STREQUAL "c++" OR _lib STREQUAL "c++abi")
-      list(APPEND _curl_cxx_link_libs "${_lib}")
-    endif()
-  endforeach()
-  if(NOT _curl_cxx_link_libs)
-    if(APPLE OR BSD OR ANDROID)
-      list(APPEND _curl_cxx_link_libs "c++")
-    else()
-      list(APPEND _curl_cxx_link_libs "stdc++")
-    endif()
-  endif()
-
-  list(JOIN _curl_cxx_link_libs ";" _curl_cxx_required_libs)
-  if(_curl_cxx_required_libs)
-    string(REPLACE ";" "\\;" _curl_cxx_required_libs_escaped "${_curl_cxx_required_libs}")
-    list(APPEND _curl_platform_flags "-DCMAKE_REQUIRED_LIBRARIES=${_curl_cxx_required_libs_escaped}")
-
-    set(_curl_cxx_link_flags "")
-    foreach(_lib IN LISTS _curl_cxx_link_libs)
-      if(IS_ABSOLUTE "${_lib}" OR _lib MATCHES "^-")
-        string(APPEND _curl_cxx_link_flags " ${_lib}")
-      else()
-        string(APPEND _curl_cxx_link_flags " -l${_lib}")
-      endif()
-    endforeach()
-    string(STRIP "${_curl_cxx_link_flags}" _curl_cxx_link_flags)
-    if(_curl_cxx_link_flags)
-      set(_curl_exe_linker_flags "${CMAKE_EXE_LINKER_FLAGS}")
-      set(_curl_shared_linker_flags "${CMAKE_SHARED_LINKER_FLAGS}")
-      string(APPEND _curl_exe_linker_flags " ${_curl_cxx_link_flags}")
-      string(APPEND _curl_shared_linker_flags " ${_curl_cxx_link_flags}")
-      string(STRIP "${_curl_exe_linker_flags}" _curl_exe_linker_flags)
-      string(STRIP "${_curl_shared_linker_flags}" _curl_shared_linker_flags)
-      list(APPEND _curl_platform_flags "-DCMAKE_EXE_LINKER_FLAGS=${_curl_exe_linker_flags}")
-      list(APPEND _curl_platform_flags "-DCMAKE_SHARED_LINKER_FLAGS=${_curl_shared_linker_flags}")
-    endif()
-  endif()
-endif()
 
 set(_curl_http_stack_path_flags)
 if(NOT WIN32)
@@ -487,6 +444,11 @@ ExternalProject_Add(curl
       -DOPENSSL_SSL_LIBRARY=${BORINGSSL_SSL_LIB}
       -DOPENSSL_CRYPTO_LIBRARY=${BORINGSSL_CRYPTO_LIB}
       -DOPENSSL_USE_STATIC_LIBS=ON
+      # Bypass BoringSSL check
+      -DHAVE_SSL_SET0_WBIO=1
+      -DHAVE_SSL_SET1_ECH_CONFIG_LIST=1
+      -DHAVE_SSL_SET_QUIC_USE_LEGACY_CODEPOINT=1
+      -DHAVE_OPENSSL_SRP=0
       -DCURL_BROTLI=ON
       -DCURL_ZSTD=ON
       # Make sure curl doesn't link against an unversioned .so (Linux only).
