@@ -401,6 +401,17 @@ endif()
 if(CMAKE_MSVC_RUNTIME_LIBRARY)
   list(APPEND _curl_platform_flags "-DCMAKE_MSVC_RUNTIME_LIBRARY=${CMAKE_MSVC_RUNTIME_LIBRARY}")
 endif()
+if(USE_LIBIDN2 AND NOT WIN32)
+  # Ensure static libunistring is linked when libidn2 is enabled.
+  set(_curl_exe_linker_flags "${CMAKE_EXE_LINKER_FLAGS}")
+  set(_curl_shared_linker_flags "${CMAKE_SHARED_LINKER_FLAGS}")
+  string(APPEND _curl_exe_linker_flags " ${DEPS_INSTALL_DIR}/lib/libunistring.a")
+  string(APPEND _curl_shared_linker_flags " ${DEPS_INSTALL_DIR}/lib/libunistring.a")
+  string(STRIP "${_curl_exe_linker_flags}" _curl_exe_linker_flags)
+  string(STRIP "${_curl_shared_linker_flags}" _curl_shared_linker_flags)
+  list(APPEND _curl_platform_flags "-DCMAKE_EXE_LINKER_FLAGS=${_curl_exe_linker_flags}")
+  list(APPEND _curl_platform_flags "-DCMAKE_SHARED_LINKER_FLAGS=${_curl_shared_linker_flags}")
+endif()
 
 set(_curl_http_stack_path_flags)
 if(NOT WIN32)
@@ -414,6 +425,17 @@ if(NOT WIN32)
     "-DNGTCP2_INCLUDE_DIR=${DEPS_INSTALL_DIR}/include"
     "-DNGTCP2_LIBRARY=${DEPS_INSTALL_DIR}/lib/libngtcp2.a"
     "-DNGTCP2_CRYPTO_BORINGSSL_LIBRARY=${DEPS_INSTALL_DIR}/lib/libngtcp2_crypto_boringssl.a"
+  )
+endif()
+
+set(_curl_idn_path_flags)
+if(USE_LIBIDN2 AND NOT WIN32)
+  # Static libidn2 depends on libunistring. Some pkg-config/CMake paths do not
+  # propagate this transitive archive when linking static curl.
+  list(APPEND _curl_idn_path_flags
+    "-DLIBIDN2_INCLUDE_DIRS=${DEPS_INSTALL_DIR}/include"
+    "-DLIBIDN2_LIBRARY=${DEPS_INSTALL_DIR}/lib/libidn2.a"
+    "-DLIBIDN2_LIBRARIES=${DEPS_INSTALL_DIR}/lib/libidn2.a"
   )
 endif()
 
@@ -472,6 +494,7 @@ ExternalProject_Add(curl
       -DENABLE_CURL_MANUAL=OFF
       ${_curl_ca_flags}
       ${_curl_idn_flags}
+      ${_curl_idn_path_flags}
       ${_curl_build_flags}
       ${_curl_platform_flags}
       ${_curl_http_stack_path_flags}
