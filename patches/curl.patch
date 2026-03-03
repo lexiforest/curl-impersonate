@@ -484,7 +484,7 @@ diff --git a/include/curl/curl.h b/include/curl/curl.h
 index 7ef5b99349..fbad8c0e6c 100644
 --- a/include/curl/curl.h
 +++ b/include/curl/curl.h
-@@ -2249,6 +2249,118 @@ typedef enum {
+@@ -2249,6 +2249,124 @@ typedef enum {
    /* set TLS supported signature algorithms */
    CURLOPT(CURLOPT_SSL_SIGNATURE_ALGORITHMS, CURLOPTTYPE_STRINGPOINT, 328),
  
@@ -599,6 +599,12 @@ index 7ef5b99349..fbad8c0e6c 100644
 +
 +  /* curl-impersonate: QUIC transport parameters, format: id:value;id:value */
 +  CURLOPT(CURLOPT_QUIC_TRANSPORT_PARAMETERS, CURLOPTTYPE_STRINGPOINT, 1027),
++
++  /* curl-impersonate: Send encrypt_then_mac TLS extension (type 22) */
++  CURLOPT(CURLOPT_TLS_ENCRYPT_THEN_MAC, CURLOPTTYPE_LONG, 1028),
++
++  /* curl-impersonate: Advertise all EC point formats (not just uncompressed) */
++  CURLOPT(CURLOPT_TLS_EC_POINT_FORMATS_ALL, CURLOPTTYPE_LONG, 1029),
 +
    CURLOPT_LASTENTRY /* the last unused */
  } CURLoption;
@@ -885,7 +891,7 @@ index 9c1f1c6969..514c5d3df5 100644
  
  #include "easy_lock.h"
  
-@@ -345,6 +348,455 @@ CURLsslset curl_global_sslset(curl_sslbackend id, const char *name,
+@@ -345,6 +348,467 @@ CURLsslset curl_global_sslset(curl_sslbackend id, const char *name,
    return rc;
  }
  
@@ -1219,6 +1225,18 @@ index 9c1f1c6969..514c5d3df5 100644
 +      return ret;
 +  }
 +
++  if(opts->tls_encrypt_then_mac) {
++    ret = curl_easy_setopt(data, CURLOPT_TLS_ENCRYPT_THEN_MAC, 1L);
++    if(ret)
++      return ret;
++  }
++
++  if(opts->tls_ec_point_formats_all) {
++    ret = curl_easy_setopt(data, CURLOPT_TLS_EC_POINT_FORMATS_ALL, 1L);
++    if(ret)
++      return ret;
++  }
++
 +  if(opts->tls_use_new_alps_codepoint) {
 +    ret = curl_easy_setopt(data, CURLOPT_TLS_USE_NEW_ALPS_CODEPOINT, opts->tls_use_new_alps_codepoint);
 +    if(ret)
@@ -1519,11 +1537,13 @@ index 03d676df0e..1763386bc1 100644
    {"STREAM_WEIGHT", CURLOPT_STREAM_WEIGHT, CURLOT_LONG, 0},
    {"SUPPRESS_CONNECT_HEADERS", CURLOPT_SUPPRESS_CONNECT_HEADERS,
     CURLOT_LONG, 0},
-@@ -346,6 +365,15 @@ const struct curl_easyoption Curl_easyopts[] = {
+@@ -346,6 +365,17 @@ const struct curl_easyoption Curl_easyopts[] = {
    {"TLSAUTH_PASSWORD", CURLOPT_TLSAUTH_PASSWORD, CURLOT_STRING, 0},
    {"TLSAUTH_TYPE", CURLOPT_TLSAUTH_TYPE, CURLOT_STRING, 0},
    {"TLSAUTH_USERNAME", CURLOPT_TLSAUTH_USERNAME, CURLOT_STRING, 0},
 +  {"TLS_DELEGATED_CREDENTIALS", CURLOPT_TLS_DELEGATED_CREDENTIALS, CURLOT_STRING, 0},
++  {"TLS_EC_POINT_FORMATS_ALL", CURLOPT_TLS_EC_POINT_FORMATS_ALL, CURLOT_LONG, 0},
++  {"TLS_ENCRYPT_THEN_MAC", CURLOPT_TLS_ENCRYPT_THEN_MAC, CURLOT_LONG, 0},
 +  {"TLS_EXTENSION_ORDER", CURLOPT_TLS_EXTENSION_ORDER, CURLOT_STRING, 0},
 +  {"TLS_GREASE", CURLOPT_TLS_GREASE, CURLOT_LONG, 0},
 +  {"TLS_KEY_SHARES_LIMIT", CURLOPT_TLS_KEY_SHARES_LIMIT, CURLOT_LONG, 0},
@@ -1540,7 +1560,7 @@ index 03d676df0e..1763386bc1 100644
  int Curl_easyopts_check(void)
  {
 -  return (CURLOPT_LASTENTRY % 10000) != (328 + 1);
-+  return ((CURLOPT_LASTENTRY%10000) != (1027 + 1));
++  return ((CURLOPT_LASTENTRY%10000) != (1029 + 1));
  }
  #endif
 diff --git a/lib/http.c b/lib/http.c
@@ -2431,7 +2451,7 @@ new file mode 100644
 index 0000000000..ab8e4d1a8b
 --- /dev/null
 +++ b/lib/impersonate.c
-@@ -0,0 +1,2176 @@
+@@ -0,0 +1,2256 @@
 +#include "curl_setup.h"
 +#include <curl/curl.h>
 +#include "impersonate.h"
@@ -4604,6 +4624,86 @@ index 0000000000..ab8e4d1a8b
 +    .tls_key_shares_limit = 2,
 +    .split_cookies = true,
 +    .form_boundary = "firefox",
++  },
++  {
++    .target = "mitmproxy",
++    .alias = "mitmproxy",
++    .httpversion = CURL_HTTP_VERSION_2_0,
++    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
++    .ciphers =
++      "TLS_AES_256_GCM_SHA384:"
++      "TLS_CHACHA20_POLY1305_SHA256:"
++      "TLS_AES_128_GCM_SHA256:"
++      "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:"
++      "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:"
++      "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:"
++      "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384:"
++      "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256:"
++      "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256:"
++      "TLS_DHE_RSA_WITH_AES_128_GCM_SHA256:"
++      "TLS_DHE_RSA_WITH_AES_256_GCM_SHA384:"
++      /* DHE_RSA_CHACHA20_POLY1305 (0xCCAA) omitted - not in BoringSSL */
++      "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256:"
++      "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256:"
++      "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA:"
++      "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA:"
++      "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384:"
++      "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384:"
++      "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA:"
++      "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA:"
++      "TLS_DHE_RSA_WITH_AES_128_CBC_SHA256:"
++      "TLS_DHE_RSA_WITH_AES_256_CBC_SHA256:"
++      "TLS_RSA_WITH_AES_128_GCM_SHA256:"
++      "TLS_RSA_WITH_AES_256_GCM_SHA384:"
++      "TLS_RSA_WITH_AES_128_CBC_SHA256:"
++      "TLS_RSA_WITH_AES_256_CBC_SHA256:"
++      "TLS_RSA_WITH_AES_128_CBC_SHA:"
++      "TLS_RSA_WITH_AES_256_CBC_SHA",
++    .http_headers = {
++      "user-agent: curl/8.15.0-IMPERSONATE",
++      "accept-encoding: deflate, gzip, br, zstd",
++      NULL
++    },
++    /* X448 omitted - not implemented in BoringSSL */
++    .curves = "X25519MLKEM768:X25519:P-256:P-384:P-521:ffdhe2048:ffdhe3072",
++    .sig_hash_algs =
++      "mldsa65:"
++      "mldsa87:"
++      "mldsa44:"
++      "ecdsa_secp256r1_sha256:"
++      "ecdsa_secp384r1_sha384:"
++      "ecdsa_secp521r1_sha512:"
++      "ed25519:"
++      "ed25519:"
++      "ecdsa_brainpoolP256r1tls13_sha256:"
++      "ecdsa_brainpoolP384r1tls13_sha384:"
++      "ecdsa_brainpoolP512r1tls13_sha512:"
++      "rsa_pss_pss_sha256:"
++      "rsa_pss_pss_sha384:"
++      "rsa_pss_pss_sha512:"
++      "rsa_pss_rsae_sha256:"
++      "rsa_pss_rsae_sha384:"
++      "rsa_pss_rsae_sha512:"
++      "rsa_pkcs1_sha256:"
++      "rsa_pkcs1_sha384:"
++      "rsa_pkcs1_sha512:"
++      "ecdsa_sha224:"
++      "rsa_pkcs1_sha224:"
++      "dsa_sha224:"
++      "dsa_sha256:"
++      "dsa_sha384:"
++      "dsa_sha512",
++    .alpn = true,
++    .http2_settings = "1:4096;2:0;4:2147483647;5:131072;8:0;3:100;6:65536",
++    .http2_window_update = 2147418112,
++    .http2_pseudo_headers_order = "mspa",
++    .tls_session_ticket = true,
++    .tls_extension_order = "65281-0-11-10-35-16-22-23-13-43-45-51",
++    .http2_no_priority = true,
++    .tls_grease = false,
++    .tls_signed_cert_timestamps = false,
++    .tls_encrypt_then_mac = true,
++    .tls_ec_point_formats_all = true,
 +  }
 +};
 +
@@ -4613,7 +4713,7 @@ new file mode 100644
 index 0000000000..a3b2370d11
 --- /dev/null
 +++ b/lib/impersonate.h
-@@ -0,0 +1,68 @@
+@@ -0,0 +1,70 @@
 +#ifndef HEADER_CURL_IMPERSONATE_H
 +#define HEADER_CURL_IMPERSONATE_H
 +
@@ -4662,6 +4762,8 @@ index 0000000000..a3b2370d11
 +  const char *tls_delegated_credentials;
 +  int tls_record_size_limit;
 +  int tls_key_shares_limit;  // for firefox key_shares extension
++  bool tls_encrypt_then_mac;  // send encrypt_then_mac extension (type 22)
++  bool tls_ec_point_formats_all;  // advertise all EC point formats
 +  bool tls_grease;
 +  int http2_stream_weight;
 +  int http2_stream_exclusive;
@@ -4976,7 +5078,7 @@ index 1380c33db6..164817066b 100644
    case CURLOPT_PATH_AS_IS:
      data->set.path_as_is = enabled;
      break;
-@@ -1370,9 +1427,17 @@ static CURLcode setopt_long(struct Curl_easy *data, CURLoption option,
+@@ -1370,9 +1427,23 @@ static CURLcode setopt_long(struct Curl_easy *data, CURLoption option,
      break;
    case CURLOPT_MAXAGE_CONN:
      return setopt_set_timeout_sec(&data->set.conn_max_idle_ms, arg);
@@ -4992,7 +5094,13 @@ index 1380c33db6..164817066b 100644
 +  case CURLOPT_TLS_USE_NEW_ALPS_CODEPOINT:
 +    data->set.tls_use_new_alps_codepoint = enabled;
 +    break;
- 
++  case CURLOPT_TLS_ENCRYPT_THEN_MAC:
++    data->set.tls_encrypt_then_mac = enabled;
++    break;
++  case CURLOPT_TLS_EC_POINT_FORMATS_ALL:
++    data->set.tls_ec_point_formats_all = enabled;
++    break;
+
  #ifndef CURL_DISABLE_HSTS
    case CURLOPT_HSTS_CTRL:
 @@ -1500,6 +1565,21 @@ static CURLcode setopt_slist(struct Curl_easy *data, CURLoption option,
@@ -6202,7 +6310,7 @@ index e54721dd98..7d67d60585 100644
    BIT(path_as_is);     /* allow dotdots? */
    BIT(pipewait);       /* wait for multiplex status before starting a new
                            connection */
-@@ -1662,10 +1705,15 @@ struct UserDefined {
+@@ -1662,10 +1705,17 @@ struct UserDefined {
    BIT(doh_verifystatus);   /* DoH certificate status verification */
  #endif
    BIT(http09_allowed); /* allow HTTP/0.9 responses */
@@ -6214,6 +6322,8 @@ index e54721dd98..7d67d60585 100644
 +  int http2_window_update;
 +  int tls_record_size_limit;
 +  int tls_key_shares_limit;
++  BIT(tls_encrypt_then_mac);
++  BIT(tls_ec_point_formats_all);
 +  BIT(http2_no_priority);
  };
  
@@ -7581,7 +7691,7 @@ index b0f91cf400..eb705ed067 100644
  #ifdef HAVE_SSL_SET1_ECH_CONFIG_LIST
  #define USE_ECH_OPENSSL
  #endif
-@@ -262,6 +273,113 @@ typedef int numcert_t;
+@@ -262,6 +273,143 @@ typedef int numcert_t;
  #define HAVE_OPENSSL_VERSION
  #endif
  
@@ -7592,7 +7702,7 @@ index b0f91cf400..eb705ed067 100644
 + * kMaxSignatureAlgorithmNameLen and kSignatureAlgorithmNames
 + * Taken from BoringSSL, see ssl/ssl_privkey.cc
 + * */
-+static const size_t kMaxSignatureAlgorithmNameLen = 23;
++static const size_t kMaxSignatureAlgorithmNameLen = 40;
 +
 +static const struct {
 +  uint16_t signature_algorithm;
@@ -7611,10 +7721,30 @@ index b0f91cf400..eb705ed067 100644
 +    {SSL_SIGN_RSA_PSS_RSAE_SHA384, "rsa_pss_rsae_sha384"},
 +    {SSL_SIGN_RSA_PSS_RSAE_SHA512, "rsa_pss_rsae_sha512"},
 +    {SSL_SIGN_ED25519, "ed25519"},
++    /* curl-impersonate: additional algorithms for non-browser impersonation */
++    {0x0809, "rsa_pss_pss_sha256"},
++    {0x080a, "rsa_pss_pss_sha384"},
++    {0x080b, "rsa_pss_pss_sha512"},
++    {0x0808, "ed448"},
++    {0x081a, "ecdsa_brainpoolP256r1tls13_sha256"},
++    {0x081b, "ecdsa_brainpoolP384r1tls13_sha384"},
++    {0x081c, "ecdsa_brainpoolP512r1tls13_sha512"},
++    {0x0301, "rsa_pkcs1_sha224"},
++    {0x0303, "ecdsa_sha224"},
++    {0x0302, "dsa_sha224"},
++    {0x0402, "dsa_sha256"},
++    {0x0502, "dsa_sha384"},
++    {0x0602, "dsa_sha512"},
++    {0x0904, "mldsa44"},
++    {0x0905, "mldsa65"},
++    {0x0906, "mldsa87"},
 +};
 +
-+#define MAX_SIG_ALGS \
-+  sizeof(kSignatureAlgorithmNames) / sizeof(kSignatureAlgorithmNames[0])
++#define NUM_SIG_ALG_NAMES \
++  (sizeof(kSignatureAlgorithmNames) / sizeof(kSignatureAlgorithmNames[0]))
++
++/* Maximum number of signature algorithms that can be specified */
++#define MAX_SIG_ALGS 48
 +
 +/* Default signature hash algorithms taken from Chrome/Chromium.
 + * See kVerifyPeers @ net/socket/ssl_client_socket_impl.cc */
@@ -7667,12 +7797,22 @@ index b0f91cf400..eb705ed067 100644
 +    memcpy(algname, sigalgs, len);
 +    algname[len] = 0;
 +
-+    for (i = 0; i < MAX_SIG_ALGS; i++) {
++    for (i = 0; i < (int)NUM_SIG_ALG_NAMES; i++) {
 +      if (curl_strequal(algname, kSignatureAlgorithmNames[i].name)) {
 +        algs[*nalgs] = kSignatureAlgorithmNames[i].signature_algorithm;
 +        (*nalgs)++;
 +        found = TRUE;
 +        break;
++      }
++    }
++
++    /* curl-impersonate: support raw hex IDs (e.g. 0x0905) as fallback */
++    if (!found && algname[0] == '0' && (algname[1] == 'x' || algname[1] == 'X')) {
++      unsigned long val = strtoul(algname, NULL, 16);
++      if (val > 0 && val <= 0xFFFF) {
++        algs[*nalgs] = (uint16_t)val;
++        (*nalgs)++;
++        found = TRUE;
 +      }
 +    }
 +
@@ -8083,7 +8223,7 @@ index b0f91cf400..eb705ed067 100644
  #ifdef USE_OPENSSL_SRP
    if(ssl_config->primary.username && Curl_auth_allowed_to_host(data)) {
      char * const ssl_username = ssl_config->primary.username;
-@@ -4254,6 +4665,56 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
+@@ -4254,6 +4665,64 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
    }
  #endif
  
@@ -8122,6 +8262,14 @@ index b0f91cf400..eb705ed067 100644
 +
 +  if(data->set.tls_key_shares_limit) {
 +    SSL_CTX_set_key_shares_limit(octx->ssl_ctx, data->set.tls_key_shares_limit);
++  }
++
++  if(data->set.tls_encrypt_then_mac) {
++    SSL_CTX_set_encrypt_then_mac(octx->ssl_ctx, 1);
++  }
++
++  if(data->set.tls_ec_point_formats_all) {
++    SSL_CTX_set_ec_point_formats_all(octx->ssl_ctx, 1);
 +  }
 +
 +  // curl-impersonate: Set key usage check

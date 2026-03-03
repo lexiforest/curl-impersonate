@@ -277,9 +277,7 @@ index bf5536dc4..990a20a80 100644
  } /* extern C */
 diff --git a/include/openssl/ssl.h b/include/openssl/ssl.h
 index 7c6804d65..a1fd43fcc 100644
---- a/include/openssl/ssl.h
-+++ b/include/openssl/ssl.h
-@@ -1653,6 +1653,12 @@ OPENSSL_EXPORT size_t SSL_get_all_standard_cipher_names(const char **out,
+@@ -1653,6 +1653,12 @@
  OPENSSL_EXPORT int SSL_CTX_set_strict_cipher_list(SSL_CTX *ctx,
                                                    const char *str);
  
@@ -292,7 +290,7 @@ index 7c6804d65..a1fd43fcc 100644
  // SSL_CTX_set_cipher_list configures the cipher list for |ctx|, evaluating
  // |str| as a cipher string. It returns one on success and zero on failure.
  //
-@@ -2468,6 +2474,8 @@ OPENSSL_EXPORT size_t SSL_CTX_get_num_tickets(const SSL_CTX *ctx);
+@@ -2468,6 +2474,8 @@
  #define SSL_GROUP_X25519 29
  #define SSL_GROUP_X25519_MLKEM768 0x11ec
  #define SSL_GROUP_X25519_KYBER768_DRAFT00 0x6399
@@ -301,7 +299,7 @@ index 7c6804d65..a1fd43fcc 100644
  
  // SSL_CTX_set1_group_ids sets the preferred groups for |ctx| to |group_ids|.
  // Each element of |group_ids| should be one of the |SSL_GROUP_*| constants. It
-@@ -4898,6 +4906,12 @@ OPENSSL_EXPORT void SSL_CTX_set_permute_extensions(SSL_CTX *ctx, int enabled);
+@@ -4898,6 +4906,12 @@
  // permute extensions. For now, this is only implemented for the ClientHello.
  OPENSSL_EXPORT void SSL_set_permute_extensions(SSL *ssl, int enabled);
  
@@ -314,7 +312,7 @@ index 7c6804d65..a1fd43fcc 100644
  // SSL_max_seal_overhead returns the maximum overhead, in bytes, of sealing a
  // record with |ssl|.
  OPENSSL_EXPORT size_t SSL_max_seal_overhead(const SSL *ssl);
-@@ -5215,6 +5229,33 @@ OPENSSL_EXPORT int SSL_CTX_set1_sigalgs_list(SSL_CTX *ctx, const char *str);
+@@ -5215,6 +5229,39 @@
  // more convenient to codesearch for specific algorithm values.
  OPENSSL_EXPORT int SSL_set1_sigalgs_list(SSL *ssl, const char *str);
  
@@ -343,12 +341,18 @@ index 7c6804d65..a1fd43fcc 100644
 +// send three key shares.
 +OPENSSL_EXPORT void SSL_CTX_set_key_shares_limit(SSL_CTX *ctx, uint8_t limit);
 +
++// curl-impersonate: encrypt_then_mac extension (RFC 7366, type 22).
++OPENSSL_EXPORT void SSL_set_encrypt_then_mac(SSL *ssl, int enabled);
++OPENSSL_EXPORT void SSL_CTX_set_encrypt_then_mac(SSL_CTX *ctx, int enabled);
 +
++// curl-impersonate: advertise all three EC point formats.
++OPENSSL_EXPORT void SSL_set_ec_point_formats_all(SSL *ssl, int enabled);
++OPENSSL_EXPORT void SSL_CTX_set_ec_point_formats_all(SSL_CTX *ctx, int enabled);
 +
  #define SSL_set_app_data(s, arg) (SSL_set_ex_data(s, 0, (char *)(arg)))
  #define SSL_get_app_data(s) (SSL_get_ex_data(s, 0))
  #define SSL_SESSION_set_app_data(s, a) \
-@@ -5593,6 +5634,8 @@ OPENSSL_EXPORT int SSL_CTX_set_tlsext_status_arg(SSL_CTX *ctx, void *arg);
+@@ -5593,6 +5640,8 @@
  #define SSL_CURVE_SECP384R1 SSL_GROUP_SECP384R1
  #define SSL_CURVE_SECP521R1 SSL_GROUP_SECP521R1
  #define SSL_CURVE_X25519 SSL_GROUP_X25519
@@ -395,9 +399,31 @@ index 7705e9c0e..386a616ba 100644
  
 diff --git a/ssl/extensions.cc b/ssl/extensions.cc
 index 4bd5c5d69..1adae1322 100644
---- a/ssl/extensions.cc
-+++ b/ssl/extensions.cc
-@@ -2123,7 +2123,15 @@ bool ssl_setup_key_shares(SSL_HANDSHAKE *hs, uint16_t override_group_id) {
+@@ -1709,8 +1709,21 @@
+   if (!CBB_add_u16(out, TLSEXT_TYPE_ec_point_formats) ||
+       !CBB_add_u16_length_prefixed(out, &contents) ||
+       !CBB_add_u8_length_prefixed(&contents, &formats) ||
+-      !CBB_add_u8(&formats, TLSEXT_ECPOINTFORMAT_uncompressed) ||
+-      !CBB_flush(out)) {
++      !CBB_add_u8(&formats, TLSEXT_ECPOINTFORMAT_uncompressed)) {
++    return false;
++  }
++
++  // curl-impersonate: Optionally advertise compressed point formats.
++  // Real BoringSSL only supports uncompressed, but some clients (e.g.
++  // OpenSSL-based ones like mitmproxy) advertise all three formats.
++  if (hs->config->ec_point_formats_all) {
++    if (!CBB_add_u8(&formats, 1 /* ansiX962_compressed_prime */) ||
++        !CBB_add_u8(&formats, 2 /* ansiX962_compressed_char2 */)) {
++      return false;
++    }
++  }
++
++  if (!CBB_flush(out)) {
+     return false;
+   }
+ 
+@@ -2123,7 +2136,15 @@
    SSL *const ssl = hs->ssl;
    hs->key_shares[0].reset();
    hs->key_shares[1].reset();
@@ -413,7 +439,7 @@ index 4bd5c5d69..1adae1322 100644
  
    // If offering a PAKE, do not set up key shares. We do not currently support
    // clients offering both PAKE and non-PAKE modes, including resumption.
-@@ -2147,6 +2155,7 @@ bool ssl_setup_key_shares(SSL_HANDSHAKE *hs, uint16_t override_group_id) {
+@@ -2147,6 +2168,7 @@
  
    uint16_t group_id = override_group_id;
    uint16_t second_group_id = 0;
@@ -421,7 +447,7 @@ index 4bd5c5d69..1adae1322 100644
    if (override_group_id == 0) {
      // Predict the most preferred group.
      Span<const uint16_t> groups = tls1_get_grouplist(hs);
-@@ -2156,13 +2165,14 @@ bool ssl_setup_key_shares(SSL_HANDSHAKE *hs, uint16_t override_group_id) {
+@@ -2156,13 +2178,14 @@
      }
  
      group_id = groups[0];
@@ -441,7 +467,7 @@ index 4bd5c5d69..1adae1322 100644
        }
      }
    }
-@@ -2186,6 +2196,16 @@ bool ssl_setup_key_shares(SSL_HANDSHAKE *hs, uint16_t override_group_id) {
+@@ -2186,6 +2209,16 @@
      }
    }
  
@@ -458,7 +484,7 @@ index 4bd5c5d69..1adae1322 100644
    return CBBFinishArray(cbb.get(), &hs->key_share_bytes);
  }
  
-@@ -2234,13 +2254,21 @@ bool ssl_ext_key_share_parse_serverhello(SSL_HANDSHAKE *hs,
+@@ -2234,13 +2267,21 @@
    }
  
    SSLKeyShare *key_share = hs->key_shares[0].get();
@@ -484,7 +510,7 @@ index 4bd5c5d69..1adae1322 100644
    }
  
    if (!key_share->Decap(out_secret, out_alert, ciphertext)) {
-@@ -2248,9 +2276,11 @@ bool ssl_ext_key_share_parse_serverhello(SSL_HANDSHAKE *hs,
+@@ -2248,9 +2289,11 @@
      return false;
    }
  
@@ -496,7 +522,7 @@ index 4bd5c5d69..1adae1322 100644
    return true;
  }
  
-@@ -2736,6 +2766,27 @@ static bool ext_quic_transport_params_add_serverhello_legacy(SSL_HANDSHAKE *hs,
+@@ -2736,6 +2779,27 @@
  static bool ext_delegated_credential_add_clienthello(
      const SSL_HANDSHAKE *hs, CBB *out, CBB *out_compressible,
      ssl_client_hello_type_t type) {
@@ -524,7 +550,7 @@ index 4bd5c5d69..1adae1322 100644
    return true;
  }
  
-@@ -3293,6 +3344,40 @@ bool ssl_negotiate_alps(SSL_HANDSHAKE *hs, uint8_t *out_alert,
+@@ -3293,6 +3357,79 @@
    return true;
  }
  
@@ -562,24 +588,70 @@ index 4bd5c5d69..1adae1322 100644
 +  return true;
 +}
 +
++// curl-impersonate: encrypt_then_mac stub (RFC 7366, extension type 22).
++// OpenSSL-based clients like mitmproxy advertise this extension.
++// We send an empty extension in the Client Hello and accept server responses.
++#define TLSEXT_TYPE_encrypt_then_mac 22
++
++static bool ext_encrypt_then_mac_add_clienthello(const SSL_HANDSHAKE* hs,
++                                                  CBB* out,
++                                                  CBB* out_compressible,
++                                                  ssl_client_hello_type_t type) {
++  if (!hs->config->encrypt_then_mac) {
++    return true;
++  }
++
++  CBB contents;
++  if (!CBB_add_u16(out, TLSEXT_TYPE_encrypt_then_mac) ||
++      !CBB_add_u16_length_prefixed(out, &contents) ||
++      !CBB_flush(out)) {
++    return false;
++  }
++  return true;
++}
++
++static bool ext_encrypt_then_mac_parse_serverhello(SSL_HANDSHAKE* hs,
++                                                    uint8_t* out_alert,
++                                                    CBS* contents) {
++  // Accept but ignore the server's response.
++  return true;
++}
++
++static bool ext_encrypt_then_mac_parse_clienthello(SSL_HANDSHAKE* hs,
++                                                    uint8_t* out_alert,
++                                                    CBS* contents) {
++  return true;
++}
++
++static bool ext_encrypt_then_mac_add_serverhello(SSL_HANDSHAKE* hs, CBB* out) {
++  return true;
++}
++
  // kExtensions contains all the supported extensions.
  static const struct tls_extension kExtensions[] = {
      {
-@@ -3466,6 +3551,13 @@ static const struct tls_extension kExtensions[] = {
-         ignore_parse_clienthello,
+@@ -3467,6 +3604,20 @@
          ext_alps_add_serverhello,
      },
-+    {
+     {
 +        TLSEXT_TYPE_record_size_limit,
 +        record_size_limit_add_clienthello,
 +        record_size_limit_parse_serverhello,
 +        record_size_limit_parse_clienthello,
 +        record_size_limit_add_serverhello,
 +    },
-     {
++    {
++        TLSEXT_TYPE_encrypt_then_mac,
++        ext_encrypt_then_mac_add_clienthello,
++        ext_encrypt_then_mac_parse_serverhello,
++        ext_encrypt_then_mac_parse_clienthello,
++        ext_encrypt_then_mac_add_serverhello,
++    },
++    {
          TLSEXT_TYPE_application_settings_old,
          ext_alps_add_clienthello_old,
-@@ -3514,6 +3606,7 @@ bool ssl_setup_extension_permutation(SSL_HANDSHAKE *hs) {
+         ext_alps_parse_serverhello_old,
+@@ -3514,6 +3665,7 @@
        !permutation.InitForOverwrite(kNumExtensions)) {
      return false;
    }
@@ -587,7 +659,7 @@ index 4bd5c5d69..1adae1322 100644
    for (size_t i = 0; i < kNumExtensions; i++) {
      permutation[i] = i;
    }
-@@ -3538,6 +3631,43 @@ static const struct tls_extension *tls_extension_find(uint32_t *out_index,
+@@ -3538,6 +3690,43 @@
    return NULL;
  }
  
@@ -631,7 +703,7 @@ index 4bd5c5d69..1adae1322 100644
  static bool add_padding_extension(CBB *cbb, uint16_t ext, size_t len) {
    CBB child;
    if (!CBB_add_u16(cbb, ext) ||  //
-@@ -3584,6 +3714,7 @@ static bool ssl_add_clienthello_tlsext_inner(SSL_HANDSHAKE *hs, CBB *out,
+@@ -3584,6 +3773,7 @@
      size_t i = hs->extension_permutation.empty()
                     ? unpermuted
                     : hs->extension_permutation[unpermuted];
@@ -639,7 +711,7 @@ index 4bd5c5d69..1adae1322 100644
      const size_t len_before = CBB_len(&extensions);
      const size_t len_compressed_before = CBB_len(compressed.get());
      if (!kExtensions[i].add_clienthello(hs, &extensions, compressed.get(),
-@@ -3693,6 +3824,7 @@ bool ssl_add_clienthello_tlsext(SSL_HANDSHAKE *hs, CBB *out, CBB *out_encoded,
+@@ -3693,6 +3883,7 @@
      size_t i = hs->extension_permutation.empty()
                     ? unpermuted
                     : hs->extension_permutation[unpermuted];
@@ -831,9 +903,7 @@ index 4ce8d1802..967c91a29 100644
      if (!CBB_add_u8_length_prefixed(&body, &child)) {
 diff --git a/ssl/internal.h b/ssl/internal.h
 index 05af44f7b..138d6a5e4 100644
---- a/ssl/internal.h
-+++ b/ssl/internal.h
-@@ -697,10 +697,11 @@ BSSL_NAMESPACE_BEGIN
+@@ -697,10 +697,11 @@
  
  // Bits for |algorithm_mkey| (key exchange algorithm).
  #define SSL_kRSA 0x00000001u
@@ -848,7 +918,7 @@ index 05af44f7b..138d6a5e4 100644
  
  // Bits for |algorithm_auth| (server authentication).
  #define SSL_aRSA_SIGN 0x00000001u
-@@ -725,8 +726,9 @@ BSSL_NAMESPACE_BEGIN
+@@ -725,8 +726,9 @@
  // Bits for |algorithm_mac| (symmetric authentication).
  #define SSL_SHA1 0x00000001u
  #define SSL_SHA256 0x00000002u
@@ -859,7 +929,7 @@ index 05af44f7b..138d6a5e4 100644
  
  // Bits for |algorithm_prf| (handshake digest).
  #define SSL_HANDSHAKE_MAC_DEFAULT 0x1
-@@ -2177,7 +2179,7 @@ struct SSL_HANDSHAKE {
+@@ -2177,7 +2179,7 @@
    // key_shares are the current key exchange instances. The second is only used
    // as a client if we believe that we should offer two key shares in a
    // ClientHello.
@@ -868,7 +938,7 @@ index 05af44f7b..138d6a5e4 100644
  
    // transcript is the current handshake transcript.
    SSLTranscript transcript;
-@@ -2235,6 +2237,9 @@ struct SSL_HANDSHAKE {
+@@ -2235,6 +2237,9 @@
    // delegated credentials.
    Array<uint16_t> peer_delegated_credential_sigalgs;
  
@@ -878,7 +948,7 @@ index 05af44f7b..138d6a5e4 100644
    // peer_key is the peer's ECDH key for a TLS 1.2 client.
    Array<uint8_t> peer_key;
  
-@@ -2515,6 +2520,12 @@ bssl::UniquePtr<SSL_SESSION> tls13_create_session_with_ticket(SSL *ssl,
+@@ -2515,6 +2520,12 @@
  // for |hs|, if applicable. It returns true on success and false on error.
  bool ssl_setup_extension_permutation(SSL_HANDSHAKE *hs);
  
@@ -891,7 +961,7 @@ index 05af44f7b..138d6a5e4 100644
  // ssl_setup_key_shares computes client key shares and saves them in |hs|. It
  // returns true on success and false on failure. If |override_group_id| is zero,
  // it offers the default groups, including GREASE. If it is non-zero, it offers
-@@ -3581,6 +3592,15 @@ struct SSL_CONFIG {
+@@ -3581,6 +3592,15 @@
    // crypto
    UniquePtr<SSLCipherPreferenceList> cipher_list;
  
@@ -907,7 +977,7 @@ index 05af44f7b..138d6a5e4 100644
    // This is used to hold the local certificate used (i.e. the server
    // certificate for a server or the client certificate for a client).
    UniquePtr<CERT> cert;
-@@ -3639,6 +3659,10 @@ struct SSL_CONFIG {
+@@ -3639,6 +3659,10 @@
    // accepted from the peer in decreasing order of preference.
    Array<uint16_t> verify_sigalgs;
  
@@ -918,7 +988,7 @@ index 05af44f7b..138d6a5e4 100644
    // srtp_profiles is the list of configured SRTP protection profiles for
    // DTLS-SRTP.
    UniquePtr<STACK_OF(SRTP_PROTECTION_PROFILE)> srtp_profiles;
-@@ -3704,6 +3728,14 @@ struct SSL_CONFIG {
+@@ -3704,6 +3728,23 @@
    // hardware support, and use the value in aes_hw_override_value instead.
    bool aes_hw_override : 1;
  
@@ -930,10 +1000,19 @@ index 05af44f7b..138d6a5e4 100644
 +  // send.
 +  uint8_t key_shares_limit = 0;
 +
++  // curl-impersonate: encrypt_then_mac controls whether to send the
++  // encrypt_then_mac extension (RFC 7366, type 22) in the Client Hello.
++  bool encrypt_then_mac = false;
++
++  // curl-impersonate: ec_point_formats_all controls whether to advertise
++  // all three EC point formats (uncompressed, compressed prime, compressed
++  // char2) instead of just uncompressed.
++  bool ec_point_formats_all = false;
++
    // aes_hw_override_value is used for testing to indicate the support or lack
    // of support for AES hw. The value is only considered if |aes_hw_override| is
    // true.
-@@ -4076,6 +4108,15 @@ struct ssl_ctx_st : public bssl::RefCounted<ssl_ctx_st> {
+@@ -4076,6 +4117,15 @@
  
    bssl::UniquePtr<bssl::SSLCipherPreferenceList> cipher_list;
  
@@ -949,7 +1028,7 @@ index 05af44f7b..138d6a5e4 100644
    X509_STORE *cert_store = nullptr;
    LHASH_OF(SSL_SESSION) *sessions = nullptr;
    // Most session-ids that will be cached, default is
-@@ -4300,6 +4341,10 @@ struct ssl_ctx_st : public bssl::RefCounted<ssl_ctx_st> {
+@@ -4300,6 +4350,10 @@
    // accepted from the peer in decreasing order of preference.
    bssl::Array<uint16_t> verify_sigalgs;
  
@@ -960,7 +1039,7 @@ index 05af44f7b..138d6a5e4 100644
    // retain_only_sha256_of_client_certs is true if we should compute the SHA256
    // hash of the peer's certificate and then discard it to save memory and
    // session space. Only effective on the server side.
-@@ -4352,6 +4397,14 @@ struct ssl_ctx_st : public bssl::RefCounted<ssl_ctx_st> {
+@@ -4352,6 +4406,20 @@
    // |aes_hw_override| is true.
    bool aes_hw_override_value : 1;
  
@@ -971,6 +1050,12 @@ index 05af44f7b..138d6a5e4 100644
 +  // curl-impersonate: key_shares limit is the maximum number of key shares to
 +  // send.
 +  uint8_t key_shares_limit = 0;
++
++  // curl-impersonate: encrypt_then_mac
++  bool encrypt_then_mac = false;
++
++  // curl-impersonate: ec_point_formats_all
++  bool ec_point_formats_all = false;
 +
   private:
    friend RefCounted;
@@ -1294,9 +1379,7 @@ index e60016c82..476dc3915 100644
  }  // namespace
 diff --git a/ssl/ssl_lib.cc b/ssl/ssl_lib.cc
 index c859ea612..79c653219 100644
---- a/ssl/ssl_lib.cc
-+++ b/ssl/ssl_lib.cc
-@@ -401,7 +401,8 @@ ssl_ctx_st::ssl_ctx_st(const SSL_METHOD *ssl_method)
+@@ -401,7 +401,8 @@
        handoff(false),
        enable_early_data(false),
        aes_hw_override(false),
@@ -1306,7 +1389,7 @@ index c859ea612..79c653219 100644
    CRYPTO_MUTEX_init(&lock);
    CRYPTO_new_ex_data(&ex_data);
  }
-@@ -520,14 +521,19 @@ SSL *SSL_new(SSL_CTX *ctx) {
+@@ -520,14 +521,19 @@
    ssl->config->retain_only_sha256_of_client_certs =
        ctx->retain_only_sha256_of_client_certs;
    ssl->config->permute_extensions = ctx->permute_extensions;
@@ -1327,15 +1410,17 @@ index c859ea612..79c653219 100644
      return nullptr;
    }
  
-@@ -547,6 +553,7 @@ SSL *SSL_new(SSL_CTX *ctx) {
+@@ -547,6 +553,9 @@
    ssl->config->signed_cert_timestamps_enabled =
        ctx->signed_cert_timestamps_enabled;
    ssl->config->ocsp_stapling_enabled = ctx->ocsp_stapling_enabled;
 +  ssl->config->record_size_limit = ctx->record_size_limit;
++  ssl->config->encrypt_then_mac = ctx->encrypt_then_mac;
++  ssl->config->ec_point_formats_all = ctx->ec_point_formats_all;
    ssl->config->handoff = ctx->handoff;
    ssl->quic_method = ctx->quic_method;
  
-@@ -571,6 +578,7 @@ SSL_CONFIG::SSL_CONFIG(SSL *ssl_arg)
+@@ -571,6 +580,7 @@
        jdk11_workaround(false),
        quic_use_legacy_codepoint(false),
        permute_extensions(false),
@@ -1343,7 +1428,7 @@ index c859ea612..79c653219 100644
        alps_use_new_codepoint(false) {
    assert(ssl);
  }
-@@ -1975,6 +1983,7 @@ const char *SSL_get_cipher_list(const SSL *ssl, int n) {
+@@ -1975,6 +1985,7 @@
  int SSL_CTX_set_cipher_list(SSL_CTX *ctx, const char *str) {
    const bool has_aes_hw = ctx->aes_hw_override ? ctx->aes_hw_override_value
                                                 : EVP_has_aes_hardware();
@@ -1351,7 +1436,7 @@ index c859ea612..79c653219 100644
    return ssl_create_cipher_list(&ctx->cipher_list, has_aes_hw, str,
                                  false /* not strict */);
  }
-@@ -2068,6 +2077,28 @@ void SSL_enable_ocsp_stapling(SSL *ssl) {
+@@ -2068,6 +2079,50 @@
    ssl->config->ocsp_stapling_enabled = true;
  }
  
@@ -1377,10 +1462,32 @@ index c859ea612..79c653219 100644
 +  ctx->key_shares_limit = limit;
 +}
 +
++void SSL_set_encrypt_then_mac(SSL *ssl, int enabled) {
++  if (!ssl->config) {
++    return;
++  }
++  ssl->config->encrypt_then_mac = !!enabled;
++}
++
++void SSL_CTX_set_encrypt_then_mac(SSL_CTX *ctx, int enabled) {
++  ctx->encrypt_then_mac = !!enabled;
++}
++
++void SSL_set_ec_point_formats_all(SSL *ssl, int enabled) {
++  if (!ssl->config) {
++    return;
++  }
++  ssl->config->ec_point_formats_all = !!enabled;
++}
++
++void SSL_CTX_set_ec_point_formats_all(SSL_CTX *ctx, int enabled) {
++  ctx->ec_point_formats_all = !!enabled;
++}
++
  void SSL_get0_signed_cert_timestamp_list(const SSL *ssl, const uint8_t **out,
                                           size_t *out_len) {
    SSL_SESSION *session = SSL_get_session(ssl);
-@@ -2889,6 +2920,17 @@ void SSL_CTX_set_permute_extensions(SSL_CTX *ctx, int enabled) {
+@@ -2889,6 +2944,17 @@
    ctx->permute_extensions = !!enabled;
  }
  
@@ -1400,9 +1507,7 @@ index c859ea612..79c653219 100644
      return;
 diff --git a/ssl/ssl_privkey.cc b/ssl/ssl_privkey.cc
 index 6d46f886b..0524eae8e 100644
---- a/ssl/ssl_privkey.cc
-+++ b/ssl/ssl_privkey.cc
-@@ -519,44 +519,12 @@ int SSL_is_signature_algorithm_rsa_pss(uint16_t sigalg) {
+@@ -519,44 +519,12 @@
    return alg != nullptr && alg->is_rsa_pss;
  }
  
@@ -1451,7 +1556,22 @@ index 6d46f886b..0524eae8e 100644
  
    // Check for invalid algorithms, and filter out |SSL_SIGN_RSA_PKCS1_MD5_SHA1|.
    Array<uint16_t> filtered;
-@@ -916,3 +884,13 @@ int SSL_set_verify_algorithm_prefs(SSL *ssl, const uint16_t *prefs,
+@@ -572,10 +540,10 @@
+       // abstraction.
+       continue;
+     }
+-    if (get_signature_algorithm(pref) == nullptr) {
+-      OPENSSL_PUT_ERROR(SSL, SSL_R_INVALID_SIGNATURE_ALGORITHM);
+-      return false;
+-    }
++    // curl-impersonate: Allow unknown signature algorithm IDs to be advertised
++    // in the Client Hello without requiring a local implementation.
++    // This enables impersonating clients that advertise algorithms BoringSSL
++    // doesn't implement (e.g. brainpool, ed448, ML-DSA, DSA variants).
+     filtered[added] = pref;
+     added++;
+   }
+@@ -916,3 +884,13 @@
  
    return set_sigalg_prefs(&ssl->config->verify_sigalgs, Span(prefs, num_prefs));
  }
