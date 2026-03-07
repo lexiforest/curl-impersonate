@@ -69,6 +69,9 @@ else()
   set(_use_libidn2_default ON)
 endif()
 option(USE_LIBIDN2 "Build and use libidn2/libunistring for IDN support" ${_use_libidn2_default})
+option(CURL_SUBPROJECT_FORCE_OPENSSL_PATHS
+  "Pass explicit OPENSSL_* paths to the curl subproject"
+  ON)
 set(CURL_CA_BUNDLE "" CACHE STRING "CA bundle for curl ('auto', 'none', or full path)")
 set(CURL_CA_PATH "" CACHE STRING "CA directory for curl ('auto', 'none', or full path)")
 
@@ -401,12 +404,19 @@ endif()
 if(CMAKE_MSVC_RUNTIME_LIBRARY)
   list(APPEND _curl_platform_flags "-DCMAKE_MSVC_RUNTIME_LIBRARY=${CMAKE_MSVC_RUNTIME_LIBRARY}")
 endif()
-if(USE_LIBIDN2 AND NOT WIN32)
-  # Ensure static libunistring is linked when libidn2 is enabled.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  # Static BoringSSL is C++. Force stdc++ retention even when link flags are
+  # evaluated before static OpenSSL archives.
   set(_curl_exe_linker_flags "${CMAKE_EXE_LINKER_FLAGS}")
   set(_curl_shared_linker_flags "${CMAKE_SHARED_LINKER_FLAGS}")
-  string(APPEND _curl_exe_linker_flags " ${DEPS_INSTALL_DIR}/lib/libunistring.a")
-  string(APPEND _curl_shared_linker_flags " ${DEPS_INSTALL_DIR}/lib/libunistring.a")
+  string(APPEND _curl_exe_linker_flags " -Wl,--no-as-needed -lstdc++ -Wl,--as-needed")
+  string(APPEND _curl_shared_linker_flags " -Wl,--no-as-needed -lstdc++ -Wl,--as-needed")
+  if(USE_LIBIDN2)
+    # Static libidn2 depends on libunistring; force inclusion independent of
+    # link order in generated C targets.
+    string(APPEND _curl_exe_linker_flags " -Wl,--whole-archive ${DEPS_INSTALL_DIR}/lib/libunistring.a -Wl,--no-whole-archive")
+    string(APPEND _curl_shared_linker_flags " -Wl,--whole-archive ${DEPS_INSTALL_DIR}/lib/libunistring.a -Wl,--no-whole-archive")
+  endif()
   string(STRIP "${_curl_exe_linker_flags}" _curl_exe_linker_flags)
   string(STRIP "${_curl_shared_linker_flags}" _curl_shared_linker_flags)
   list(APPEND _curl_platform_flags "-DCMAKE_EXE_LINKER_FLAGS=${_curl_exe_linker_flags}")
@@ -439,6 +449,17 @@ if(USE_LIBIDN2 AND NOT WIN32)
   )
 endif()
 
+set(_curl_openssl_flags)
+if(CURL_SUBPROJECT_FORCE_OPENSSL_PATHS)
+  list(APPEND _curl_openssl_flags
+    -DOPENSSL_ROOT_DIR=${BORINGSSL_SRC_DIR}
+    -DOPENSSL_INCLUDE_DIR=${BORINGSSL_SRC_DIR}/include
+    -DOPENSSL_SSL_LIBRARY=${BORINGSSL_SSL_LIB}
+    -DOPENSSL_CRYPTO_LIBRARY=${BORINGSSL_CRYPTO_LIB}
+    -DOPENSSL_USE_STATIC_LIBS=ON
+  )
+endif()
+
 ExternalProject_Add(curl
   URL "${CURL_URL}"
   SOURCE_DIR "${DEPS_SRC_DIR}/curl"
@@ -461,11 +482,7 @@ ExternalProject_Add(curl
       ${_curl_use_pkgconfig_flag}
       -DCURL_USE_OPENSSL=ON
       -DCURL_ENABLE_SSL=ON
-      -DOPENSSL_ROOT_DIR=${BORINGSSL_SRC_DIR}
-      -DOPENSSL_INCLUDE_DIR=${BORINGSSL_SRC_DIR}/include
-      -DOPENSSL_SSL_LIBRARY=${BORINGSSL_SSL_LIB}
-      -DOPENSSL_CRYPTO_LIBRARY=${BORINGSSL_CRYPTO_LIB}
-      -DOPENSSL_USE_STATIC_LIBS=ON
+      ${_curl_openssl_flags}
       # Bypass BoringSSL check
       -DHAVE_SSL_SET0_WBIO=1
       -DHAVE_SSL_SET1_ECH_CONFIG_LIST=1
