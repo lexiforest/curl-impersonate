@@ -142,7 +142,7 @@ Enable TLS GREASE (Generate Random Extensions And Sustain Extensibility). Insert
 
 Dash-separated list of TLS extension type IDs controlling the order of extensions in the ClientHello.
 
-**Important: this is both an ordering AND a filtering mechanism.** Only extensions whose type IDs appear in the list will be included in the ClientHello. Extensions that are "enabled" (e.g. via `--tls-signed-cert-timestamps` or the hardcoded `status_request`) but not listed in the order string will be silently omitted. This is how the mitmproxy profile excludes `status_request` (5) even though the CLI tool unconditionally enables it.
+**Important: this is both an ordering AND a filtering mechanism.** Only extensions whose type IDs appear in the list will be included in the ClientHello. Extensions that are "enabled" (e.g. via `--tls-signed-cert-timestamps` or the default-on `status_request`) but not listed in the order string will be silently omitted. This is how the mitmproxy profile excludes `status_request` (5) even though it's on by default.
 
 When this option is `NULL` (as for Chrome profiles), BoringSSL uses its default order and includes all enabled extensions. When set explicitly (Firefox, Tor, mitmproxy profiles), it gives precise control over both presence and order.
 
@@ -153,7 +153,7 @@ If `--tls-permute-extensions` is also enabled, the listed extensions are randoml
 | ID | Name | Notes |
 |----|------|-------|
 | 0 | `server_name` (SNI) | Almost always present |
-| 5 | `status_request` (OCSP stapling) | Hardcoded on by CLI, but filtered by extension order |
+| 5 | `status_request` (OCSP stapling) | On by default; `--no-tls-status-request` to disable; filtered by extension order |
 | 10 | `supported_groups` (curves) | Always present when curves are configured |
 | 11 | `ec_point_formats` | Present for EC-based cipher suites |
 | 13 | `signature_algorithms` | Always present in TLS 1.2+ |
@@ -161,7 +161,7 @@ If `--tls-permute-extensions` is also enabled, the listed extensions are randoml
 | 16 | `alpn` | Application-Layer Protocol Negotiation |
 | 18 | `certificate_timestamp` (SCT) | Controlled by `--tls-signed-cert-timestamps` |
 | 21 | `padding` | Added automatically by BoringSSL to reach target size |
-| 22 | `encrypt_then_mac` | Controlled by `CURLOPT_TLS_ENCRYPT_THEN_MAC` (libcurl only) |
+| 22 | `encrypt_then_mac` | Controlled by `--tls-encrypt-then-mac` |
 | 23 | `extended_master_secret` | Always sent by BoringSSL |
 | 27 | `cert_compression` | Controlled by `--cert-compression` |
 | 28 | `record_size_limit` | Controlled by `--tls-record-size-limit` |
@@ -204,6 +204,21 @@ Colon-separated list of signature algorithms for TLS delegated credentials (used
 ```bash
 curl-impersonate --tls-delegated-credentials "ecdsa_secp256r1_sha256:ecdsa_secp384r1_sha384:ecdsa_secp521r1_sha512:ecdsa_sha1" https://example.com
 ```
+
+### `--tls-status-request` / `--no-tls-status-request`
+**libcurl:** `CURLOPT_TLS_STATUS_REQUEST` (long, 0/1)
+
+Enable or disable the TLS status_request / OCSP stapling extension (type 5). **On by default** in the CLI tool to match the previous hardcoded behavior. Use `--no-tls-status-request` to suppress it. When `--tls-extension-order` is set, this extension is also filtered by the order string — if extension 5 is not listed, it won't appear regardless of this flag.
+
+### `--tls-encrypt-then-mac` / `--no-tls-encrypt-then-mac`
+**libcurl:** `CURLOPT_TLS_ENCRYPT_THEN_MAC` (long, 0/1)
+
+Enable the TLS encrypt_then_mac extension (type 22). Off by default. Used by the mitmproxy profile.
+
+### `--tls-ec-point-formats-all` / `--no-tls-ec-point-formats-all`
+**libcurl:** `CURLOPT_TLS_EC_POINT_FORMATS_ALL` (long, 0/1)
+
+Advertise all EC point formats (uncompressed + ansiX962_compressed_prime + ansiX962_compressed_char2) instead of just uncompressed. Off by default. Used by the mitmproxy profile.
 
 ### `--tls-record-size-limit <value>`
 **libcurl:** `CURLOPT_TLS_RECORD_SIZE_LIMIT` (long)
@@ -345,15 +360,6 @@ A list of HTTP headers used by the impersonated browser. When set, these are mer
 ### `CURLOPT_TLS_KEY_USAGE_NO_CHECK` (long, 0/1)
 Disable TLS key usage checking.
 
-### `CURLOPT_TLS_STATUS_REQUEST` (long, 0/1)
-Enable the TLS status request / OCSP stapling extension (type 5). Off by default in BoringSSL, but **hardcoded on** in the `curl-impersonate` CLI binary (unconditionally set in the tool's `operate()` function). There is no CLI flag to disable it. The libcurl API is the only way to control this.
-
-### `CURLOPT_TLS_ENCRYPT_THEN_MAC` (long, 0/1)
-Send the encrypt_then_mac TLS extension (type 22). Used by the mitmproxy profile.
-
-### `CURLOPT_TLS_EC_POINT_FORMATS_ALL` (long, 0/1)
-Advertise all EC point formats (uncompressed + compressed), not just uncompressed. Used by the mitmproxy profile.
-
 ### `CURLOPT_FORM_BOUNDARY` (string)
 Set multipart/form-data boundary style. Known value: `"webkit"` for WebKit-style boundaries.
 
@@ -362,5 +368,6 @@ Set multipart/form-data boundary style. Known value: `"webkit"` for WebKit-style
 ## Notes
 
 - Boolean flags support `--no-` prefix to disable (e.g., `--no-alps`, `--no-tls-grease`).
-- When using `--impersonate`, all the above flags are set automatically from the browser profile. You can override individual settings by specifying flags after `--impersonate`.
+- `--tls-status-request` is **on by default** (matching previous hardcoded behavior). All other new boolean flags default to off.
+- When using `--impersonate`, the profile sets all options automatically. TLS flags (`--ciphers`, `--curves`, `--signature-hashes`, `--tls-extension-order`, etc.) applied in `ssl_setopts` run **after** `--impersonate` and will override profile values. However, HTTP/2 flags (`--http2-settings`, `--http2-window-update`, etc.) applied in `http_setopts` run **before** `--impersonate` and will be overwritten by the profile. To fully customize HTTP/2 settings, specify all flags manually without `--impersonate`.
 - Standard curl TLS flags (`--ciphers`, `--curves`, `--tls13-ciphers`, `--tlsv1.2`, etc.) continue to work and also affect the fingerprint.
