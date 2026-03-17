@@ -8819,7 +8819,7 @@ index 8e4af65bae..7acd9cb026 100644
    if(config->proxy)
      my_setopt_SSLVERSION(curl, CURLOPT_PROXY_SSLVERSION,
                           config->proxy_ssl_version);
-@@ -418,6 +420,51 @@ static CURLcode ssl_setopts(struct OperationConfig *config, CURL *curl)
+@@ -418,6 +420,59 @@ static CURLcode ssl_setopts(struct OperationConfig *config, CURL *curl)
              "--proxy-tls13-ciphers", ssl_backend());
    }
  
@@ -8865,7 +8865,15 @@ index 8e4af65bae..7acd9cb026 100644
 +    my_setopt(curl, CURLOPT_TLS_SIGNED_CERT_TIMESTAMPS, 1L);
 +  }
 +
-+  my_setopt(curl, CURLOPT_TLS_STATUS_REQUEST, 1L);
++  /* status_request is on by default; --no-tls-status-request disables it */
++  if(!config->no_tls_status_request)
++    my_setopt(curl, CURLOPT_TLS_STATUS_REQUEST, 1L);
++
++  if(config->tls_encrypt_then_mac)
++    my_setopt(curl, CURLOPT_TLS_ENCRYPT_THEN_MAC, 1L);
++
++  if(config->tls_ec_point_formats_all)
++    my_setopt(curl, CURLOPT_TLS_EC_POINT_FORMATS_ALL, 1L);
 +  /* end of curl-impersonate */
 +
    /* curl 7.16.0 */
@@ -9041,13 +9049,16 @@ index 62ca06ad1e..069328d7fa 100644
    struct curl_slist *headers;
    struct curl_slist *proxyheaders;
    struct tool_mime *mimeroot;
-@@ -222,6 +243,9 @@ struct OperationConfig {
+@@ -222,6 +243,12 @@ struct OperationConfig {
    long alivetime;           /* keepalive-time */
    long alivecnt;            /* keepalive-cnt */
    long gssapi_delegation;
 +  bool alps;                      /* enable/disable TLS ALPS extension */
 +  bool noticket;                  /* enable/disable TLS session ticket */
 +  bool tls_signed_cert_timestamps;    /* curl-impersonate: enable extension 18 */
++  bool no_tls_status_request;         /* curl-impersonate: disable extension 5 */
++  bool tls_encrypt_then_mac;          /* curl-impersonate: enable extension 22 */
++  bool tls_ec_point_formats_all;      /* curl-impersonate: all EC point formats */
    long expect100timeout_ms;
    long happy_eyeballs_timeout_ms; /* happy eyeballs timeout in milliseconds.
                                       0 is valid. default: CURL_HET_DEFAULT. */
@@ -9135,12 +9146,14 @@ index 4766dade2f..d17d591045 100644
    {"ssl",                        ARG_BOOL|ARG_TLS, ' ', C_SSL},
    {"ssl-allow-beast",            ARG_BOOL|ARG_TLS, ' ', C_SSL_ALLOW_BEAST},
    {"ssl-auto-client-cert",       ARG_BOOL|ARG_TLS, ' ',
-@@ -338,8 +353,17 @@ static const struct LongShort aliases[]= {
+@@ -338,8 +353,20 @@ static const struct LongShort aliases[]= {
    {"tftp-blksize",               ARG_STRG, ' ', C_TFTP_BLKSIZE},
    {"tftp-no-options",            ARG_BOOL, ' ', C_TFTP_NO_OPTIONS},
    {"time-cond",                  ARG_STRG, 'z', C_TIME_COND},
 +  {"tls-delegated-credentials",  ARG_STRG, ' ', C_TLS_DELEGATED_CREDENTIALS},  // curl-impersonate
    {"tls-earlydata",              ARG_BOOL|ARG_TLS, ' ', C_TLS_EARLYDATA},
++  {"tls-ec-point-formats-all",   ARG_BOOL, ' ', C_TLS_EC_POINT_FORMATS_ALL},  // curl-impersonate
++  {"tls-encrypt-then-mac",       ARG_BOOL, ' ', C_TLS_ENCRYPT_THEN_MAC},  // curl-impersonate
 +  {"tls-extension-order",        ARG_STRG, ' ', C_TLS_EXTENSION_ORDER},  // curl-impersonate
 +  {"tls-grease",                 ARG_BOOL, ' ', C_TLS_GREASE},  // curl-impersonate
 +  {"tls-key-shares-limit",       ARG_STRG, ' ', C_TLS_KEY_SHARES_LIMIT},  // curl-impersonate
@@ -9149,6 +9162,7 @@ index 4766dade2f..d17d591045 100644
 +  {"tls-record-size-limit",      ARG_STRG, ' ', C_TLS_RECORD_SIZE_LIMIT},  // curl-impersonate
 +  {"tls-session-ticket",         ARG_BOOL, ' ', C_TLS_SESSION_TICKET},  // curl-impersonate
 +  {"tls-signed-cert-timestamps", ARG_BOOL, ' ', C_TLS_SIGNED_CERT_TIMESTAMPS}, // curl-impersonate
++  {"tls-status-request",         ARG_BOOL, ' ', C_TLS_STATUS_REQUEST},  // curl-impersonate
 +  {"tls-use-new-alps-codepoint", ARG_BOOL, ' ', C_TLS_USE_NEW_ALPS_CODEPOINT},  // curl-impersonate
    {"tls13-ciphers",              ARG_STRG|ARG_TLS, ' ', C_TLS13_CIPHERS},
    {"tlsauthtype",                ARG_STRG|ARG_TLS, ' ', C_TLSAUTHTYPE},
@@ -9163,12 +9177,21 @@ index 4766dade2f..d17d591045 100644
    case C_DISABLE_EPSV: /* --disable-epsv */
      config->disable_epsv = toggle;
      break;
-@@ -1936,6 +1963,26 @@ static ParameterError opt_bool(struct OperationConfig *config,
+@@ -1936,6 +1963,35 @@ static ParameterError opt_bool(struct OperationConfig *config,
    case C_TLS_EARLYDATA: /* --tls-earlydata */
      config->ssl_allow_earlydata = toggle;
      break;
 +  case C_TLS_SIGNED_CERT_TIMESTAMPS:
 +    config->tls_signed_cert_timestamps = toggle;
++    break;
++  case C_TLS_STATUS_REQUEST:  /* --tls-status-request curl-impersonate */
++    config->no_tls_status_request = !toggle;
++    break;
++  case C_TLS_ENCRYPT_THEN_MAC:  /* --tls-encrypt-then-mac curl-impersonate */
++    config->tls_encrypt_then_mac = toggle;
++    break;
++  case C_TLS_EC_POINT_FORMATS_ALL:  /* --tls-ec-point-formats-all curl-impersonate */
++    config->tls_ec_point_formats_all = toggle;
 +    break;
 +  case C_TLS_SESSION_TICKET:  /* --tls-session-ticket curl-impersonate */
 +    config->noticket = (!toggle)?TRUE:FALSE;
@@ -9366,11 +9389,13 @@ index 50625d1441..1e0aa26015 100644
    C_SSL,
    C_SSL_ALLOW_BEAST,
    C_SSL_AUTO_CLIENT_CERT,
-@@ -275,7 +291,16 @@ typedef enum {
+@@ -275,7 +291,19 @@ typedef enum {
    C_TFTP_NO_OPTIONS,
    C_TIME_COND,
    C_TLS_EARLYDATA,
 +  C_TLS_DELEGATED_CREDENTIALS,
++  C_TLS_EC_POINT_FORMATS_ALL,
++  C_TLS_ENCRYPT_THEN_MAC,
 +  C_TLS_EXTENSION_ORDER,
 +  C_TLS_GREASE,
 +  C_TLS_KEY_SHARES_LIMIT,
@@ -9379,6 +9404,7 @@ index 50625d1441..1e0aa26015 100644
 +  C_TLS_RECORD_SIZE_LIMIT,
 +  C_TLS_SESSION_TICKET,
 +  C_TLS_SIGNED_CERT_TIMESTAMPS,
++  C_TLS_STATUS_REQUEST,
 +  C_TLS_USE_NEW_ALPS_CODEPOINT,
    C_TLS13_CIPHERS,
    C_TLSAUTHTYPE,
@@ -9387,7 +9413,7 @@ diff --git a/src/tool_listhelp.c b/src/tool_listhelp.c
 index beb034eeaf..531a43d7e7 100644
 --- a/src/tool_listhelp.c
 +++ b/src/tool_listhelp.c
-@@ -111,6 +111,36 @@ const struct helptxt helptext[] = {
+@@ -111,6 +111,45 @@ const struct helptxt helptext[] = {
    {"    --curves <list>",
     "(EC) TLS key exchange algorithms to request",
     CURLHELP_TLS},
@@ -9420,6 +9446,15 @@ index beb034eeaf..531a43d7e7 100644
 +   CURLHELP_HTTP},
 +  {"    --tls-permute-extensions",
 +   "Enable BoringSSL TLS extensions permutations on client hello",
++   CURLHELP_TLS},
++  {"    --tls-status-request",
++   "Enable TLS status_request (OCSP stapling) extension",
++   CURLHELP_TLS},
++  {"    --tls-encrypt-then-mac",
++   "Enable TLS encrypt_then_mac extension",
++   CURLHELP_TLS},
++  {"    --tls-ec-point-formats-all",
++   "Advertise all EC point formats (not just uncompressed)",
 +   CURLHELP_TLS},
    {"-d, --data <data>",
     "HTTP POST data",
