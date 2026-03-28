@@ -87,6 +87,13 @@ jobs:
             zigflags: -target loongarch64-linux-gnu.2.36 -fPIC
             make: make
           - os: ubuntu-latest
+            platform: linux
+            arch: ppc64le
+            host: powerpc64le-linux-gnu
+            host_label: powerpc64le-linux-gnu
+            zigflags: -target powerpc64le-linux-gnu.2.19
+            make: make
+          - os: ubuntu-latest
             platform: android
             arch: aarch64
             host: aarch64-linux-android
@@ -192,7 +199,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install build-essential pkg-config cmake ninja-build curl autoconf automake libtool
-          sudo apt-get install gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf gcc-riscv64-linux-gnu gcc-14-loongarch64-linux-gnu
+          sudo apt-get install gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf gcc-riscv64-linux-gnu gcc-14-loongarch64-linux-gnu binutils-powerpc64le-linux-gnu
           sudo apt-get install golang-go
 
       - name: Install macOS dependencies
