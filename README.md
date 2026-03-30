@@ -131,7 +131,7 @@ You can also use the following docker images:
 
 For each supported browser there is a wrapper script that launches `curl-impersonate` with all the needed headers and flags. For example:
 
-    curl_chrome123 https://www.wikipedia.org
+    curl_chrome123 https://www.example.com/
 
 You can add command line flags and they will be passed on to curl. However, some flags
 change curl's TLS signature which may cause it to be detected.
