@@ -13,7 +13,7 @@ The pre-compiled binaries contain `libcurl-impersonate` and a statically compile
 
 The pre-compiled Linux binaries are built for Ubuntu systems. On other distributions if you have errors with certificate verification you may have to tell curl where to find the CA certificates. For example:
 
-    curl_chrome123 https://www.wikipedia.org --cacert /etc/ssl/certs/ca-bundle.crt
+    curl_chrome123 https://www.example.com --cacert /etc/ssl/certs/ca-bundle.crt
 
 Also make sure to read [Notes on Dependencies](#notes-on-dependencies).
 
@@ -31,7 +31,7 @@ Docker images based on Alpine Linux and Debian with `curl-impersonate` compiled 
 ```bash
 # Chrome version, Alpine Linux
 docker pull lwthiker/curl-impersonate:0.5-chrome
-docker run --rm lwthiker/curl-impersonate:0.5-chrome curl_chrome110 https://www.wikipedia.org
+docker run --rm lwthiker/curl-impersonate:0.5-chrome curl_chrome110 https://www.example.com
 ```
 
 ### Distro packages
