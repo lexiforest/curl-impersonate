@@ -48,13 +48,13 @@ This will install curl-impersonate, libcurl-impersonate and the wrapper scripts 
 After installation you can run the wrapper scripts, e.g.:
 
 ```sh
-curl_chrome119 https://www.wikipedia.org
+curl_chrome119 https://www.example.com
 ```
 
 or run directly with you own flags:
 
 ```sh
-curl-impersonate https://www.wikipedia.org
+curl-impersonate https://www.example.com
 ```
 
 ### Red Hat based (CentOS/Fedora/Amazon Linux)
