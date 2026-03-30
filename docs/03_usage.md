@@ -5,11 +5,11 @@ Since it is just a modified curl build, all the original flags and command-line 
 
 For example, it can be run as follows:
 
-    curl-impersonate -v -L https://wikipedia.org
+    curl-impersonate -v -L https://www.example.com
 
 However, by default, running the binaries as above will not produce the same TLS and HTTP/2 signatures as the impersonated browsers. Rather, this project provides additional *wrapper scripts* that launch these binaries with the correct set of command line flags to produce the desired signatures. For example:
 
-    curl_chrome104 -v -L https://wikipedia.org
+    curl_chrome104 -v -L https://www.example.com
 
 will produce a signature identical to Chrome version 104. You can add command line flags and they will be passed on to curl. However, some flags change curl's TLS signature. See below for more details.
 
