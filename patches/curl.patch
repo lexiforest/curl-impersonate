@@ -1044,7 +1044,7 @@ index e533dcc369..84d8c5d701 100644
  bool Curl_dynhds_contains(struct dynhds *dynhds,
                            const char *name, size_t namelen);
 diff --git a/lib/easy.c b/lib/easy.c
-index 9c1f1c6969..13f18c7b19 100644
+index 9c1f1c6969..b707bce479 100644
 --- a/lib/easy.c
 +++ b/lib/easy.c
 @@ -74,9 +74,12 @@
@@ -1060,7 +1060,7 @@ index 9c1f1c6969..13f18c7b19 100644
  
  #include "easy_lock.h"
  
-@@ -345,6 +348,363 @@ CURLsslset curl_global_sslset(curl_sslbackend id, const char *name,
+@@ -345,6 +348,355 @@ CURLsslset curl_global_sslset(curl_sslbackend id, const char *name,
    return rc;
  }
  
@@ -1095,22 +1095,14 @@ index 9c1f1c6969..13f18c7b19 100644
 +  if(ret)
 +    return ret;
 +
-+  // Force TLS 1.3 if we are using http3
-+  if(selected_http_version == CURL_HTTP_VERSION_3 ||
-+      selected_http_version == CURL_HTTP_VERSION_3ONLY) {
-+    ret = curl_easy_setopt(data, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_3);
++  // Use impersonate ssl_version if user didn't set it.
++  // QUIC inherently uses TLS 1.3, enforced in the QUIC TLS setup.
++  if((data->set.ssl.primary.version == CURL_SSLVERSION_DEFAULT) &&
++     (data->set.ssl.primary.version_max == CURL_SSLVERSION_MAX_NONE) &&
++     (opts->ssl_version != CURL_SSLVERSION_DEFAULT)) {
++    ret = curl_easy_setopt(data, CURLOPT_SSLVERSION, opts->ssl_version);
 +    if(ret)
 +      return ret;
-+  }
-+  // Use impersonate ssl_version if user didn't set it.
-+  else {
-+    if((data->set.ssl.primary.version == CURL_SSLVERSION_DEFAULT) &&
-+       (data->set.ssl.primary.version_max == CURL_SSLVERSION_MAX_NONE) &&
-+       (opts->ssl_version != CURL_SSLVERSION_DEFAULT)) {
-+      ret = curl_easy_setopt(data, CURLOPT_SSLVERSION, opts->ssl_version);
-+      if(ret)
-+        return ret;
-+    }
 +  }
 +
 +  if(opts->ciphers) {
@@ -1424,7 +1416,7 @@ index 9c1f1c6969..13f18c7b19 100644
  /*
   * curl_easy_init() is the external interface to alloc, setup and init an
   * easy handle that is returned. If anything goes wrong, NULL is returned.
-@@ -353,6 +713,8 @@ CURL *curl_easy_init(void)
+@@ -353,6 +705,8 @@ CURL *curl_easy_init(void)
  {
    CURLcode result;
    struct Curl_easy *data;
@@ -1433,7 +1425,7 @@ index 9c1f1c6969..13f18c7b19 100644
  
    /* Make sure we inited the global SSL stuff */
    global_init_lock();
-@@ -375,6 +737,30 @@ CURL *curl_easy_init(void)
+@@ -375,6 +729,30 @@ CURL *curl_easy_init(void)
      return NULL;
    }
  
@@ -1464,7 +1456,7 @@ index 9c1f1c6969..13f18c7b19 100644
    return data;
  }
  
-@@ -1017,6 +1403,13 @@ CURL *curl_easy_duphandle(CURL *d)
+@@ -1017,6 +1395,13 @@ CURL *curl_easy_duphandle(CURL *d)
      outcurl->state.referer_alloc = TRUE;
    }
  
@@ -1478,7 +1470,7 @@ index 9c1f1c6969..13f18c7b19 100644
    /* Reinitialize an SSL engine for the new handle
     * note: the engine name has already been copied by dupset */
    if(outcurl->set.str[STRING_SSL_ENGINE]) {
-@@ -1073,6 +1466,9 @@ fail:
+@@ -1073,6 +1458,9 @@ fail:
   */
  void curl_easy_reset(CURL *d)
  {
@@ -1488,7 +1480,7 @@ index 9c1f1c6969..13f18c7b19 100644
    struct Curl_easy *data = d;
    Curl_req_hard_reset(&data->req, data);
    Curl_hash_clean(&data->meta_hash);
-@@ -1106,6 +1502,23 @@ void curl_easy_reset(CURL *d)
+@@ -1106,6 +1494,23 @@ void curl_easy_reset(CURL *d)
    Curl_http_auth_cleanup_digest(data);
  #endif
    data->master_mid = UINT_MAX;
@@ -5301,7 +5293,7 @@ index b3a7938e33..5da6f894e7 100644
  
    if(Curl_uint_bset_resize(&multi->process, xfer_table_size) ||
 diff --git a/lib/setopt.c b/lib/setopt.c
-index 1380c33db6..309a3861a5 100644
+index 1380c33db6..cdeb8ce16a 100644
 --- a/lib/setopt.c
 +++ b/lib/setopt.c
 @@ -52,8 +52,10 @@
@@ -5420,20 +5412,17 @@ index 1380c33db6..309a3861a5 100644
  CURLcode Curl_setblobopt(struct curl_blob **blobp,
                           const struct curl_blob *blob)
  {
-@@ -322,6 +422,12 @@ static CURLcode setopt_HTTP_VERSION(struct Curl_easy *data, long arg)
+@@ -322,6 +422,9 @@ static CURLcode setopt_HTTP_VERSION(struct Curl_easy *data, long arg)
      return CURLE_UNSUPPORTED_PROTOCOL;
    }
    data->set.httpwant = (unsigned char)arg;
-+#ifdef USE_HTTP3
-+  if((arg == CURL_HTTP_VERSION_3) || (arg == CURL_HTTP_VERSION_3ONLY)) {
-+    data->set.ssl.primary.version = CURL_SSLVERSION_TLSv1_3;
-+    data->set.ssl.primary.version_max = CURL_SSLVERSION_MAX_NONE;
-+  }
-+#endif
++  /* QUIC inherently uses TLS 1.3, enforced in the QUIC TLS setup
++     (e.g. ossl_init_method). No need to override the global SSL version
++     here, as that would prevent TLS 1.2 fallback for --http3. */
    return CURLE_OK;
  }
  #endif /* ! CURL_DISABLE_HTTP */
-@@ -658,6 +764,9 @@ static CURLcode setopt_long(struct Curl_easy *data, CURLoption option,
+@@ -658,6 +761,9 @@ static CURLcode setopt_long(struct Curl_easy *data, CURLoption option,
       */
      data->set.cookiesession = enabled;
      break;
@@ -5443,7 +5432,7 @@ index 1380c33db6..309a3861a5 100644
  #endif
    case CURLOPT_AUTOREFERER:
      /*
-@@ -674,7 +783,7 @@ static CURLcode setopt_long(struct Curl_easy *data, CURLoption option,
+@@ -674,7 +780,7 @@ static CURLcode setopt_long(struct Curl_easy *data, CURLoption option,
      /*
       * Follow Location: header hints on an HTTP-server.
       */
@@ -5452,7 +5441,7 @@ index 1380c33db6..309a3861a5 100644
        return CURLE_BAD_FUNCTION_ARGUMENT;
      data->set.http_follow_mode = (unsigned char)uarg;
      break;
-@@ -747,6 +856,12 @@ static CURLcode setopt_long(struct Curl_easy *data, CURLoption option,
+@@ -747,6 +853,12 @@ static CURLcode setopt_long(struct Curl_easy *data, CURLoption option,
    case CURLOPT_HTTP_VERSION:
      return setopt_HTTP_VERSION(data, arg);
  
@@ -5465,7 +5454,7 @@ index 1380c33db6..309a3861a5 100644
    case CURLOPT_EXPECT_100_TIMEOUT_MS:
      /*
       * Time to wait for a response to an HTTP request containing an
-@@ -834,6 +949,9 @@ static CURLcode setopt_long(struct Curl_easy *data, CURLoption option,
+@@ -834,6 +946,9 @@ static CURLcode setopt_long(struct Curl_easy *data, CURLoption option,
      /* Update the current connection proxy_ssl_config. */
      Curl_ssl_conn_config_update(data, TRUE);
      break;
@@ -5475,7 +5464,7 @@ index 1380c33db6..309a3861a5 100644
  #endif /* ! CURL_DISABLE_PROXY */
  
  #if defined(HAVE_GSSAPI) || defined(USE_WINDOWS_SSPI)
-@@ -1334,6 +1452,38 @@ static CURLcode setopt_long(struct Curl_easy *data, CURLoption option,
+@@ -1334,6 +1449,38 @@ static CURLcode setopt_long(struct Curl_easy *data, CURLoption option,
    case CURLOPT_SSL_ENABLE_ALPN:
      data->set.ssl_enable_alpn = enabled;
      break;
@@ -5514,7 +5503,7 @@ index 1380c33db6..309a3861a5 100644
    case CURLOPT_PATH_AS_IS:
      data->set.path_as_is = enabled;
      break;
-@@ -1370,9 +1520,17 @@ static CURLcode setopt_long(struct Curl_easy *data, CURLoption option,
+@@ -1370,9 +1517,17 @@ static CURLcode setopt_long(struct Curl_easy *data, CURLoption option,
      break;
    case CURLOPT_MAXAGE_CONN:
      return setopt_set_timeout_sec(&data->set.conn_max_idle_ms, arg);
@@ -5533,7 +5522,7 @@ index 1380c33db6..309a3861a5 100644
  
  #ifndef CURL_DISABLE_HSTS
    case CURLOPT_HSTS_CTRL:
-@@ -1500,6 +1658,21 @@ static CURLcode setopt_slist(struct Curl_easy *data, CURLoption option,
+@@ -1500,6 +1655,21 @@ static CURLcode setopt_slist(struct Curl_easy *data, CURLoption option,
       */
      data->set.headers = slist;
      break;
@@ -5555,7 +5544,7 @@ index 1380c33db6..309a3861a5 100644
  #endif
  #ifndef CURL_DISABLE_TELNET
    case CURLOPT_TELNETOPTIONS:
-@@ -1555,6 +1728,9 @@ static CURLcode setopt_pointers(struct Curl_easy *data, CURLoption option,
+@@ -1555,6 +1725,9 @@ static CURLcode setopt_pointers(struct Curl_easy *data, CURLoption option,
      result = Curl_mime_set_subparts(&data->set.mimepost,
                                      va_arg(param, curl_mime *),
                                      FALSE);
@@ -5565,7 +5554,7 @@ index 1380c33db6..309a3861a5 100644
      if(!result) {
        data->set.method = HTTPREQ_POST_MIME;
        data->set.opt_no_body = FALSE; /* this is implied */
-@@ -1689,6 +1865,95 @@ static CURLcode setopt_cptr(struct Curl_easy *data, CURLoption option,
+@@ -1689,6 +1862,95 @@ static CURLcode setopt_cptr(struct Curl_easy *data, CURLoption option,
      }
      else
        return CURLE_NOT_BUILT_IN;
@@ -5661,7 +5650,7 @@ index 1380c33db6..309a3861a5 100644
  #ifndef CURL_DISABLE_PROXY
    case CURLOPT_PROXY_TLS13_CIPHERS:
      if(Curl_ssl_supports(data, SSLSUPP_TLS13_CIPHERSUITES))
-@@ -3039,6 +3304,7 @@ CURLcode Curl_vsetopt(struct Curl_easy *data, CURLoption option, va_list param)
+@@ -3039,6 +3301,7 @@ CURLcode Curl_vsetopt(struct Curl_easy *data, CURLoption option, va_list param)
         way than being listed explicitly */
      switch(option) {
      case CURLOPT_HTTPHEADER:
@@ -8151,7 +8140,7 @@ index 691c0d3fa7..cf29e5952c 100644
      failf(data, "HTTP/3 is not supported over an HTTP proxy");
      return CURLE_URL_MALFORMAT;
 diff --git a/lib/vtls/openssl.c b/lib/vtls/openssl.c
-index b0f91cf400..018c72e7f2 100644
+index b0f91cf400..4a9aa433d8 100644
 --- a/lib/vtls/openssl.c
 +++ b/lib/vtls/openssl.c
 @@ -82,9 +82,20 @@
@@ -8596,6 +8585,17 @@ index b0f91cf400..018c72e7f2 100644
  #if !defined(OPENSSL_NO_TLSEXT) && !defined(OPENSSL_NO_OCSP)
    if(Curl_ssl_cf_get_primary_config(cf)->verifystatus)
      SSL_set_tlsext_status_type(octx->ssl, TLSEXT_STATUSTYPE_ocsp);
+@@ -3958,8 +4318,8 @@ static CURLcode ossl_init_method(struct Curl_cfilter *cf,
+     break;
+   case TRNSPRT_QUIC:
+     *pssl_version_min = CURL_SSLVERSION_TLSv1_3;
+-    if(conn_config->version_max &&
+-       (conn_config->version_max != CURL_SSLVERSION_MAX_TLSv1_3)) {
++    if((conn_config->version_max != CURL_SSLVERSION_MAX_DEFAULT) &&
++       (conn_config->version_max < CURL_SSLVERSION_MAX_TLSv1_3)) {
+       failf(data, "QUIC needs at least TLS version 1.3");
+       return CURLE_SSL_CONNECT_ERROR;
+     }
 @@ -4002,6 +4362,7 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
    const struct curl_blob *ssl_cert_blob = ssl_config->primary.cert_blob;
    const char * const ssl_cert_type = ssl_config->cert_type;
