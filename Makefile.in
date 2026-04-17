@@ -64,9 +64,23 @@ cxx_extra_flags := $(filter -%,$(wordlist 2,$(words $(cxx_words)),$(cxx_words)))
 # https://github.com/google/brotli/commit/641bec0e30bea648b3da1cd90fc6b44deb429f71
 brotli_install_dir := $(abspath brotli-$(BROTLI_VERSION)/out/installed)
 brotli_static_libs := $(brotli_install_dir)/lib/libbrotlicommon.a $(brotli_install_dir)/lib/libbrotlidec.a
-boringssl_dir := $(abspath boringssl-$(BORING_SSL_COMMIT))
+boringssl_source_dir := $(abspath boringssl-$(BORING_SSL_COMMIT))
+boringssl_dir := $(boringssl_source_dir)
+boringssl_patch_stamp := $(boringssl_dir)/.patched
 boringssl_install_dir := $(boringssl_dir)/build
 boringssl_static_libs := $(boringssl_dir)/lib/libssl.a $(boringssl_dir)/lib/libcrypto.a
+boringssl_cxx_compiler := $(cxx_compiler)
+ifneq ($(filter ppc64le powerpc64le,$(host_cpu)),)
+boringssl_ppc64le_cxxflags := -Wno-unknown-warning-option -Wno-stringop-overflow -Wno-array-bounds
+boringssl_ppc64le_cxx_tailflags := -Wno-error=missing-declarations
+ifneq ($(findstring zigshim/cxx,$(cxx_compiler)),)
+boringssl_ppc64le_cxx_tailflags += -Wno-missing-prototypes
+endif
+boringssl_ppc64le_cxx_wrapper := $(abspath .boringssl-ppc64le-cxx)
+boringssl_cxx_compiler := $(boringssl_ppc64le_cxx_wrapper)
+boringssl_ppc64le_patches += $(srcdir)/patches/0001-Add-PPC64-support-for-boringssl.patch
+boringssl_ppc64le_patches += $(srcdir)/patches/0002-Add-PPC64-generated-files-for-boringssl.patch
+endif
 nghttp2_install_dir := $(abspath nghttp2-$(NGHTTP2_VERSION)/installed)
 nghttp2_static_libs := $(nghttp2_install_dir)/lib/libnghttp2.a
 ngtcp2_install_dir := $(abspath ngtcp2-$(NGTCP2_VERSION)/installed)
@@ -151,7 +165,7 @@ uninstall: ## Uninstall the Chrome version of curl-impersonate after 'make insta
 clean:
 	## Remove all build artifacts, including dependencies
 	rm -Rf brotli-$(BROTLI_VERSION).tar.gz brotli-$(BROTLI_VERSION)
-	rm -Rf boringssl-$(BORING_SSL_COMMIT).zip boringssl-$(BORING_SSL_COMMIT)
+	rm -Rf boringssl-$(BORING_SSL_COMMIT).zip boringssl-$(BORING_SSL_COMMIT) .boringssl-ppc64le-cxx
 	rm -Rf nghttp2-$(NGHTTP2_VERSION).tar.bz2 nghttp2-$(NGHTTP2_VERSION)
 	rm -Rf ngtcp2-$(NGTCP2_VERSION).tar.bz2 ngtcp2-$(NGTCP2_VERSION)
 	rm -Rf nghttp3-$(NGHTTP3_VERSION).tar.bz2 nghttp3-$(NGHTTP3_VERSION)
@@ -249,14 +263,26 @@ boringssl-$(BORING_SSL_COMMIT).zip:
 		-o boringssl-$(BORING_SSL_COMMIT).zip
 
 # Patch boringssl and use a dummy '.patched' file to mark it patched
-boringssl-$(BORING_SSL_COMMIT)/.patched: $(srcdir)/patches/boringssl.patch
+$(boringssl_patch_stamp): boringssl-$(BORING_SSL_COMMIT).zip $(srcdir)/patches/boringssl.patch $(boringssl_ppc64le_patches)
 	unzip -q -o boringssl-$(BORING_SSL_COMMIT).zip
-	# mv boringssl boringssl-$(BORING_SSL_COMMIT)
-	cd boringssl-$(BORING_SSL_COMMIT)/
-	for p in $^; do patch -p1 < $$p; done
-	touch .patched
+	cd $(boringssl_source_dir)
+	patch -p1 < $(srcdir)/patches/boringssl.patch
+	if test -n "$(boringssl_ppc64le_patches)"; then \
+		cd $(boringssl_source_dir); \
+		# Keep the downstream BoringSSL src hunks and skip Chromium's README addition. \
+		for p in $(boringssl_ppc64le_patches); do \
+			awk 'BEGIN { keep = 0 } /^Index: / { keep = index($$0, "/third_party/boringssl/src/") != 0 } keep { print }' $$p | patch -p4; \
+		done; \
+	fi
+	touch $(boringssl_patch_stamp)
 
-$(boringssl_static_libs): boringssl-$(BORING_SSL_COMMIT).zip boringssl-$(BORING_SSL_COMMIT)/.patched
+ifneq ($(filter ppc64le powerpc64le,$(host_cpu)),)
+$(boringssl_ppc64le_cxx_wrapper):
+	printf '%s\n' '#!/bin/sh' 'exec $(cxx_compiler) "$$@" $(boringssl_ppc64le_cxx_tailflags)' > $@
+	chmod +x $@
+endif
+
+$(boringssl_static_libs): boringssl-$(BORING_SSL_COMMIT).zip $(boringssl_patch_stamp) $(boringssl_ppc64le_cxx_wrapper)
 	mkdir -p $(boringssl_install_dir)
 	cd $(boringssl_install_dir)
 
@@ -297,8 +323,8 @@ $(boringssl_static_libs): boringssl-$(BORING_SSL_COMMIT).zip boringssl-$(BORING_
 	@cmake@ -DCMAKE_BUILD_TYPE=Release \
 			-DCMAKE_POSITION_INDEPENDENT_CODE=on \
 			-DCMAKE_C_FLAGS="$(CFLAGS) $(cc_extra_flags) -Wno-unknown-warning-option -Wno-stringop-overflow -Wno-array-bounds -Wno-macro-redefined" \
-			-DCMAKE_CXX_FLAGS="$(CXXFLAGS) $(cxx_extra_flags) -Wno-macro-redefined" \
-			-DCMAKE_CXX_COMPILER=$(cxx_compiler) \
+			-DCMAKE_CXX_FLAGS="$(CXXFLAGS) $(cxx_extra_flags) $(boringssl_ppc64le_cxxflags) -Wno-macro-redefined" \
+			-DCMAKE_CXX_COMPILER=$(boringssl_cxx_compiler) \
 			-DCMAKE_C_COMPILER=$(cc_compiler) \
 			-DCMAKE_SYSTEM_NAME=$$system_name \
 			-DCMAKE_SYSTEM_PROCESSOR=$(host_cpu) \
@@ -364,10 +390,10 @@ $(ngtcp2_static_libs): ngtcp2-$(NGTCP2_VERSION).tar.bz2 ngtcp2-$(NGTCP2_VERSION)
 		fi; \
 	}
 
-	./configure PKG_CONFIG_PATH=$(nghttp3_install_dir)/lib/pkgconfig \
-		BORINGSSL_LIBS="-L$(boringssl_install_dir)/ssl -lssl -L$(boringssl_install_dir)/crypto -lcrypto -pthread" \
-		BORINGSSL_CFLAGS="-I$(boringssl_dir)/include" \
-		--with-boringssl \
+	PKG_CONFIG_PATH=$(nghttp3_install_dir)/lib/pkgconfig \
+	BORINGSSL_LIBS="-L$(boringssl_install_dir)/ssl -lssl -L$(boringssl_install_dir)/crypto -lcrypto -pthread" \
+	BORINGSSL_CFLAGS="-I$(boringssl_dir)/include" \
+		./configure --with-boringssl \
 		$$config_flags
 	$(MAKE) MAKEFLAGS=-j$(SUBJOBS)
 	$(MAKE) install MAKEFLAGS=
