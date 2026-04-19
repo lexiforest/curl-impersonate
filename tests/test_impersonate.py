@@ -490,8 +490,6 @@ def _build_curl_env_and_args(
         curl_binary,
         "-o",
         output,
-        "-o",
-        output,
         "--local-port",
         f"{LOCAL_PORTS[0]}-{LOCAL_PORTS[1]}",
     ]
