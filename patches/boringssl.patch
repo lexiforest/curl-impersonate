@@ -1496,3 +1496,15 @@ index 48a156091..23721f9c7 100644
    if (CRYPTO_is_BMI1_capable() && CRYPTO_is_BMI2_capable() &&
      CRYPTO_is_ADX_capable()) {
        fiat_p256_adx_sqr(out1, arg1);
+--
+--- a/ssl/ssl_test.cc
++++ b/ssl/ssl_test.cc
+@@ -5198,7 +5198,7 @@
+   std::vector<CRYPTO_BUFFER *> certs = {leaf1.get(), ca1.get()};
+   ASSERT_TRUE(SSL_CTX_set_chain_and_key(ctx.get(), certs.data(), certs.size(),
+                                         key1.get(), nullptr));
+-  certs = {leaf2.get()};
++  certs = {leaf2.get(), ca1.get()};
+   ASSERT_TRUE(SSL_CTX_set_chain_and_key(ctx.get(), certs.data(), certs.size(),
+                                         key2.get(), nullptr));
+ 
