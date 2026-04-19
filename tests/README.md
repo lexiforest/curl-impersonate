@@ -2,13 +2,8 @@ The tests verify that `curl-impersonate` has the same network signature as that 
 
 ## Running the tests
 
-The tests assume that you've built the Debian `curl-impersonate` docker image
-before. See [Building from source](../docs/02_install.md#building-from-source);
-for the Docker-based test image, use:
-
-```
-docker build -t curl-impersonate -f docker/debian.dockerfile .
-```
+The tests assume that you've built the `curl-impersonate` docker image before.
+See [Building from source](../docs/02_install.md#building-from-source).
 
 To run the tests, build with:
 ```
