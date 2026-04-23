@@ -8937,10 +8937,257 @@ index 662539cd89..29f545c69e 100644
      r = cf_ssl_peer_key_add_path(&buf, "CA", ssl->CAfile, &is_local);
      if(r)
 diff --git a/lib/ws.c b/lib/ws.c
-index 7f8a688ca1..ab34231bcc 100644
+index 7f8a688ca1..150ab6f38d 100644
 --- a/lib/ws.c
 +++ b/lib/ws.c
-@@ -1587,7 +1587,7 @@ const struct Curl_handler Curl_handler_wss = {
+@@ -26,6 +26,13 @@
+ 
+ #if !defined(CURL_DISABLE_WEBSOCKETS) && !defined(CURL_DISABLE_HTTP)
+ 
++#include <stdint.h>
++#if defined(__x86_64__) || defined(_M_X64)
++  #include <immintrin.h>
++#elif defined(__aarch64__) || defined(_M_ARM64)
++  #include <arm_neon.h>
++#endif
++
+ #include "urldata.h"
+ #include "url.h"
+ #include "bufq.h"
+@@ -74,8 +81,74 @@
+ #define WSBIT_MASK 0x80
+ 
+ /* buffer dimensioning */
+-#define WS_CHUNK_SIZE 65535
+-#define WS_CHUNK_COUNT 2
++#define WS_CHUNK_SIZE 131072
++#define WS_CHUNK_COUNT 4
++
++#ifndef WS_ENC_XBUF_SIZE
++#define WS_ENC_XBUF_SIZE 8192
++#endif
++
++/* CPU Feature Bitmask Constants */
++#define WS_CPU_FEAT_INIT    ((uint32_t)1 << 0)
++#define WS_CPU_FEAT_AVX2    ((uint32_t)1 << 1)
++#define WS_CPU_FEAT_AVX512  ((uint32_t)1 << 2)
++
++/* Determine endianness */
++#if (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__) || \
++    defined(_WIN32) || defined(_WIN64) || defined(__LITTLE_ENDIAN__)
++#define WS_IS_LITTLE_ENDIAN 1
++#else
++#define WS_IS_LITTLE_ENDIAN 0
++#endif
++
++#if WS_IS_LITTLE_ENDIAN
++#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
++/* AVX-512 Path: 128 bytes per iteration (2x unrolled) */
++__attribute__((target("avx512f")))
++static size_t ws_xor_avx512(const unsigned char *src, unsigned char *dst, size_t len, uint32_t m32) {
++  size_t j = 0;
++  __m512i vmask = _mm512_set1_epi32((int)m32);
++  for(; j + 128 <= len; j += 128) {
++    __m512i v0 = _mm512_loadu_si512((const __m512i*)(const void *)(src + j));
++    __m512i v1 = _mm512_loadu_si512((const __m512i*)(const void *)(src + j + 64));
++    _mm512_storeu_si512((__m512i*)(void *)(dst + j), _mm512_xor_si512(v0, vmask));
++    _mm512_storeu_si512((__m512i*)(void *)(dst + j + 64), _mm512_xor_si512(v1, vmask));
++  }
++  return j;
++}
++
++/* AVX2 Path: 64 bytes per iteration (2x unrolled) */
++__attribute__((target("avx2")))
++static size_t ws_xor_avx2(const unsigned char *src, unsigned char *dst, size_t len, uint32_t m32) {
++  size_t j = 0;
++  __m256i vmask = _mm256_set1_epi32((int)m32);
++  for(; j + 64 <= len; j += 64) {
++    __m256i v0 = _mm256_loadu_si256((const __m256i*)(const void *)(src + j));
++    __m256i v1 = _mm256_loadu_si256((const __m256i*)(const void *)(src + j + 32));
++    _mm256_storeu_si256((__m256i*)(void *)(dst + j), _mm256_xor_si256(v0, vmask));
++    _mm256_storeu_si256((__m256i*)(void *)(dst + j + 32), _mm256_xor_si256(v1, vmask));
++  }
++  return j;
++}
++#endif
++
++#if defined(__aarch64__) || defined(_M_ARM64)
++/* NEON Path: 32 bytes per iteration (2x unrolled) */
++static size_t ws_xor_neon(const unsigned char *src, unsigned char *dst, size_t len, uint32_t m32) {
++  size_t j = 0;
++  uint32x4_t vmask = vdupq_n_u32(m32);
++  for(; j + 32 <= len; j += 32) {
++    uint8x16_t v0 = vld1q_u8(src + j);
++    uint8x16_t v1 = vld1q_u8(src + j + 16);
++    v0 = veorq_u8(v0, vreinterpretq_u8_u32(vmask));
++    v1 = veorq_u8(v1, vreinterpretq_u8_u32(vmask));
++    vst1q_u8(dst + j, v0);
++    vst1q_u8(dst + j + 16, v1);
++  }
++  return j;
++}
++#endif
++#endif
+ 
+ 
+ /* a client-side WS frame decoder, parsing frame headers and
+@@ -682,9 +755,9 @@ static CURLcode ws_cw_write(struct Curl_easy *data,
+     }
+   }
+ 
+-  if((type & CLIENTWRITE_EOS) && !Curl_bufq_is_empty(&ctx->buf)) {
+-    failf(data, "[WS] decode ending with %zd frame bytes remaining",
+-          Curl_bufq_len(&ctx->buf));
++  if((type & CLIENTWRITE_EOS) && (!Curl_bufq_is_empty(&ctx->buf) || ws->dec.state != WS_DEC_INIT)) {
++    failf(data, "[WS] decode ending with %zd bytes remaining and "
++          "incomplete frame", Curl_bufq_len(&ctx->buf));
+     return CURLE_RECV_ERROR;
+   }
+ 
+@@ -853,29 +926,102 @@ static ssize_t ws_enc_write_payload(struct ws_encoder *enc,
+                                     const unsigned char *buf, size_t buflen,
+                                     struct bufq *out, CURLcode *err)
+ {
+-  size_t i, len, n;
++  size_t i = 0, len, n, chunk, j;
++
++/* Cache line alignment */
++#if defined(__GNUC__) || defined(__clang__)
++  __attribute__((aligned(64))) unsigned char xbuf[WS_ENC_XBUF_SIZE];
++#elif defined(_MSC_VER)
++  __declspec(align(64)) unsigned char xbuf[WS_ENC_XBUF_SIZE];
++#else
++  unsigned char xbuf[WS_ENC_XBUF_SIZE];
++#endif
++
++  /* Defensive check for finished payloads */
++  if(enc->payload_remain <= 0) {
++    ws_enc_info(enc, data, "buffered");
++    return 0;
++  }
++
++  /* CPU feature cache. */
++#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
++  static uint32_t cpu_feats = 0;
++  if(!__atomic_load_n(&cpu_feats, __ATOMIC_ACQUIRE)) {
++    uint32_t f = WS_CPU_FEAT_INIT;
++    __builtin_cpu_init();
++    if(__builtin_cpu_supports("avx2"))
++      f |= WS_CPU_FEAT_AVX2;
++    if(__builtin_cpu_supports("avx512f"))
++      f |= WS_CPU_FEAT_AVX512;
++    __atomic_store_n(&cpu_feats, f, __ATOMIC_RELEASE);
++  }
++#endif
+ 
+   if(Curl_bufq_is_full(out)) {
+     *err = CURLE_AGAIN;
+     return -1;
+   }
+ 
+-  /* not the most performant way to do this */
+   len = buflen;
+   if((curl_off_t)len > enc->payload_remain)
+     len = (size_t)enc->payload_remain;
+ 
+-  for(i = 0; i < len; ++i) {
+-    unsigned char c = buf[i] ^ enc->mask[enc->xori];
+-    *err = Curl_bufq_write(out, &c, 1, &n);
++  while(i < len) {
++    unsigned int sx = enc->xori;
++    unsigned char m[4] = { enc->mask[sx&3], enc->mask[(sx+1)&3],
++                           enc->mask[(sx+2)&3], enc->mask[(sx+3)&3] };
++
++    chunk = len - i;
++    if(chunk > sizeof(xbuf)) chunk = sizeof(xbuf);
++
++    j = 0;
++
++/* SIMD and 32-bit Little-Endian gated scalar paths */
++#if WS_IS_LITTLE_ENDIAN
++
++    uint32_t m32;
++    memcpy(&m32, m, 4);
++
++  #if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
++    {
++      /* Reload feats before dispatch */
++      uint32_t f = __atomic_load_n(&cpu_feats, __ATOMIC_RELAXED);
++      if(f & WS_CPU_FEAT_AVX512) {
++        j = ws_xor_avx512(buf + i, xbuf, chunk, m32);
++      } else if(f & WS_CPU_FEAT_AVX2) {
++        j = ws_xor_avx2(buf + i, xbuf, chunk, m32);
++      }
++    }
++  #elif defined(__aarch64__) || defined(_M_ARM64)
++    /* NEON path - little endian AARCH64 */
++    j = ws_xor_neon(buf + i, xbuf, chunk, m32);
++  #endif
++
++    for(; j + 4 <= chunk; j += 4) {
++      uint32_t d32;
++      memcpy(&d32, buf + i + j, 4);
++      d32 ^= m32;
++      memcpy(xbuf + j, &d32, 4);
++    }
++#endif
++
++    /* Universal Scalar Fallback */
++    for(; j < chunk; ++j) {
++      xbuf[j] = buf[i + j] ^ m[j & 3];
++    }
++
++    *err = Curl_bufq_write(out, xbuf, chunk, &n);
++    if(n > 0) {
++      i += n;
++      enc->xori = (sx + (unsigned int)n) & 3;
++    }
+     if(*err) {
+       if((*err != CURLE_AGAIN) || !i)
+         return -1;
+       break;
+     }
+-    enc->xori++;
+-    enc->xori &= 3;
+   }
++
+   enc->payload_remain -= (curl_off_t)i;
+   ws_enc_info(enc, data, "buffered");
+   return (ssize_t)i;
+@@ -1270,6 +1416,12 @@ static CURLcode ws_flush(struct Curl_easy *data, struct websocket *ws,
+           result = CURLE_AGAIN;
+       }
+ 
++      /* Advance buffer for any bytes successfully written before handling errors */
++      if(n > 0) {
++        CURL_TRC_WS(data, "flushed %zu bytes", n);
++        Curl_bufq_skip(&ws->sendbuf, n);
++      }
++
+       if(result == CURLE_AGAIN) {
+         CURL_TRC_WS(data, "flush EAGAIN, %zu bytes remain in buffer",
+                     Curl_bufq_len(&ws->sendbuf));
+@@ -1279,10 +1431,6 @@ static CURLcode ws_flush(struct Curl_easy *data, struct websocket *ws,
+         failf(data, "[WS] flush, write error %d", result);
+         return result;
+       }
+-      else {
+-        CURL_TRC_WS(data, "flushed %zu bytes", n);
+-        Curl_bufq_skip(&ws->sendbuf, n);
+-      }
+     }
+   }
+   return CURLE_OK;
+@@ -1353,6 +1501,8 @@ static CURLcode ws_send_raw(struct Curl_easy *data, const void *buffer,
+     if(result)
+       return result;
+     result = ws_send_raw_blocking(data, ws, buffer, buflen);
++    if(!result)
++      *pnwritten = buflen;
+   }
+   else {
+     /* We need any pending data to be sent or EAGAIN this call. */
+@@ -1587,7 +1737,7 @@ const struct Curl_handler Curl_handler_wss = {
    CURLPROTO_WSS,                        /* protocol */
    CURLPROTO_HTTP,                       /* family */
    PROTOPT_SSL | PROTOPT_CREDSPERREQUEST | /* flags */
