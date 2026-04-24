@@ -1,0 +1,57 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-unix:
+    name: Build Linux, macOS, Android, and iOS artifacts
+    uses: ./.github/workflows/build.yml
+
+  build-windows:
+    name: Build Windows artifacts
+    uses: ./.github/workflows/build-win.yaml
+
+  publish-release:
+    name: Publish GitHub release
+    runs-on: ubuntu-latest
+    needs:
+      - build-unix
+      - build-windows
+    steps:
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: artifacts.*
+          path: ${{ runner.temp }}/release-assets
+          merge-multiple: true
+
+      - name: Collect release files
+        id: collect-release-files
+        run: |
+          shopt -s nullglob
+          files=("${{ runner.temp }}/release-assets"/*.tar.gz)
+
+          if [[ ${#files[@]} -eq 0 ]]; then
+            echo "No release assets were downloaded." >&2
+            exit 1
+          fi
+
+          printf 'Release assets:\n'
+          printf ' - %s\n' "${files[@]##*/}"
+
+          {
+            echo "files<<EOF"
+            printf '%s\n' "${files[@]}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v3
+        with:
+          files: ${{ steps.collect-release-files.outputs.files }}

@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+# Find the directory of this script
+dir=${0%/*}
+
+"$dir/curl-impersonate" --compressed --impersonate "safari2601" "$@"

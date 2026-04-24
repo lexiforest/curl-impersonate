@@ -20,6 +20,8 @@ git -C "$PWD/deps/nghttp2" submodule update --init
 git -C "$PWD/deps/nghttp3" submodule update --init
 git -C "$PWD/deps/ngtcp2" submodule update --init
 
+patch -p1 -d "$PWD/deps/nghttp3" < "$PWD/patches/nghttp3.patch"
+patch -p1 -d "$PWD/deps/ngtcp2" < "$PWD/patches/ngtcp2.patch"
 patch -p1 -d "$PWD/deps/boringssl" < "$PWD/patches/boringssl.patch"
 patch -p1 -d "$PWD/deps/curl" < "$PWD/patches/curl.patch"
 patch -p1 < "$PWD/win/deps.patch"

@@ -4,19 +4,15 @@ WORKDIR /build
 
 RUN apt-get update && \
     apt-get install -y git ninja-build cmake autoconf automake pkg-config libtool \
-    clang llvm lld libc++-dev libc++abi-dev \
     ca-certificates curl \
-    curl zlib1g-dev libzstd-dev \
+    curl \
     golang-go bzip2 xz-utils unzip
 
 COPY . /build
 
-ENV CC=clang CXX=clang++
-
 # dynamic build
 RUN mkdir /build/install && \
     ./configure --prefix=/build/install \
-        --with-zlib --with-zstd \
         --with-ca-path=/etc/ssl/certs \
         --with-ca-bundle=/etc/ssl/certs/ca-certificates.crt && \
     make build && \
@@ -26,7 +22,6 @@ RUN mkdir /build/install && \
 # static build
 RUN ./configure --prefix=/build/install \
         --enable-static \
-        --with-zlib --with-zstd \
         --with-ca-path=/etc/ssl/certs \
         --with-ca-bundle=/etc/ssl/certs/ca-certificates.crt && \
     make build && \
@@ -37,7 +32,7 @@ RUN ./configure --prefix=/build/install \
 FROM debian:bookworm-slim
 
 RUN apt-get update && \
-    apt-get install -y ca-certificates libc++1 libc++abi1 \
+    apt-get install -y ca-certificates libstdc++6 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /build/install /usr/local

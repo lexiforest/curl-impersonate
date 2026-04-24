@@ -55,7 +55,11 @@ popd
 
 :: Build & Install boringssl
 pushd "%deps%\boringssl"
-cmake %cmake_common_args% -DCMAKE_POSITION_INDEPENDENT_CODE=ON -S . -B "%build%\boringssl"
+if "%DISABLE_ASM_ARM64%"=="true" (
+  cmake %cmake_common_args% -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DOPENSSL_NO_ASM=ON -S . -B "%build%\boringssl"
+) else (
+  cmake %cmake_common_args% -DCMAKE_POSITION_INDEPENDENT_CODE=ON -S . -B "%build%\boringssl"
+)
 cmake --build "%build%\boringssl" --config %configuration% --target install
 popd
 
