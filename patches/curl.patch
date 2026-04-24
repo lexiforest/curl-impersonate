@@ -8937,7 +8937,7 @@ index 662539cd89..29f545c69e 100644
      r = cf_ssl_peer_key_add_path(&buf, "CA", ssl->CAfile, &is_local);
      if(r)
 diff --git a/lib/ws.c b/lib/ws.c
-index 7f8a688ca1..150ab6f38d 100644
+index 7f8a688ca1..6aea647d1c 100644
 --- a/lib/ws.c
 +++ b/lib/ws.c
 @@ -26,6 +26,13 @@
@@ -8954,7 +8954,7 @@ index 7f8a688ca1..150ab6f38d 100644
  #include "urldata.h"
  #include "url.h"
  #include "bufq.h"
-@@ -74,8 +81,74 @@
+@@ -74,8 +81,85 @@
  #define WSBIT_MASK 0x80
  
  /* buffer dimensioning */
@@ -8982,8 +8982,19 @@ index 7f8a688ca1..150ab6f38d 100644
 +
 +#if WS_IS_LITTLE_ENDIAN
 +#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
++
++#if defined(__clang__)
++#  if defined(__clang_major__) && (__clang_major__ < 22)
++#    define WS_TARGET_AVX512 "avx512f,evex512"
++#  else
++#    define WS_TARGET_AVX512 "avx512f"
++#  endif
++#else
++#  define WS_TARGET_AVX512 "avx512f"
++#endif
++
 +/* AVX-512 Path: 128 bytes per iteration (2x unrolled) */
-+__attribute__((target("avx512f")))
++__attribute__((target(WS_TARGET_AVX512)))
 +static size_t ws_xor_avx512(const unsigned char *src, unsigned char *dst, size_t len, uint32_t m32) {
 +  size_t j = 0;
 +  __m512i vmask = _mm512_set1_epi32((int)m32);
@@ -9031,7 +9042,7 @@ index 7f8a688ca1..150ab6f38d 100644
  
  
  /* a client-side WS frame decoder, parsing frame headers and
-@@ -682,9 +755,9 @@ static CURLcode ws_cw_write(struct Curl_easy *data,
+@@ -682,9 +766,9 @@ static CURLcode ws_cw_write(struct Curl_easy *data,
      }
    }
  
@@ -9044,7 +9055,7 @@ index 7f8a688ca1..150ab6f38d 100644
      return CURLE_RECV_ERROR;
    }
  
-@@ -853,29 +926,102 @@ static ssize_t ws_enc_write_payload(struct ws_encoder *enc,
+@@ -853,29 +937,102 @@ static ssize_t ws_enc_write_payload(struct ws_encoder *enc,
                                      const unsigned char *buf, size_t buflen,
                                      struct bufq *out, CURLcode *err)
  {
@@ -9154,7 +9165,7 @@ index 7f8a688ca1..150ab6f38d 100644
    enc->payload_remain -= (curl_off_t)i;
    ws_enc_info(enc, data, "buffered");
    return (ssize_t)i;
-@@ -1270,6 +1416,12 @@ static CURLcode ws_flush(struct Curl_easy *data, struct websocket *ws,
+@@ -1270,6 +1427,12 @@ static CURLcode ws_flush(struct Curl_easy *data, struct websocket *ws,
            result = CURLE_AGAIN;
        }
  
@@ -9167,7 +9178,7 @@ index 7f8a688ca1..150ab6f38d 100644
        if(result == CURLE_AGAIN) {
          CURL_TRC_WS(data, "flush EAGAIN, %zu bytes remain in buffer",
                      Curl_bufq_len(&ws->sendbuf));
-@@ -1279,10 +1431,6 @@ static CURLcode ws_flush(struct Curl_easy *data, struct websocket *ws,
+@@ -1279,10 +1442,6 @@ static CURLcode ws_flush(struct Curl_easy *data, struct websocket *ws,
          failf(data, "[WS] flush, write error %d", result);
          return result;
        }
@@ -9178,7 +9189,7 @@ index 7f8a688ca1..150ab6f38d 100644
      }
    }
    return CURLE_OK;
-@@ -1353,6 +1501,8 @@ static CURLcode ws_send_raw(struct Curl_easy *data, const void *buffer,
+@@ -1353,6 +1512,8 @@ static CURLcode ws_send_raw(struct Curl_easy *data, const void *buffer,
      if(result)
        return result;
      result = ws_send_raw_blocking(data, ws, buffer, buflen);
@@ -9187,7 +9198,7 @@ index 7f8a688ca1..150ab6f38d 100644
    }
    else {
      /* We need any pending data to be sent or EAGAIN this call. */
-@@ -1587,7 +1737,7 @@ const struct Curl_handler Curl_handler_wss = {
+@@ -1587,7 +1748,7 @@ const struct Curl_handler Curl_handler_wss = {
    CURLPROTO_WSS,                        /* protocol */
    CURLPROTO_HTTP,                       /* family */
    PROTOPT_SSL | PROTOPT_CREDSPERREQUEST | /* flags */
