@@ -8937,7 +8937,7 @@ index 662539cd89..29f545c69e 100644
      r = cf_ssl_peer_key_add_path(&buf, "CA", ssl->CAfile, &is_local);
      if(r)
 diff --git a/lib/ws.c b/lib/ws.c
-index 7f8a688ca1..60e995106c 100644
+index 7f8a688ca1..6e9d164048 100644
 --- a/lib/ws.c
 +++ b/lib/ws.c
 @@ -26,6 +26,13 @@
@@ -8954,7 +8954,7 @@ index 7f8a688ca1..60e995106c 100644
  #include "urldata.h"
  #include "url.h"
  #include "bufq.h"
-@@ -74,8 +81,153 @@
+@@ -74,8 +81,97 @@
  #define WSBIT_MASK 0x80
  
  /* buffer dimensioning */
@@ -8982,62 +8982,6 @@ index 7f8a688ca1..60e995106c 100644
 +
 +#if WS_IS_LITTLE_ENDIAN
 +#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
-+
-+static void ws_cpuid_count(uint32_t leaf, uint32_t subleaf,
-+                           uint32_t *eax, uint32_t *ebx,
-+                           uint32_t *ecx, uint32_t *edx)
-+{
-+  uint32_t a, b, c, d;
-+
-+  __asm__ __volatile__("cpuid"
-+                       : "=a"(a), "=b"(b), "=c"(c), "=d"(d)
-+                       : "a"(leaf), "c"(subleaf));
-+
-+  *eax = a;
-+  *ebx = b;
-+  *ecx = c;
-+  *edx = d;
-+}
-+
-+static uint64_t ws_xgetbv0(void)
-+{
-+  uint32_t eax, edx;
-+   /* xgetbv */
-+  __asm__ __volatile__(".byte 0x0f, 0x01, 0xd0"
-+                       : "=a"(eax), "=d"(edx)
-+                       : "c"(0));
-+
-+  return ((uint64_t)edx << 32) | eax;
-+}
-+
-+static uint32_t ws_x86_cpu_features(void)
-+{
-+  uint32_t max_leaf, eax, ebx, ecx, edx;
-+  uint32_t feats = WS_CPU_FEAT_INIT;
-+
-+  ws_cpuid_count(0, 0, &max_leaf, &ebx, &ecx, &edx);
-+  ws_cpuid_count(1, 0, &eax, &ebx, &ecx, &edx);
-+
-+  /* Require OSXSAVE + AVX and OS-enabled XMM/YMM state. */
-+  if((ecx & (1u << 27)) && (ecx & (1u << 28))) {
-+    uint64_t xcr0 = ws_xgetbv0();
-+
-+    if((xcr0 & 0x6u) == 0x6u) {
-+      if(max_leaf >= 7) {
-+        ws_cpuid_count(7, 0, &eax, &ebx, &ecx, &edx);
-+
-+        if(ebx & (1u << 5))
-+          feats |= WS_CPU_FEAT_AVX2;
-+
-+        /* AVX-512F also requires opmask + ZMM state enabled in XCR0. */
-+        if((xcr0 & 0xE6u) == 0xE6u && (ebx & (1u << 16)))
-+          feats |= WS_CPU_FEAT_AVX512;
-+      }
-+    }
-+  }
-+
-+  return feats;
-+}
 +
 +#if defined(__clang__)
 +#  if defined(__clang_major__) && (__clang_major__ < 22)
@@ -9110,7 +9054,7 @@ index 7f8a688ca1..60e995106c 100644
  
  
  /* a client-side WS frame decoder, parsing frame headers and
-@@ -682,9 +834,10 @@ static CURLcode ws_cw_write(struct Curl_easy *data,
+@@ -682,9 +778,10 @@ static CURLcode ws_cw_write(struct Curl_easy *data,
      }
    }
  
@@ -9124,7 +9068,7 @@ index 7f8a688ca1..60e995106c 100644
      return CURLE_RECV_ERROR;
    }
  
-@@ -853,29 +1006,100 @@ static ssize_t ws_enc_write_payload(struct ws_encoder *enc,
+@@ -853,29 +950,104 @@ static ssize_t ws_enc_write_payload(struct ws_encoder *enc,
                                      const unsigned char *buf, size_t buflen,
                                      struct bufq *out, CURLcode *err)
  {
@@ -9149,9 +9093,13 @@ index 7f8a688ca1..60e995106c 100644
 +  /* CPU feature cache. */
 +#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
 +  static uint32_t cpu_feats = 0;
-+  uint32_t f = __atomic_load_n(&cpu_feats, __ATOMIC_ACQUIRE);
-+  if(!f) {
-+    f = ws_x86_cpu_features();
++  if(!__atomic_load_n(&cpu_feats, __ATOMIC_ACQUIRE)) {
++    uint32_t f = WS_CPU_FEAT_INIT;
++    __builtin_cpu_init();
++    if(__builtin_cpu_supports("avx2"))
++      f |= WS_CPU_FEAT_AVX2;
++    if(__builtin_cpu_supports("avx512f"))
++      f |= WS_CPU_FEAT_AVX512;
 +    __atomic_store_n(&cpu_feats, f, __ATOMIC_RELEASE);
 +  }
 +#endif
@@ -9232,7 +9180,7 @@ index 7f8a688ca1..60e995106c 100644
    enc->payload_remain -= (curl_off_t)i;
    ws_enc_info(enc, data, "buffered");
    return (ssize_t)i;
-@@ -1270,6 +1494,13 @@ static CURLcode ws_flush(struct Curl_easy *data, struct websocket *ws,
+@@ -1270,6 +1442,13 @@ static CURLcode ws_flush(struct Curl_easy *data, struct websocket *ws,
            result = CURLE_AGAIN;
        }
  
@@ -9246,7 +9194,7 @@ index 7f8a688ca1..60e995106c 100644
        if(result == CURLE_AGAIN) {
          CURL_TRC_WS(data, "flush EAGAIN, %zu bytes remain in buffer",
                      Curl_bufq_len(&ws->sendbuf));
-@@ -1279,10 +1510,6 @@ static CURLcode ws_flush(struct Curl_easy *data, struct websocket *ws,
+@@ -1279,10 +1458,6 @@ static CURLcode ws_flush(struct Curl_easy *data, struct websocket *ws,
          failf(data, "[WS] flush, write error %d", result);
          return result;
        }
@@ -9257,7 +9205,7 @@ index 7f8a688ca1..60e995106c 100644
      }
    }
    return CURLE_OK;
-@@ -1353,6 +1580,8 @@ static CURLcode ws_send_raw(struct Curl_easy *data, const void *buffer,
+@@ -1353,6 +1528,8 @@ static CURLcode ws_send_raw(struct Curl_easy *data, const void *buffer,
      if(result)
        return result;
      result = ws_send_raw_blocking(data, ws, buffer, buflen);
@@ -9266,7 +9214,7 @@ index 7f8a688ca1..60e995106c 100644
    }
    else {
      /* We need any pending data to be sent or EAGAIN this call. */
-@@ -1587,7 +1816,7 @@ const struct Curl_handler Curl_handler_wss = {
+@@ -1587,7 +1764,7 @@ const struct Curl_handler Curl_handler_wss = {
    CURLPROTO_WSS,                        /* protocol */
    CURLPROTO_HTTP,                       /* family */
    PROTOPT_SSL | PROTOPT_CREDSPERREQUEST | /* flags */
