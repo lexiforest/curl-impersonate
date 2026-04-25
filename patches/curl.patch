@@ -8937,7 +8937,7 @@ index 662539cd89..29f545c69e 100644
      r = cf_ssl_peer_key_add_path(&buf, "CA", ssl->CAfile, &is_local);
      if(r)
 diff --git a/lib/ws.c b/lib/ws.c
-index 7f8a688ca1..6e9d164048 100644
+index 7f8a688ca1..2202dc10c1 100644
 --- a/lib/ws.c
 +++ b/lib/ws.c
 @@ -26,6 +26,13 @@
@@ -8954,7 +8954,7 @@ index 7f8a688ca1..6e9d164048 100644
  #include "urldata.h"
  #include "url.h"
  #include "bufq.h"
-@@ -74,8 +81,97 @@
+@@ -74,8 +81,143 @@
  #define WSBIT_MASK 0x80
  
  /* buffer dimensioning */
@@ -9050,11 +9050,65 @@ index 7f8a688ca1..6e9d164048 100644
 +  return j;
 +}
 +#endif
++
++#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
++/* Manual CPU feature detection - to avoid CI/CD errors */
++static uint32_t ws_get_cpu_features(void)
++{
++  uint32_t eax, ebx, ecx, edx;
++  uint32_t features = WS_CPU_FEAT_INIT;
++
++  /* CPUID EAX=1: Check for OSXSAVE */
++  __asm__ volatile ("cpuid"
++                    : "=a"(eax), "=b"(ebx), "=c"(ecx), "=d"(edx)
++                    : "a"(1), "c"(0));
++
++  /* Bit 27 of ECX indicates saving extended states support */
++  if(!(ecx & (1 << 27)))
++    return features;
++
++  /* XGETBV ECX=0: Read the XFEATURE_ENABLED_MASK register */
++  uint32_t xcr0_eax, xcr0_edx;
++  __asm__ volatile ("xgetbv"
++                    : "=a"(xcr0_eax), "=d"(xcr0_edx)
++                    : "c"(0));
++
++  /* Bits 1 & 2 (0x06) for AVX/YMM state support */
++  if((xcr0_eax & 0x06) != 0x06)
++    return features;
++
++  /* CPUID EAX=7, ECX=0: Check extended features */
++  __asm__ volatile ("cpuid"
++                    : "=a"(eax), "=b"(ebx), "=c"(ecx), "=d"(edx)
++                    : "a"(7), "c"(0));
++
++  /* Check AVX2 hardware support (EBX bit 5) */
++  if(ebx & (1 << 5))
++    features |= WS_CPU_FEAT_AVX2;
++
++  /* Bits 5, 6, & 7 (0xE0) + 0x06 = 0xE6 must be set for AVX-512/ZMM support */
++  if((xcr0_eax & 0xe6) == 0xe6) {
++    /* Check AVX512F hardware support (EBX bit 16) */
++    if(ebx & (1 << 16))
++      features |= WS_CPU_FEAT_AVX512;
++  }
++
++  return features;
++}
++#endif
 +#endif
  
  
  /* a client-side WS frame decoder, parsing frame headers and
-@@ -682,9 +778,10 @@ static CURLcode ws_cw_write(struct Curl_easy *data,
+@@ -106,6 +248,7 @@ struct ws_encoder {
+   unsigned char mask[4]; /* 32-bit mask for this connection */
+   unsigned char firstbyte; /* first byte of frame we encode */
+   BIT(contfragment); /* set TRUE if the previous fragment sent was not final */
++  unsigned char xbuf[WS_ENC_XBUF_SIZE]; /* 8KB heap buffer for XOR masking */
+ };
+ 
+ /* A websocket connection with en- and decoder that treat frames
+@@ -682,9 +825,10 @@ static CURLcode ws_cw_write(struct Curl_easy *data,
      }
    }
  
@@ -9068,41 +9122,19 @@ index 7f8a688ca1..6e9d164048 100644
      return CURLE_RECV_ERROR;
    }
  
-@@ -853,29 +950,104 @@ static ssize_t ws_enc_write_payload(struct ws_encoder *enc,
+@@ -853,29 +997,87 @@ static ssize_t ws_enc_write_payload(struct ws_encoder *enc,
                                      const unsigned char *buf, size_t buflen,
                                      struct bufq *out, CURLcode *err)
  {
 -  size_t i, len, n;
 +  size_t i = 0, len, n, chunk, j;
-+
-+/* Cache line alignment */
-+#if defined(__GNUC__) || defined(__clang__)
-+  __attribute__((aligned(64))) unsigned char xbuf[WS_ENC_XBUF_SIZE];
-+#elif defined(_MSC_VER)
-+  __declspec(align(64)) unsigned char xbuf[WS_ENC_XBUF_SIZE];
-+#else
-+  unsigned char xbuf[WS_ENC_XBUF_SIZE];
-+#endif
++  unsigned char *xbuf = enc->xbuf;
 +
 +  /* Defensive check for finished payloads */
 +  if(enc->payload_remain <= 0) {
 +    ws_enc_info(enc, data, "buffered");
 +    return 0;
 +  }
-+
-+  /* CPU feature cache. */
-+#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
-+  static uint32_t cpu_feats = 0;
-+  if(!__atomic_load_n(&cpu_feats, __ATOMIC_ACQUIRE)) {
-+    uint32_t f = WS_CPU_FEAT_INIT;
-+    __builtin_cpu_init();
-+    if(__builtin_cpu_supports("avx2"))
-+      f |= WS_CPU_FEAT_AVX2;
-+    if(__builtin_cpu_supports("avx512f"))
-+      f |= WS_CPU_FEAT_AVX512;
-+    __atomic_store_n(&cpu_feats, f, __ATOMIC_RELEASE);
-+  }
-+#endif
  
    if(Curl_bufq_is_full(out)) {
      *err = CURLE_AGAIN;
@@ -9123,8 +9155,8 @@ index 7f8a688ca1..6e9d164048 100644
 +                           enc->mask[(sx + 2) & 3], enc->mask[(sx + 3) & 3] };
 +
 +    chunk = len - i;
-+    if(chunk > sizeof(xbuf))
-+      chunk = sizeof(xbuf);
++    if(chunk > WS_ENC_XBUF_SIZE)
++      chunk = WS_ENC_XBUF_SIZE;
 +
 +    j = 0;
 +
@@ -9136,8 +9168,13 @@ index 7f8a688ca1..6e9d164048 100644
 +
 +  #if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
 +    {
-+      /* Reload feats before dispatch */
++      static uint32_t cpu_feats = 0;
 +      uint32_t f = __atomic_load_n(&cpu_feats, __ATOMIC_RELAXED);
++      if(!(f & WS_CPU_FEAT_INIT)) {
++        f = ws_get_cpu_features();
++        __atomic_store_n(&cpu_feats, f, __ATOMIC_RELAXED);
++      }
++
 +      if(f & WS_CPU_FEAT_AVX512) {
 +        j = ws_xor_avx512(buf + i, xbuf, chunk, m32);
 +      }
@@ -9180,7 +9217,7 @@ index 7f8a688ca1..6e9d164048 100644
    enc->payload_remain -= (curl_off_t)i;
    ws_enc_info(enc, data, "buffered");
    return (ssize_t)i;
-@@ -1270,6 +1442,13 @@ static CURLcode ws_flush(struct Curl_easy *data, struct websocket *ws,
+@@ -1270,6 +1472,13 @@ static CURLcode ws_flush(struct Curl_easy *data, struct websocket *ws,
            result = CURLE_AGAIN;
        }
  
@@ -9194,7 +9231,7 @@ index 7f8a688ca1..6e9d164048 100644
        if(result == CURLE_AGAIN) {
          CURL_TRC_WS(data, "flush EAGAIN, %zu bytes remain in buffer",
                      Curl_bufq_len(&ws->sendbuf));
-@@ -1279,10 +1458,6 @@ static CURLcode ws_flush(struct Curl_easy *data, struct websocket *ws,
+@@ -1279,10 +1488,6 @@ static CURLcode ws_flush(struct Curl_easy *data, struct websocket *ws,
          failf(data, "[WS] flush, write error %d", result);
          return result;
        }
@@ -9205,7 +9242,7 @@ index 7f8a688ca1..6e9d164048 100644
      }
    }
    return CURLE_OK;
-@@ -1353,6 +1528,8 @@ static CURLcode ws_send_raw(struct Curl_easy *data, const void *buffer,
+@@ -1353,6 +1558,8 @@ static CURLcode ws_send_raw(struct Curl_easy *data, const void *buffer,
      if(result)
        return result;
      result = ws_send_raw_blocking(data, ws, buffer, buflen);
@@ -9214,7 +9251,7 @@ index 7f8a688ca1..6e9d164048 100644
    }
    else {
      /* We need any pending data to be sent or EAGAIN this call. */
-@@ -1587,7 +1764,7 @@ const struct Curl_handler Curl_handler_wss = {
+@@ -1587,7 +1794,7 @@ const struct Curl_handler Curl_handler_wss = {
    CURLPROTO_WSS,                        /* protocol */
    CURLPROTO_HTTP,                       /* family */
    PROTOPT_SSL | PROTOPT_CREDSPERREQUEST | /* flags */
