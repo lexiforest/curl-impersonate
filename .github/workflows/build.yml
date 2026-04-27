@@ -101,7 +101,7 @@ jobs:
             make: gmake
           - os: macos-14
             platform: ios
-            arch: arm64-simulator
+            arch: arm64
             host: arm64-apple-ios
             host_label: arm64-apple-ios-simulator
             ios_sdk: iphonesimulator
