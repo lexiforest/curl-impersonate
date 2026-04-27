@@ -108,6 +108,14 @@ jobs:
             ios_min_version: "13.0"
             make: gmake
           - os: macos-15-intel
+            platform: ios
+            arch: x86_64
+            host: x86_64-apple-ios
+            host_label: x86_64-apple-ios-simulator
+            ios_sdk: iphonesimulator
+            ios_min_version: "13.0"
+            make: gmake
+          - os: macos-15-intel
             platform: macos
             arch: x86_64
             host: x86_64-macos
@@ -182,9 +190,9 @@ jobs:
           echo "AR=$AR" >> $GITHUB_ENV
           echo "RANLIB=$RANLIB" >> $GITHUB_ENV
           echo "STRIP=$STRIP" >> $GITHUB_ENV
-          echo "CFLAGS=-isysroot $SDKROOT -arch arm64 $min_flag -fPIC" >> $GITHUB_ENV
-          echo "CXXFLAGS=-isysroot $SDKROOT -arch arm64 $min_flag -fPIC" >> $GITHUB_ENV
-          echo "LDFLAGS=-isysroot $SDKROOT -arch arm64 $min_flag" >> $GITHUB_ENV
+          echo "CFLAGS=-isysroot $SDKROOT -arch ${{ matrix.arch }} $min_flag -fPIC" >> $GITHUB_ENV
+          echo "CXXFLAGS=-isysroot $SDKROOT -arch ${{ matrix.arch }} $min_flag -fPIC" >> $GITHUB_ENV
+          echo "LDFLAGS=-isysroot $SDKROOT -arch ${{ matrix.arch }} $min_flag" >> $GITHUB_ENV
 
       - name: Install Ubuntu dependencies
         if: runner.os == 'Linux'
@@ -314,7 +322,22 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ios-slice.arm64-apple-ios-simulator
-          path: ${{ runner.temp }}/ios/simulator
+          path: ${{ runner.temp }}/ios/simulator-arm64
+
+      - name: Download Intel simulator slice
+        uses: actions/download-artifact@v4
+        with:
+          name: ios-slice.x86_64-apple-ios-simulator
+          path: ${{ runner.temp }}/ios/simulator-x86_64
+
+      - name: Create universal simulator slice
+        run: |
+          mkdir -p ${{ runner.temp }}/ios/simulator/lib
+          cp -R ${{ runner.temp }}/ios/simulator-arm64/include ${{ runner.temp }}/ios/simulator/
+          lipo -create \
+            ${{ runner.temp }}/ios/simulator-arm64/lib/libcurl-impersonate.a \
+            ${{ runner.temp }}/ios/simulator-x86_64/lib/libcurl-impersonate.a \
+            -output ${{ runner.temp }}/ios/simulator/lib/libcurl-impersonate.a
 
       - name: Create XCFramework
         run: |
