@@ -1,6 +1,6 @@
 Development and contributing
 ****************************
 
-When opening a PR, please do not use the ``main`` branch in your fork, otherwise I cannot
-add my modification, such as unittests. Use a dedicated branch, such as ``feature/xxx`` or
-``bugfix/xxx``.
+When opening a pull request, do not use the ``main`` branch in your fork. Use a separate
+branch such as ``feature/xxx`` or ``bugfix/xxx`` so follow-up changes and tests can be
+added more easily.

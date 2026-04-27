@@ -1,7 +1,7 @@
-curl_cffi pro version
-*********************
+Commercial Support
+******************
 
-We offer a pro version for professional users of curl_cffi.
+We offer a commercial version for professional users of ``curl_cffi``.
 
 Feature Matrix
 ==============

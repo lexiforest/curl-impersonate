@@ -4,48 +4,45 @@ Usage
 On the command line
 ==============================================
 
-curl-impersonate can run from the command line just like the regular curl tool.
-Since it is just a modified curl build, all the original flags and command-line options
-are supported.
+You can run curl-impersonate from the command line just like regular curl. Since it is a
+modified curl build, all of the original flags and command-line options are supported.
 
-For example, it can run as follows:
+For example:
 
 .. code-block:: bash
 
     curl-impersonate -v -L https://wikipedia.org
 
-However, by default, running the binaries as above will not produce the same TLS and
-HTTP/2 signatures as the impersonated browsers. Rather, this project provides additional
-*wrapper scripts* that launch these binaries with the correct set of command line flags
-to produce the desired signatures. For example:
+However, running the binary directly does not produce the same TLS and HTTP/2 signatures
+as the impersonated browsers. To solve this, the project provides *wrapper scripts* that
+launch the binaries with the correct command-line flags. For example:
 
 .. code-block:: bash
 
     curl_chrome104 -v -L https://wikipedia.org
 
-will produce a signature identical to Chrome version 104. You can add command line flags
-and they will be passed on to curl. However, some flags change curl's TLS signature. See
-below for more details.
+This produces a signature identical to Chrome 104. You can add your own command-line
+flags and they will be passed through to curl. However, some flags change curl's TLS
+signature. See below for details.
 
 The full list of wrapper scripts is available on the :doc:`api`.
 
 Changing the HTTP headers
 -------------------------
 
-The wrapper scripts use a certain set of HTTP headers such as ``User-Agent``, ``Accept-Encoding``
-and a few more. These headers were chosen to be identical to the default set of headers
-used by the browser upon requesting an unvisited website. The order of the headers was
-chosen to match as well.
+The wrapper scripts set a default group of HTTP headers such as ``User-Agent`` and
+``Accept-Encoding``. These headers were chosen to match the browser's default headers
+for a first visit to a website, including header order.
 
-In many different scenarios you may wish to change the headers, their order, or to add new ones.
-To do so correctly, currently the best option is to modify the scripts.
-Otherwise you may get duplicate headers or a wrong order of headers.
+In many situations, you may want to change the headers, change their order, or add new
+ones. The safest approach today is to modify the wrapper scripts directly. Otherwise,
+you may end up with duplicate headers or the wrong header order.
 
 How the wrapper scripts work
 ----------------------------
 
-Let's analyze the contents of the ``curl_chrome104`` wrapper script.
-Understanding this can help in some scenarios where better control of the signature is needed.
+Let's look at the ``curl_chrome104`` wrapper script. Understanding how it works is
+helpful when you need tighter control over the final signature.
 
 The important part of the script is:
 
@@ -70,9 +67,9 @@ The important part of the script is:
         --cert-compression brotli \
         "$@"
 
-The important flags are as follows:
+The most important flags are:
 
-* ``--ciphers`` controls the cipher list, an important part of the TLS client hello
+* ``--ciphers`` controls the cipher list, which is an important part of the TLS ClientHello
   message. The ciphers were chosen to match Chrome's.
 * The multiple ``-H`` flags set the HTTP headers. You may want to modify these in many
   scenarios where other HTTP headers are required.
@@ -86,8 +83,9 @@ The important flags are as follows:
 Flags that modify the TLS signature
 -----------------------------------
 
-The following flags are known to affect the TLS signature of curl.
-Using them in addition to the flags in the wrapper scripts may produce a signature that does not match the browser.
+The following flags are known to affect curl's TLS signature. If you use them in
+addition to the flags in the wrapper scripts, the final signature may no longer match
+the browser.
 
 ``--ciphers``, ``--curves``, ``--no-npn``, ``--no-alpn``, ``--tls-max``,
 ``--tls13-ciphers``, ``--tlsv1.0``, ``--tlsv1.1``, ``--tlsv1.2``,
@@ -106,10 +104,10 @@ It has an additional API function:
     CURLcode curl_easy_impersonate(struct Curl_easy *data, const char *target,
                                    int default_headers);
 
-You can call it with a target name such as ``chrome123`` and it will internally set all
-the options and headers that are otherwise set by the wrapper scripts. If
+You can call it with a target name such as ``chrome123``. It will internally set all the
+options and headers that the wrapper scripts would otherwise apply. If
 ``default_headers`` is set to ``0``, the built-in list of HTTP headers will not be set,
-and the user is expected to provide them instead using the regular
+and you are expected to provide them yourself using the standard
 `CURLOPT_HTTPHEADER <https://curl.se/libcurl/c/CURLOPT_HTTPHEADER.html>`_ libcurl option.
 
 Calling the above function sets the following libcurl options:
@@ -139,13 +137,13 @@ Calling the above function sets the following libcurl options:
 * ``CURLOPT_TLS_EXTENSION_ORDER`` to set an explicit TLS extension order in a format
   such as ``0-5-10``. This is a non-standard TLS option created for this project.
 
-Note that if you call ``curl_easy_setopt()`` later with one of the above options, it will
-override the options set by ``curl_easy_impersonate()``.
+If you later call ``curl_easy_setopt()`` with one of the options above, it overrides the
+value previously set by ``curl_easy_impersonate()``.
 
 Using ``CURL_IMPERSONATE``
 --------------------------
 
-If your application already uses ``libcurl``, you can replace the existing library at
+If your application already uses ``libcurl``, you can replace the loaded library at
 runtime with ``LD_PRELOAD`` on Linux. You can then set the ``CURL_IMPERSONATE``
 environment variable. For example:
 
@@ -160,7 +158,8 @@ The ``CURL_IMPERSONATE`` environment variable has two effects:
 * ``curl_easy_impersonate()`` is called automatically after any ``curl_easy_reset()``
   call.
 
-This means that all the options needed for impersonation will be automatically set for any curl handle.
+This means all options required for impersonation are automatically applied to each curl
+handle.
 
 If you need precise control over the HTTP headers, set
 ``CURL_IMPERSONATE_HEADERS=no`` to disable the built-in list of HTTP headers, then set
@@ -176,9 +175,9 @@ tool overrides the TLS settings. Use the wrapper scripts instead.
 Warning on HTTP/3
 -----------------
 
-Avoid using ``CURL_IMPERSONATE`` when using HTTP/3. The environment hook calls
+Avoid using ``CURL_IMPERSONATE`` with HTTP/3. The environment hook calls
 ``curl_easy_impersonate()`` very early, during easy handle initialization or reset,
-before later HTTP version setup may be applied. This can lead to non-ideal HTTP/3
+before later HTTP version configuration may be applied. This can lead to suboptimal HTTP/3
 behavior.
 
 Prefer explicit impersonation setup:
@@ -191,7 +190,7 @@ Prefer explicit impersonation setup:
 Notes on dependencies
 ---------------------
 
-If you intend to copy self-compiled artifacts to another system, or use the pre-compiled
-binaries documented in :doc:`install`, make sure the target system also has the required
-runtime dependencies installed. In particular, Linux targets typically need CA
-certificates, ``zstd``, and any extra C++ runtime described in :doc:`building`.
+If you plan to copy self-compiled artifacts to another system, or use the precompiled
+binaries described in :doc:`install`, make sure the target system also has the required
+runtime dependencies installed. In particular, Linux systems often need CA
+certificates, ``zstd``, and any additional C++ runtime described in :doc:`building`.
