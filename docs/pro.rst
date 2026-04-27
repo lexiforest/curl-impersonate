@@ -6,9 +6,18 @@ We offer a pro version for professional users of curl_cffi.
 Feature Matrix
 ==============
 
-============  =====  ======= ========
-Feature       http2  http3    Fingerprint updates
-============  =====  ======= ========
-Open Source    ✅     ✅      Major ones
-Pro version   False  False    Weekly
-=====  =====  =======
+.. list-table::
+   :header-rows: 1
+
+   * - Feature
+     - HTTP/2
+     - HTTP/3
+     - Fingerprint updates
+   * - Open source
+     - Yes
+     - Yes
+     - Major ones
+   * - Pro version
+     - Contact us
+     - Contact us
+     - Weekly

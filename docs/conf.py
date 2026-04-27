@@ -11,7 +11,7 @@ import sys
 sys.path.insert(0, os.path.abspath("../"))
 
 project = "curl-impersonate"
-copyright = "2023-2025, lexiforest"
+copyright = "2023-2026, lexiforest"
 author = "lexiforest"
 
 # -- General configuration ---------------------------------------------------
@@ -25,7 +25,7 @@ extensions = [
 ]
 
 templates_path = ["_templates"]
-exclude_patterns = []
+exclude_patterns = ["build", ".venv"]
 
 root_doc = "index"
 
@@ -33,5 +33,5 @@ root_doc = "index"
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
-html_theme = "bizstyle"
+html_theme = "shibuya"
 html_static_path = ["_static"]

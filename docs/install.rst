@@ -27,6 +27,9 @@ CA certificates. For example:
 
     curl_chrome123 https://www.wikipedia.org --cacert /etc/ssl/certs/ca-bundle.crt
 
+If you copy the binaries to another system, make sure the required runtime dependencies
+are installed there as well.
+
 Building from source
 ====================
 
@@ -47,7 +50,9 @@ The images contain the binary and all the wrapper scripts. Use like the followin
 Distro packages
 ===============
 
-AUR packages are available to Archlinux users:
+Arch Linux users can also look at the following AUR packages maintained for the upstream
+project. Check the packaging details before relying on them with this fork:
 
-- [curl-impersonate-bin](https://aur.archlinux.org/packages/curl-impersonate-bin)
-- [libcurl-impersonate-bin](https://aur.archlinux.org/packages/libcurl-impersonate-bin).
+* `curl-impersonate-bin <https://aur.archlinux.org/packages/curl-impersonate-bin>`_
+* `libcurl-impersonate-bin <https://aur.archlinux.org/packages/libcurl-impersonate-bin>`_
+* `curl-impersonate-chrome <https://aur.archlinux.org/packages/curl-impersonate-chrome>`_

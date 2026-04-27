@@ -123,7 +123,8 @@ Notes:
 ## Install
 
 The simplest way is to download the prebuilt binaries from the [release page](https://github.com/lexiforest/curl-impersonate/releases).
-If you want to build by yourself, please refer to the [INSTALL.md](INSTALL.md) and [docs/install.md](docs/02_install.md).
+If you want to build by yourself, please refer to [INSTALL.md](INSTALL.md) and
+[docs/install.rst](docs/install.rst).
 
 You can also use the following docker images:
 

@@ -1,5 +1,5 @@
 List of options
-======
+===============
 
 Built-in Browser Profiles
 -------------------------
@@ -62,4 +62,3 @@ Curl
    .. automethod:: ws_recv
    .. automethod:: ws_send
    .. automethod:: ws_close
-
