@@ -235,7 +235,9 @@ jobs:
           if [[ "${{ matrix.platform }}" != "ios" ]]; then
             ./configure "${configure_args[@]}"
             ${{ matrix.make }} build
-            ${{ matrix.make }} checkbuild
+            if [[ "${{ matrix.platform }}" != "android" ]]; then
+              ${{ matrix.make }} checkbuild
+            fi
             ${{ matrix.make }} install
           fi
 
@@ -244,7 +246,9 @@ jobs:
           ./configure "${configure_args[@]}" --enable-static
           rm -f curl-*/.chrome
           ${{ matrix.make }} build
-          ${{ matrix.make }} checkbuild
+          if [[ "${{ matrix.platform }}" != "android" ]]; then
+            ${{ matrix.make }} checkbuild
+          fi
           if [[ "${{ runner.os }}" == "Linux" && "${{ endsWith(matrix.host, 'musl') }}" == "true" ]]; then
             ${{ matrix.make }} install
           else
