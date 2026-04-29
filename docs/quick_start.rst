@@ -1,8 +1,8 @@
-Usage
+Quick Start
 ***********
 
 On the command line
-==============================================
+===================
 
 You can run curl-impersonate from the command line just like regular curl. Since it is a
 modified curl build, all of the original flags and command-line options are supported.
@@ -11,7 +11,7 @@ For example:
 
 .. code-block:: bash
 
-    curl-impersonate -v -L https://wikipedia.org
+    curl-impersonate -v -L https://example.com
 
 However, running the binary directly does not produce the same TLS and HTTP/2 signatures
 as the impersonated browsers. To solve this, the project provides *wrapper scripts* that
@@ -19,11 +19,11 @@ launch the binaries with the correct command-line flags. For example:
 
 .. code-block:: bash
 
-    curl_chrome104 -v -L https://wikipedia.org
+    curl_chrome104 -v -L https://example.com
 
 This produces a signature identical to Chrome 104. You can add your own command-line
 flags and they will be passed through to curl. However, some flags change curl's TLS
-signature. See below for details.
+signature.
 
 The full list of wrapper scripts is available on the :doc:`api`.
 
@@ -91,6 +91,8 @@ the browser.
 ``--tls13-ciphers``, ``--tlsv1.0``, ``--tlsv1.1``, ``--tlsv1.2``,
 ``--tlsv1.3``, ``--tlsv1``
 
+See :doc:`api` for the full list and per-option descriptions.
+
 Using libcurl-impersonate
 =========================
 
@@ -110,32 +112,9 @@ options and headers that the wrapper scripts would otherwise apply. If
 and you are expected to provide them yourself using the standard
 `CURLOPT_HTTPHEADER <https://curl.se/libcurl/c/CURLOPT_HTTPHEADER.html>`_ libcurl option.
 
-Calling the above function sets the following libcurl options:
-
-* ``CURLOPT_HTTP_VERSION``
-* ``CURLOPT_SSLVERSION``
-* ``CURLOPT_SSL_CIPHER_LIST``
-* ``CURLOPT_SSL_EC_CURVES``
-* ``CURLOPT_SSL_ENABLE_NPN``
-* ``CURLOPT_SSL_ENABLE_ALPN``
-* ``CURLOPT_HTTPBASEHEADER`` if ``default_headers`` is non-zero. This is a non-standard
-  HTTP option created for this project.
-* ``CURLOPT_HTTP2_PSEUDO_HEADERS_ORDER`` to set the HTTP/2 pseudo-header order, for
-  example ``masp``. This is a non-standard HTTP/2 option created for this project.
-* ``CURLOPT_HTTP2_SETTINGS`` to set the HTTP/2 settings frame values, for example
-  ``1:65536;3:1000;4:6291456;6:262144``. This is a non-standard HTTP/2 option created
-  for this project.
-* ``CURLOPT_HTTP2_WINDOW_UPDATE`` to set the initial window update value for HTTP/2, for
-  example ``15663105``. This is a non-standard HTTP/2 option created for this project.
-* ``CURLOPT_SSL_ENABLE_ALPS``, ``CURLOPT_SSL_SIG_HASH_ALGS``,
-  ``CURLOPT_SSL_CERT_COMPRESSION``, and ``CURLOPT_SSL_ENABLE_TICKET``. These are
-  non-standard TLS options created for this project.
-* ``CURLOPT_SSL_PERMUTE_EXTENSIONS`` to permute extensions like Chrome 110+. This is a
-  non-standard TLS option created for this project.
-* ``CURLOPT_TLS_GREASE`` to enable GREASE behavior. This is a non-standard TLS option
-  created for this project.
-* ``CURLOPT_TLS_EXTENSION_ORDER`` to set an explicit TLS extension order in a format
-  such as ``0-5-10``. This is a non-standard TLS option created for this project.
+Calling the above function sets the usual curl protocol and TLS options together with
+curl-impersonate's added ``CURLOPT_*`` extensions for browser-like TLS, HTTP/2, and
+HTTP/3 fingerprints. See :doc:`api` for the full list and per-option descriptions.
 
 If you later call ``curl_easy_setopt()`` with one of the options above, it overrides the
 value previously set by ``curl_easy_impersonate()``.
@@ -187,10 +166,3 @@ Prefer explicit impersonation setup:
 * With libcurl, set ``CURLOPT_HTTP_VERSION`` first, then call
   ``curl_easy_impersonate()``.
 
-Notes on dependencies
----------------------
-
-If you plan to copy self-compiled artifacts to another system, or use the precompiled
-binaries described in :doc:`install`, make sure the target system also has the required
-runtime dependencies installed. In particular, Linux systems often need CA
-certificates, ``zstd``, and any additional C++ runtime described in :doc:`building`.

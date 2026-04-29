@@ -13,7 +13,8 @@ help:
 	@$(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 
 dev:
-	uv run -m http.server --dir build/html/ --bind 0.0.0.0
+	uv run sphinx-autobuild . build/html --host 0.0.0.0
+
 
 .PHONY: dev help Makefile
 

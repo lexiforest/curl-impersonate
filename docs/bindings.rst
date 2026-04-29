@@ -1,22 +1,28 @@
 Bindings
 ========
 
-With Python
------------
+Python
+------
 
 We have an official Python binding
 `curl_cffi <https://github.com/lexiforest/curl_cffi>`_, which works on Linux, macOS and
 Windows.
 
-With JavaScript
----------------
+JavaScript/TypeScript
+---------------------
 
-We have an official Nodejs TypeScript binding
+We have an official Nodejs TypeScript binding `impers <https://github.com/lexiforest/impers>`_,
+which also works on major platforms.
 
 There are a few other community-driven projects.
 
-With PHP
---------
+Rust
+----
+
+There are a few community-driven projects. We are also considering adding an official one.
+
+PHP
+---
 
 You can use libcurl-impersonate in PHP scripts instead of the original libcurl. Because
 PHP loads libcurl dynamically at runtime, the setup steps are slightly different.

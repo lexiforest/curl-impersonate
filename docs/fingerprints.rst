@@ -1,5 +1,5 @@
 Advanced Topics
-***************
+===============
 
 This section is reserved for lower-level usage notes and edge cases that do not fit in
 the quick start guide.

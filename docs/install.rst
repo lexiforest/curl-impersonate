@@ -1,7 +1,8 @@
 Installation
 ************
 
-The easiest way to install curl-impersonate is to use the prebuilt binaries from GitHub.
+The easiest way to install curl-impersonate is to use the package manager or prebuilt
+binaries from GitHub.
 
 Using package manager
 =====================
@@ -30,8 +31,9 @@ Before using them, you may need to install a CA certificate package:
 * Archlinux - ``pacman -S ca-certificates``
 * macOS - ``brew install ca-certificates``
 
-The prebuilt binaries include ``libcurl-impersonate`` and a statically compiled
-``curl-impersonate`` for ease of use.
+The prebuilt binaries include ``libcurl-impersonate`` as both a shared library and a
+static archive, as well as a statically linked ``curl-impersonate`` binary for ease of
+use. These artifacts only rely on the target system's standard runtime libraries.
 
 The Linux binaries are built on Ubuntu. On other distributions, if you see certificate
 verification errors, you may need to tell curl where to find the
@@ -39,7 +41,7 @@ CA certificates. For example:
 
 .. code-block:: bash
 
-    curl_chrome123 https://www.wikipedia.org --cacert /etc/ssl/certs/ca-bundle.crt
+    curl_chrome123 https://www.example.com --cacert /etc/ssl/certs/ca-bundle.crt
 
 Building from source
 ====================
@@ -56,4 +58,4 @@ These images include the binary and all wrapper scripts. For example:
 .. code-block:: bash
 
     docker pull lexiforest/curl-impersonate:1.1.0
-    docker run --rm lexiforest/curl-impersonate:1.1.0 curl_chrome110 https://www.wikipedia.org
+    docker run --rm lexiforest/curl-impersonate:1.1.0 curl_chrome110 https://www.example.com

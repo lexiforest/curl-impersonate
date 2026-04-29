@@ -13,7 +13,7 @@ curl-impersonate (lexiforest's fork)
    install
    building
    quick_start
-   advanced
+   fingperprints
    bindings
    api
    faq

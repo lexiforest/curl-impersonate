@@ -12,7 +12,7 @@ There are currently three build paths, depending on your use case:
 * Docker container build
 
 Unlike the upstream project, this fork uses a single build for all major browser
-profiles.
+profiles, including both webkit and firefox variants.
 
 Native build
 ------------
@@ -24,11 +24,11 @@ Install the dependencies required to build all components:
 
 .. code-block:: bash
 
-    sudo apt-get install -y git ninja-build cmake autoconf automake pkg-config libtool \
-    clang llvm lld libc++-dev libc++abi-dev \
-    ca-certificates curl \
-    curl zlib1g-dev libzstd-dev \
-    golang-go bzip2 xz-utils unzip
+    sudo apt-get install -y \
+        git ninja-build cmake autoconf automake pkg-config libtool \
+        ca-certificates curl \
+        curl \
+        golang-go bzip2 xz-utils unzip
 
 Clone this repository:
 
@@ -42,6 +42,8 @@ Configure and build:
 .. code-block:: bash
 
     mkdir build && cd build
+
+    # Optionally, use --enable-static for static binaries
     ../configure
 
     # Build and install
@@ -62,10 +64,10 @@ After installation, you can run the wrapper scripts, for example:
 
 .. code-block:: bash
 
-    curl_chrome119 https://www.wikipedia.org
+    curl_chrome119 https://www.example.com
 
     # Or run the binary directly with your own flags:
-    curl-impersonate https://www.wikipedia.org
+    curl-impersonate https://www.example.com
 
 Red Hat based (CentOS/Fedora/Amazon Linux)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -81,7 +83,6 @@ Install the required dependencies:
     yum install ninja-build
     # OR
     pip3 install ninja
-    yum install zstd libzstd-devel
     yum install golang
 
 You may need to follow the `Go installation instructions <https://go.dev/doc/install>`_
@@ -97,7 +98,6 @@ Install the dependencies required to build all components:
 .. code-block:: bash
 
     brew install pkg-config make cmake ninja autoconf automake libtool
-    brew install zstd
     brew install go
 
 Clone this repository:
@@ -121,8 +121,8 @@ Configure and build:
 Static compilation
 ------------------
 
-To compile curl-impersonate statically with libcurl-impersonate, pass `--enable-static`
-to the `configure` script.
+To compile curl-impersonate statically with libcurl-impersonate, pass ``--enable-static``
+to the ``configure`` script.
 
 Cross compiling
 ---------------
@@ -162,8 +162,3 @@ The resulting binaries and libraries are placed in ``/usr/local`` and include:
 You can use these files inside the container, copy them out with ``docker cp``, or use
 them in a multi-stage Docker build.
 
-.. warning::
-
-   curl-impersonate is currently built with LLVM's libc++, so you may need to install
-   ``apt install libc++1 libc++abi1``.
-   In the future, we may switch to a fully static build or to glibc's ``libstdc++``.
