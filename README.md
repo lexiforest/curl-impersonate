@@ -16,8 +16,9 @@
 > 7. Single binary to support Chrome, Safari and Firefox.
 > 8. Built with http/3 enabled, http/3 and quic fingerprints are also supported.
 > 9. A user-friendly Python binding: [curl_cffi](https://github.com/lexiforest/curl_cffi).
-> 10. More prebuilt binaries, including Windows, Arm, and even RISC-V!
-> 11. Commercial support at [impersonate.pro](https://impersonate.pro).
+> 10. A user-friendly Nodejs TypeScript binding: [impers](https://github.com/lexiforest/impers).
+> 11. More prebuilt binaries, including Windows, Arm, and even RISC-V!
+> 12. Commercial support at [impersonate.pro](https://impersonate.pro).
 
 > [!WARNING]
 > Breaking changes on v1.0, see release page for details.
@@ -67,7 +68,7 @@ Read the original technical description in the blog posts: [part a](https://lwth
 
 ## Supported browsers
 
-The following browsers can be impersonated.
+The following browsers can be impersonated. For a full list of browser profiles, visit the [docs](https://curl-impersonate.readthedocs.com).
 
 | Browser | Version | OS | Target name | Wrapper script | H3 fingerprints |
 | --- | --- | --- | --- | --- | --- |
@@ -122,7 +123,8 @@ Notes:
 ## Install
 
 The simplest way is to download the prebuilt binaries from the [release page](https://github.com/lexiforest/curl-impersonate/releases).
-If you want to build by yourself, please refer to the [INSTALL.md](INSTALL.md) and [docs/install.md](docs/02_install.md).
+If you want to build by yourself, please refer to [INSTALL.md](INSTALL.md) and
+[docs/install.rst](docs/install.rst).
 
 You can also use the following docker images:
 
