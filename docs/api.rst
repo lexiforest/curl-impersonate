@@ -5,13 +5,10 @@ The following ``CURLOPT_*`` options and CLI arguments are added by curl-imperson
 are not part of upstream curl.
 
 Many of them are applied automatically by ``curl_easy_impersonate()`` given a preset
-fingerprint. In particular,
-the impersonation helper sets browser-like TLS, HTTP/2, and HTTP/3 options such as
-``CURLOPT_HTTPBASEHEADER``, ``CURLOPT_HTTP2_PSEUDO_HEADERS_ORDER``,
-``CURLOPT_HTTP2_SETTINGS``, ``CURLOPT_HTTP2_WINDOW_UPDATE``,
-``CURLOPT_SSL_ENABLE_ALPS``, ``CURLOPT_SSL_SIG_HASH_ALGS``,
-``CURLOPT_SSL_CERT_COMPRESSION``, ``CURLOPT_SSL_ENABLE_TICKET``,
-``CURLOPT_TLS_GREASE``, and ``CURLOPT_TLS_EXTENSION_ORDER``.
+fingerprint. 
+
+If you want to customize the fingerprint, or create your own impersonation target, below
+is all the options we have added on top of vanilla curl:
 
 Impersonation and Headers
 -------------------------
@@ -29,30 +26,33 @@ Impersonation and Headers
   Command line: no direct equivalent.
 
 ``CURLOPT_HTTPHEADER_ORDER`` (string)
-  Comma-separated order for normal HTTP headers.
+  Comma-separated order for normal HTTP headers. e.g. ``Host,User-Agent,Cookie``. This
+  is particularly useful for impersonating the http/1.1 behavior.
   Command line: ``--http-header-order <headers>``.
 
 ``CURLOPT_FORM_BOUNDARY`` (string)
-  Sets the multipart ``form-data`` boundary style.
+  Sets the multipart ``form-data`` boundary style. Possible values: ``webkit``, for
+  webkit and blink based browsers, e.g. Safari and Chrome. ``firefox``, for Gecko based
+  browsers, e.g. Firefox.
   Command line: no direct equivalent.
 
 TLS
 ---
 
 ``CURLOPT_SSL_SIG_HASH_ALGS`` (string)
-  Sets the TLS signature hash algorithms. The patch notes that upstream curl later
+  Sets the TLS signature hash algorithms. Note that upstream curl later
   implemented a similar option as option 328, but curl-impersonate keeps this name for
   compatibility. See RFC 5246 section 7.4.1.4.1.
   Command line: ``--signature-hashes <algorithm list>``.
 
 ``CURLOPT_SSL_ENABLE_ALPS`` (long)
-  Enables or disables ALPS in TLS. The patch notes that ALPS support here is minimal and
-  is intended only to make the TLS ClientHello match browser behavior.
+  Enables or disables ALPS in TLS. Note that recent versions of Chrome started using a
+  new ID for ALPS.
   Command line: ``--alps``.
 
 ``CURLOPT_SSL_CERT_COMPRESSION`` (string)
   Comma-separated list of certificate compression algorithms to advertise in the TLS
-  ClientHello. Supported values are ``zlib`` and ``brotli``. See RFC 8879.
+  ClientHello. Supported values are ``zlib`` and ``brotli`` and ``zstd``. See RFC 8879.
   Command line: ``--cert-compression <algorithm list>``.
 
 ``CURLOPT_SSL_ENABLE_TICKET`` (long)
@@ -60,7 +60,8 @@ TLS
   Command line: ``--tls-session-ticket`` / ``--no-tls-session-ticket``.
 
 ``CURLOPT_SSL_PERMUTE_EXTENSIONS`` (long)
-  Enables or disables BoringSSL's permuted-extension behavior.
+  Enables or disables BoringSSL's permuted-extension behavior. This is the default
+  behavior of Chrome 110 and later.
   Command line: ``--tls-permute-extensions``.
 
 ``CURLOPT_TLS_GREASE`` (long)
@@ -72,7 +73,7 @@ TLS
   Command line: ``--tls-extension-order <order>``.
 
 ``CURLOPT_TLS_KEY_USAGE_NO_CHECK`` (long)
-  Controls the TLS key usage check. The patch comment notes that the default is on.
+  Disable the TLS key usage check.
   Command line: no direct equivalent.
 
 ``CURLOPT_TLS_SIGNED_CERT_TIMESTAMPS`` (long)
@@ -84,19 +85,19 @@ TLS
   Command line: no direct equivalent.
 
 ``CURLOPT_TLS_DELEGATED_CREDENTIALS`` (string)
-  Controls Firefox-style delegated credentials.
+  Controls Firefox-style delegated credentials. e.g. ``ecdsa_secp256r1_sha256:ecdsa_secp384r1_sha384:ecdsa_secp521r1_sha512:ecdsa_sha1``
   Command line: ``--tls-delegated-credentials <value>``.
 
 ``CURLOPT_TLS_RECORD_SIZE_LIMIT`` (long)
-  Controls Firefox-style TLS record size limit behavior.
+  Controls Firefox-style TLS record size limit behavior. The typical value is ``4001``
   Command line: ``--tls-record-size-limit <integer>``.
 
 ``CURLOPT_TLS_KEY_SHARES_LIMIT`` (long)
-  Controls Firefox-style ``key_shares_limit`` behavior.
+  Controls Firefox-style ``key_shares_limit`` behavior. The typical value is ``3``
   Command line: ``--tls-key-shares-limit <integer>``.
 
 ``CURLOPT_TLS_USE_NEW_ALPS_CODEPOINT`` (long)
-  Uses the new ALPS code point.
+  Uses the new ALPS codepoint.
   Command line: ``--tls-use-new-alps-codepoint``.
 
 HTTP/2
@@ -127,7 +128,7 @@ HTTP/2
   Command line: ``--http2-no-priority``.
 
 ``CURLOPT_STREAM_EXCLUSIVE`` (long)
-  Sets HTTP/2 stream exclusiveness. The patch comment documents this as ``0`` or ``1``.
+  Sets HTTP/2 stream exclusiveness as ``0`` or ``1``.
   Command line: ``--http2-stream-exclusive <0|1>``.
 
 HTTP/3 and QUIC
@@ -166,5 +167,7 @@ Proxy and Cookies
   Command line: ``--proxy-credential-no-reuse``.
 
 ``CURLOPT_SPLIT_COOKIES`` (long)
-  Splits cookies into separate ``Cookie:`` headers.
+  Splits cookies into separate ``Cookie:`` headers. For http/1.1, Cookies are joined as
+  a single header. For http/2 and http/3, Cookies are separated for better compression
+  rate.
   Command line: ``--split-cookies`` / ``--no-split-cookies``.
