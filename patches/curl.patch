@@ -8937,10 +8937,10 @@ index 662539cd89..29f545c69e 100644
      r = cf_ssl_peer_key_add_path(&buf, "CA", ssl->CAfile, &is_local);
      if(r)
 diff --git a/lib/ws.c b/lib/ws.c
-index 7f8a688ca1..7787fa710a 100644
+index 7f8a688ca1..e93f582640 100644
 --- a/lib/ws.c
 +++ b/lib/ws.c
-@@ -26,6 +26,23 @@
+@@ -26,6 +26,24 @@
  
  #if !defined(CURL_DISABLE_WEBSOCKETS) && !defined(CURL_DISABLE_HTTP)
  
@@ -8950,7 +8950,8 @@ index 7f8a688ca1..7787fa710a 100644
 + * Include architecture-specific SIMD intrinsics and CPUID headers.
 + * MSVC requires <intrin.h>, while GCC/Clang uses <cpuid.h>.
 + */
-+#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
++#if defined(__x86_64__) || defined(_M_X64) || \
++    defined(__i386__) || defined(_M_IX86)
 +#  include <immintrin.h>
 +#  if defined(_MSC_VER)
 +#    include <intrin.h>
@@ -8964,7 +8965,7 @@ index 7f8a688ca1..7787fa710a 100644
  #include "urldata.h"
  #include "url.h"
  #include "bufq.h"
-@@ -74,8 +91,194 @@
+@@ -74,8 +92,202 @@
  #define WSBIT_MASK 0x80
  
  /* buffer dimensioning */
@@ -8983,7 +8984,8 @@ index 7f8a688ca1..7787fa710a 100644
 +#define WS_CPU_FEAT_AVX512  (1 << 2)
 +
 +/* Determine endianness reliably across compilers and OSes. */
-+#if (defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)) || \
++#if (defined(__BYTE_ORDER__) && \
++      (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)) || \
 +    defined(_WIN32) || defined(_WIN64) || defined(__LITTLE_ENDIAN__) || \
 +    defined(__ARMEL__) || defined(__AARCH64EL__) || \
 +    defined(_M_IX86) || defined(_M_X64) || \
@@ -8994,7 +8996,8 @@ index 7f8a688ca1..7787fa710a 100644
 +#endif
 +
 +/* Identify 64-bit architectures for the fallback path */
-+#if defined(__x86_64__) || defined(_M_X64) || defined(__aarch64__) || defined(_M_ARM64)
++#if defined(__x86_64__) || defined(_M_X64) || \
++    defined(__aarch64__) || defined(_M_ARM64)
 +#  define WS_64BIT_NATIVE 1
 +#else
 +#  define WS_64BIT_NATIVE 0
@@ -9003,7 +9006,8 @@ index 7f8a688ca1..7787fa710a 100644
 +#if WS_IS_LITTLE_ENDIAN
 +
 +/* SIMD Configuration */
-+#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
++#if defined(__x86_64__) || defined(_M_X64) || \
++    defined(__i386__) || defined(_M_IX86)
 +#  define WS_HAVE_X86_SIMD 1
 +#  if defined(__GNUC__) || defined(__clang__)
 +#    if defined(__has_attribute)
@@ -9025,11 +9029,15 @@ index 7f8a688ca1..7787fa710a 100644
 +#  endif
 +
 +#  if defined(_MSC_VER)
-+#    define WS_ATOMIC_LOAD(var)       (uint32_t)_InterlockedOr((volatile long*)&(var), 0)
-+#    define WS_ATOMIC_STORE(var, val) _InterlockedExchange((volatile long*)&(var), (long)(val))
++#    define WS_ATOMIC_LOAD(var) \
++       (uint32_t)_InterlockedOr((volatile long*)&(var), 0)
++#    define WS_ATOMIC_STORE(var, val) \
++       _InterlockedExchange((volatile long*)&(var), (long)(val))
 +#  else
-+#    define WS_ATOMIC_LOAD(var)       __atomic_load_n(&(var), __ATOMIC_RELAXED)
-+#    define WS_ATOMIC_STORE(var, val) __atomic_store_n(&(var), (val), __ATOMIC_RELAXED)
++#    define WS_ATOMIC_LOAD(var) \
++       __atomic_load_n(&(var), __ATOMIC_RELAXED)
++#    define WS_ATOMIC_STORE(var, val) \
++       __atomic_store_n(&(var), (val), __ATOMIC_RELAXED)
 +#  endif
 +#endif
 +
@@ -9049,7 +9057,8 @@ index 7f8a688ca1..7787fa710a 100644
 +  size_t j = 0;
 +  __m512i vmask = _mm512_set1_epi32((int)m32);
 +  for(; j + 128 <= len; j += 128) {
-+    __m512i v0 = _mm512_loadu_si512((const __m512i *)(const void *)(src + j));
++    __m512i v0 = _mm512_loadu_si512((const __m512i *)(const void *)
++                                    (src + j));
 +    __m512i v1 = _mm512_loadu_si512((const __m512i *)(const void *)
 +                                    (src + j + 64));
 +    _mm512_storeu_si512((__m512i *)(void *)(dst + j),
@@ -9084,7 +9093,7 @@ index 7f8a688ca1..7787fa710a 100644
 +
 +/*
 + * Dynamically check for hardware SIMD support at runtime.
-+ * We must check both the CPU hardware bits AND the OS capability bits (OSXSAVE).
++ * We must check both the CPU hardware bits AND the OS capability bits.
 + */
 +static uint32_t ws_get_cpu_features(void)
 +{
@@ -9119,7 +9128,7 @@ index 7f8a688ca1..7787fa710a 100644
 +  if(!(ecx & (1 << 27)))
 +    return features;
 +
-+  __asm__ volatile ("xgetbv" : "=a"(xcr0_eax), "=d"(xcr0_edx) : "c"(0));
++  __asm__ volatile("xgetbv" : "=a"(xcr0_eax), "=d"(xcr0_edx) : "c"(0));
 +
 +  if((xcr0_eax & 0x06) != 0x06)
 +    return features;
@@ -9161,7 +9170,7 @@ index 7f8a688ca1..7787fa710a 100644
  
  
  /* a client-side WS frame decoder, parsing frame headers and
-@@ -106,6 +309,7 @@ struct ws_encoder {
+@@ -106,6 +318,7 @@ struct ws_encoder {
    unsigned char mask[4]; /* 32-bit mask for this connection */
    unsigned char firstbyte; /* first byte of frame we encode */
    BIT(contfragment); /* set TRUE if the previous fragment sent was not final */
@@ -9169,7 +9178,7 @@ index 7f8a688ca1..7787fa710a 100644
  };
  
  /* A websocket connection with en- and decoder that treat frames
-@@ -682,9 +886,10 @@ static CURLcode ws_cw_write(struct Curl_easy *data,
+@@ -682,9 +895,10 @@ static CURLcode ws_cw_write(struct Curl_easy *data,
      }
    }
  
@@ -9183,7 +9192,7 @@ index 7f8a688ca1..7787fa710a 100644
      return CURLE_RECV_ERROR;
    }
  
-@@ -853,28 +1058,110 @@ static ssize_t ws_enc_write_payload(struct ws_encoder *enc,
+@@ -853,28 +1067,110 @@ static ssize_t ws_enc_write_payload(struct ws_encoder *enc,
                                      const unsigned char *buf, size_t buflen,
                                      struct bufq *out, CURLcode *err)
  {
@@ -9301,7 +9310,7 @@ index 7f8a688ca1..7787fa710a 100644
    }
    enc->payload_remain -= (curl_off_t)i;
    ws_enc_info(enc, data, "buffered");
-@@ -1270,6 +1557,13 @@ static CURLcode ws_flush(struct Curl_easy *data, struct websocket *ws,
+@@ -1270,6 +1566,13 @@ static CURLcode ws_flush(struct Curl_easy *data, struct websocket *ws,
            result = CURLE_AGAIN;
        }
  
@@ -9315,7 +9324,7 @@ index 7f8a688ca1..7787fa710a 100644
        if(result == CURLE_AGAIN) {
          CURL_TRC_WS(data, "flush EAGAIN, %zu bytes remain in buffer",
                      Curl_bufq_len(&ws->sendbuf));
-@@ -1279,10 +1573,6 @@ static CURLcode ws_flush(struct Curl_easy *data, struct websocket *ws,
+@@ -1279,10 +1582,6 @@ static CURLcode ws_flush(struct Curl_easy *data, struct websocket *ws,
          failf(data, "[WS] flush, write error %d", result);
          return result;
        }
@@ -9326,7 +9335,7 @@ index 7f8a688ca1..7787fa710a 100644
      }
    }
    return CURLE_OK;
-@@ -1353,6 +1643,8 @@ static CURLcode ws_send_raw(struct Curl_easy *data, const void *buffer,
+@@ -1353,6 +1652,8 @@ static CURLcode ws_send_raw(struct Curl_easy *data, const void *buffer,
      if(result)
        return result;
      result = ws_send_raw_blocking(data, ws, buffer, buflen);
@@ -9335,7 +9344,7 @@ index 7f8a688ca1..7787fa710a 100644
    }
    else {
      /* We need any pending data to be sent or EAGAIN this call. */
-@@ -1587,7 +1879,7 @@ const struct Curl_handler Curl_handler_wss = {
+@@ -1587,7 +1888,7 @@ const struct Curl_handler Curl_handler_wss = {
    CURLPROTO_WSS,                        /* protocol */
    CURLPROTO_HTTP,                       /* family */
    PROTOPT_SSL | PROTOPT_CREDSPERREQUEST | /* flags */
