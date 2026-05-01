@@ -1,10 +1,10 @@
 # curl-impersonate ![Chrome](https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome_24x24.png "Chrome") ![Edge](https://raw.githubusercontent.com/alrra/browser-logos/main/src/edge/edge_24x24.png "Edge") ![Safari](https://github.com/alrra/browser-logos/blob/main/src/safari/safari_24x24.png "Safari") ![Firefox](https://github.com/alrra/browser-logos/blob/main/src/firefox/firefox_24x24.png "Firefox") ![Tor](https://github.com/alrra/browser-logos/blob/main/src/tor/tor_24x24.png "Tor")
 
 [![Build and test](https://github.com/lexiforest/curl-impersonate/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/lexiforest/curl-impersonate/actions/workflows/build-and-test.yml)
-[![Docker images](https://github.com/lexiforest/curl-impersonate/actions/workflows/build-push-docker.yml/badge.svg)](https://github.com/lexiforest/curl-impersonate/actions/workflows/build-push-docker.yml)
+[![Docker images](https://github.com/lexiforest/curl-impersonate/actions/workflows/build-docker.yml/badge.svg)](https://github.com/lexiforest/curl-impersonate/actions/workflows/build-docker.yml)
 
 > [!NOTE]
-> This is a (slightly) more active fork of [curl-impersonate](https://github.com/lwthiker/curl-impersonate).
+> This is an active fork of [curl-impersonate](https://github.com/lwthiker/curl-impersonate).
 > With the following enhancements:
 >
 > 1. Encrypted Client Hello(ECH) support introduced in Chrome 119.
@@ -29,7 +29,11 @@ TLS and HTTP handshakes that are identical to that of a real browser.
 
 `curl-impersonate` can be used either as a command line tool, similar to the regular
 curl, or as a library that can be integrated instead of the regular libcurl. See
-[Usage](#basic-usage) below.
+[docs](https://curl-impersonate.readthedocs.io/).
+
+## Documentation
+
+Documentation is available at https://curl-impersonate.readthedocs.io/
 
 ## Why?
 
@@ -148,10 +152,6 @@ Please note that the wrapper scripts use a default set of HTTP headers. If you w
 change these headers, you may want to modify the wrapper scripts to fit your own purpose.
 
 See the [docs](docs) for more options, including using `libcurl-impersonate` as a library.
-
-## Documentation
-
-More documentation is available in the [docs/](docs/) directory.
 
 ## Repository Contents
 
