@@ -19,7 +19,7 @@ permissions:
 env:
   BORING_SSL_COMMIT: 673e61fc215b178a90c0e67858bbf162c8158993
   MACOSX_DEPLOYMENT_TARGET: 11.0
-  API: "21"  # Targeting an very old android API version
+  API: "21" # Targeting an very old android API version
 
 jobs:
   build:
@@ -90,6 +90,12 @@ jobs:
             arch: aarch64
             host: aarch64-linux-android
             host_label: aarch64-linux-android
+            make: make
+          - os: ubuntu-latest
+            platform: android
+            arch: x86_64
+            host: x86_64-linux-android
+            host_label: x86_64-linux-android
             make: make
           - os: macos-14
             platform: ios
@@ -229,7 +235,9 @@ jobs:
           if [[ "${{ matrix.platform }}" != "ios" ]]; then
             ./configure "${configure_args[@]}"
             ${{ matrix.make }} build
-            ${{ matrix.make }} checkbuild
+            if [[ "${{ matrix.platform }}" != "android" ]]; then
+              ${{ matrix.make }} checkbuild
+            fi
             ${{ matrix.make }} install
           fi
 
@@ -238,7 +246,9 @@ jobs:
           ./configure "${configure_args[@]}" --enable-static
           rm -f curl-*/.chrome
           ${{ matrix.make }} build
-          ${{ matrix.make }} checkbuild
+          if [[ "${{ matrix.platform }}" != "android" ]]; then
+            ${{ matrix.make }} checkbuild
+          fi
           if [[ "${{ runner.os }}" == "Linux" && "${{ endsWith(matrix.host, 'musl') }}" == "true" ]]; then
             ${{ matrix.make }} install
           else

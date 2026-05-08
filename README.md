@@ -2,6 +2,8 @@
 
 [![Build and test](https://github.com/lexiforest/curl-impersonate/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/lexiforest/curl-impersonate/actions/workflows/build-and-test.yml)
 [![Docker images](https://github.com/lexiforest/curl-impersonate/actions/workflows/build-docker.yml/badge.svg)](https://github.com/lexiforest/curl-impersonate/actions/workflows/build-docker.yml)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/lexiforest/curl-impersonate/blob/main/curl_impersonate_playground.ipynb)
+
 
 > [!NOTE]
 > This is an active fork of [curl-impersonate](https://github.com/lwthiker/curl-impersonate).
