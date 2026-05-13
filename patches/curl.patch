@@ -2377,7 +2377,7 @@ index e5a0696274..b93dd157e0 100644
    }
  
 diff --git a/lib/http2.c b/lib/http2.c
-index 36dca426de..7207e1d7be 100644
+index 36dca426de..7465c91e55 100644
 --- a/lib/http2.c
 +++ b/lib/http2.c
 @@ -51,6 +51,7 @@
@@ -2587,16 +2587,7 @@ index 36dca426de..7207e1d7be 100644
  static CURLcode nw_out_flush(struct Curl_cfilter *cf,
                               struct Curl_easy *data);
  
-@@ -348,8 +493,6 @@ static CURLcode cf_h2_update_local_win(struct Curl_cfilter *cf,
-                   stream->id, dwsize - wsize);
-     }
-     else {
--      rv = nghttp2_session_set_local_window_size(ctx->h2, NGHTTP2_FLAG_NONE,
--                                                 stream->id, dwsize);
-       if(rv) {
-         failf(data, "[%d] nghttp2_session_set_local_window_size() failed: "
-               "%s(%d)", stream->id, nghttp2_strerror(rv), rv);
-@@ -588,9 +731,21 @@ static CURLcode cf_h2_ctx_open(struct Curl_cfilter *cf,
+@@ -588,9 +733,21 @@ static CURLcode cf_h2_ctx_open(struct Curl_cfilter *cf,
        goto out;
      }
    }
@@ -2620,7 +2611,7 @@ index 36dca426de..7207e1d7be 100644
    if(rc) {
      failf(data, "nghttp2_session_set_local_window_size() failed: %s(%d)",
            nghttp2_strerror(rc), rc);
-@@ -598,6 +753,16 @@ static CURLcode cf_h2_ctx_open(struct Curl_cfilter *cf,
+@@ -598,6 +755,16 @@ static CURLcode cf_h2_ctx_open(struct Curl_cfilter *cf,
      goto out;
    }
  
@@ -2637,7 +2628,7 @@ index 36dca426de..7207e1d7be 100644
    /* all set, traffic will be send on connect */
    result = CURLE_OK;
    CURL_TRC_CF(data, cf, "[0] created h2 session%s",
-@@ -1911,11 +2076,19 @@ out:
+@@ -1911,18 +2078,26 @@ out:
    return result;
  }
  
@@ -2658,7 +2649,15 @@ index 36dca426de..7207e1d7be 100644
  }
  
  static int sweight_in_effect(const struct Curl_easy *data)
-@@ -1930,6 +2103,12 @@ static int sweight_in_effect(const struct Curl_easy *data)
+ {
+   /* 0 weight is not set by user and we take the nghttp2 default one */
+   return data->state.priority.weight ?
+-    data->state.priority.weight : NGHTTP2_DEFAULT_WEIGHT;
++    data->state.priority.weight : CHROME_DEFAULT_STREAM_WEIGHT;
+ }
+ 
+ /*
+@@ -1930,6 +2105,12 @@ static int sweight_in_effect(const struct Curl_easy *data)
   * and dependency to the peer. It also stores the updated values in the state
   * struct.
   */
@@ -2671,7 +2670,7 @@ index 36dca426de..7207e1d7be 100644
  
  static void h2_pri_spec(struct cf_h2_ctx *ctx,
                          struct Curl_easy *data,
-@@ -1938,6 +2117,11 @@ static void h2_pri_spec(struct cf_h2_ctx *ctx,
+@@ -1938,6 +2119,11 @@ static void h2_pri_spec(struct cf_h2_ctx *ctx,
    struct Curl_data_priority *prio = &data->set.priority;
    struct h2_stream_ctx *depstream = H2_STREAM_CTX(ctx, prio->parent);
    int32_t depstream_id = depstream ? depstream->id : 0;
@@ -2683,16 +2682,15 @@ index 36dca426de..7207e1d7be 100644
    nghttp2_priority_spec_init(pri_spec, depstream_id,
                               sweight_wanted(data),
                               data->set.priority.exclusive);
-@@ -1957,20 +2141,25 @@ static CURLcode h2_progress_egress(struct Curl_cfilter *cf,
+@@ -1957,6 +2143,7 @@ static CURLcode h2_progress_egress(struct Curl_cfilter *cf,
    struct h2_stream_ctx *stream = H2_STREAM_CTX(ctx, data);
    int rv = 0;
  
 +  /* curl-impersonate: Check if stream exclusive flag is true. */
    if(stream && stream->id > 0 &&
       ((sweight_wanted(data) != sweight_in_effect(data)) ||
--      (data->set.priority.exclusive != data->state.priority.exclusive) ||
-+     (data->set.priority.exclusive != 1) ||
-       (data->set.priority.parent != data->state.priority.parent)) ) {
+       (data->set.priority.exclusive != data->state.priority.exclusive) ||
+@@ -1964,13 +2151,17 @@ static CURLcode h2_progress_egress(struct Curl_cfilter *cf,
      /* send new weight and/or dependency */
      nghttp2_priority_spec pri_spec;
  
@@ -2716,7 +2714,7 @@ index 36dca426de..7207e1d7be 100644
    }
  
    ctx->nw_out_blocked = 0;
-@@ -2267,11 +2456,15 @@ static CURLcode h2_submit(struct h2_stream_ctx **pstream,
+@@ -2267,11 +2458,15 @@ static CURLcode h2_submit(struct h2_stream_ctx **pstream,
    case HTTPREQ_PUT:
      data_prd.read_callback = req_body_read_callback;
      data_prd.source.ptr = NULL;
