@@ -34,8 +34,6 @@ set(NGTCP2_VERSION "1.20.0")
 set(NGHTTP3_VERSION "1.15.0")
 set(ZLIB_VERSION "1.3.1")
 set(ZSTD_VERSION "1.5.7")
-set(LIBUNISTRING_VERSION "1.1")
-set(LIBIDN2_VERSION "2.3.7")
 set(CURL_VERSION "curl-8_15_0")
 
 set(ZLIB_URL "https://github.com/madler/zlib/releases/download/v${ZLIB_VERSION}/zlib-${ZLIB_VERSION}.tar.gz")
@@ -45,8 +43,6 @@ set(BORINGSSL_URL "https://github.com/google/boringssl/archive/${BORING_SSL_COMM
 set(NGHTTP2_URL "https://github.com/nghttp2/nghttp2/releases/download/v${NGHTTP2_VERSION}/nghttp2-${NGHTTP2_VERSION}.tar.bz2")
 set(NGTCP2_URL "https://github.com/ngtcp2/ngtcp2/releases/download/v${NGTCP2_VERSION}/ngtcp2-${NGTCP2_VERSION}.tar.bz2")
 set(NGHTTP3_URL "https://github.com/ngtcp2/nghttp3/releases/download/v${NGHTTP3_VERSION}/nghttp3-${NGHTTP3_VERSION}.tar.bz2")
-set(LIBUNISTRING_URL "https://ftp.gnu.org/gnu/libunistring/libunistring-${LIBUNISTRING_VERSION}.tar.gz")
-set(LIBIDN2_URL "https://ftp.gnu.org/gnu/libidn/libidn2-${LIBIDN2_VERSION}.tar.gz")
 set(CURL_URL "https://github.com/curl/curl/archive/${CURL_VERSION}.tar.gz")
 
 set(_disable_boringssl_asm_default OFF)
@@ -394,12 +390,6 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
   set(_curl_shared_linker_flags "${CMAKE_SHARED_LINKER_FLAGS}")
   string(APPEND _curl_exe_linker_flags " -Wl,--no-as-needed -lstdc++ -Wl,--as-needed")
   string(APPEND _curl_shared_linker_flags " -Wl,--no-as-needed -lstdc++ -Wl,--as-needed")
-  if(USE_LIBIDN2)
-    # Static libidn2 depends on libunistring; force inclusion independent of
-    # link order in generated C targets.
-    string(APPEND _curl_exe_linker_flags " -Wl,--whole-archive ${DEPS_INSTALL_DIR}/lib/libunistring.a -Wl,--no-whole-archive")
-    string(APPEND _curl_shared_linker_flags " -Wl,--whole-archive ${DEPS_INSTALL_DIR}/lib/libunistring.a -Wl,--no-whole-archive")
-  endif()
   string(STRIP "${_curl_exe_linker_flags}" _curl_exe_linker_flags)
   string(STRIP "${_curl_shared_linker_flags}" _curl_shared_linker_flags)
   list(APPEND _curl_platform_flags "-DCMAKE_EXE_LINKER_FLAGS=${_curl_exe_linker_flags}")
@@ -428,7 +418,6 @@ if(USE_LIBIDN2 AND NOT WIN32)
   list(APPEND _curl_idn_path_flags
     "-DLIBIDN2_INCLUDE_DIRS=${DEPS_INSTALL_DIR}/include"
     "-DLIBIDN2_LIBRARY=${DEPS_INSTALL_DIR}/lib/libidn2.a"
-    "-DLIBIDN2_LIBRARIES=${DEPS_INSTALL_DIR}/lib/libidn2.a"
   )
 endif()
 
