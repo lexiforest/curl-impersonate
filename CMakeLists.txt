@@ -298,42 +298,25 @@ ExternalProject_Add(ngtcp2
   INSTALL_COMMAND ${CMAKE_COMMAND} --build <BINARY_DIR> --config Release --target install --parallel ${SUBJOBS}
 )
 
+# libidn2
 if(USE_LIBIDN2)
-  # We are using `true` command to bypass most of the docs generation stuff.
-
-  # libunistring
-  ExternalProject_Add(libunistring
-    URL "${LIBUNISTRING_URL}"
-    SOURCE_DIR "${DEPS_SRC_DIR}/libunistring"
-    BINARY_DIR "${DEPS_BUILD_DIR}/libunistring"
-    INSTALL_DIR "${DEPS_INSTALL_DIR}"
-    DOWNLOAD_EXTRACT_TIMESTAMP FALSE
-    CONFIGURE_COMMAND
-      ${CMAKE_COMMAND} -E env
-        ACLOCAL=true AUTOCONF=true AUTOHEADER=true AUTOMAKE=true MAKEINFO=true
-        <SOURCE_DIR>/configure --prefix=<INSTALL_DIR> --disable-shared --enable-static --with-pic --disable-maintainer-mode
-    BUILD_COMMAND ${CMAKE_COMMAND} -E env MAKEINFO=true ${AUTOTOOLS_MAKE} -j${SUBJOBS}
-    INSTALL_COMMAND ${CMAKE_COMMAND} -E env MAKEINFO=true ${AUTOTOOLS_MAKE} install
+  set(_libidn2_archive "${DEPS_INSTALL_DIR}/lib/libidn2.a")
+  set(_libunistring_archive "${DEPS_INSTALL_DIR}/lib/libunistring.a")
+  set(_libunistring_la "${DEPS_INSTALL_DIR}/lib/libunistring.la")
+  if(NOT EXISTS "${_libidn2_archive}"
+      OR NOT EXISTS "${_libunistring_archive}"
+      OR NOT EXISTS "${_libunistring_la}")
+    message(FATAL_ERROR
+      "USE_LIBIDN2 requires prebuilt libidn2/libunistring in ${DEPS_INSTALL_DIR}. "
+      "Run `make prepare-libidn2` before configuring CMake, or use "
+      "`make configure` so the Autotools IDN preparation runs first.")
+  endif()
+  add_custom_target(libunistring
+    COMMAND ${CMAKE_COMMAND} -E echo "Using prebuilt libunistring from ${DEPS_INSTALL_DIR}"
   )
-
-  # libidn2
-  # Keep external libunistring, but force LTLIBUNISTRING to the installed
-  # .la path so libtool does not resolve -lunistring to libidn2's own
-  # in-progress unistring/.libs output archive.
-  ExternalProject_Add(libidn2
-    URL "${LIBIDN2_URL}"
-    SOURCE_DIR "${DEPS_SRC_DIR}/libidn2"
-    BINARY_DIR "${DEPS_BUILD_DIR}/libidn2"
-    INSTALL_DIR "${DEPS_INSTALL_DIR}"
+  add_custom_target(libidn2
     DEPENDS libunistring
-    DOWNLOAD_EXTRACT_TIMESTAMP FALSE
-    CONFIGURE_COMMAND
-      ${CMAKE_COMMAND} -E env
-        PKG_CONFIG_PATH=${DEPS_INSTALL_DIR}/lib/pkgconfig
-        ACLOCAL=true AUTOCONF=true AUTOHEADER=true AUTOMAKE=true MAKEINFO=true HELP2MAN=true
-        <SOURCE_DIR>/configure --prefix=<INSTALL_DIR> --disable-shared --enable-static --with-pic --disable-nls --disable-maintainer-mode --with-libunistring-prefix=${DEPS_INSTALL_DIR}
-    BUILD_COMMAND ${CMAKE_COMMAND} -E env MAKEINFO=true ${AUTOTOOLS_MAKE} LTLIBUNISTRING=${DEPS_INSTALL_DIR}/lib/libunistring.la HELP2MAN=true -j${SUBJOBS}
-    INSTALL_COMMAND ${CMAKE_COMMAND} -E env MAKEINFO=true ${AUTOTOOLS_MAKE} LTLIBUNISTRING=${DEPS_INSTALL_DIR}/lib/libunistring.la HELP2MAN=true install
+    COMMAND ${CMAKE_COMMAND} -E echo "Using prebuilt libidn2 from ${DEPS_INSTALL_DIR}"
   )
 endif()
 

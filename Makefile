@@ -7,11 +7,28 @@ CMAKE_BUILD_ARGS ?=
 CMAKE_INSTALL_ARGS ?=
 TARGET ?= curl-impersonate
 CURL_BIN ?= $(BUILD_DIR)/deps/build/curl/src/curl-impersonate
+LIBUNISTRING_VERSION ?= 1.1
+LIBUNISTRING_URL ?= https://ftp.gnu.org/gnu/libunistring/libunistring-$(LIBUNISTRING_VERSION).tar.gz
+LIBIDN2_VERSION ?= 2.3.7
+LIBIDN2_URL ?= https://ftp.gnu.org/gnu/libidn/libidn2-$(LIBIDN2_VERSION).tar.gz
+PREPARE_LIBIDN2 ?= auto
 
 all: build checkbuild
 .PHONY: all
 
-configure:
+prepare-libidn2:
+	BUILD_DIR="$(BUILD_DIR)" \
+	CMAKE_CONFIGURE_ARGS="$(CMAKE_CONFIGURE_ARGS)" \
+	JOBS="$(JOBS)" \
+	LIBUNISTRING_VERSION="$(LIBUNISTRING_VERSION)" \
+	LIBUNISTRING_URL="$(LIBUNISTRING_URL)" \
+	LIBIDN2_VERSION="$(LIBIDN2_VERSION)" \
+	LIBIDN2_URL="$(LIBIDN2_URL)" \
+	PREPARE_LIBIDN2="$(PREPARE_LIBIDN2)" \
+	./scripts/build-libidn2.sh
+.PHONY: prepare-libidn2
+
+configure: prepare-libidn2
 	$(CMAKE) -S . -B $(BUILD_DIR) $(CMAKE_CONFIGURE_ARGS)
 .PHONY: configure
 
