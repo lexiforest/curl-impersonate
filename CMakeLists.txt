@@ -372,8 +372,10 @@ endif()
 
 if(WIN32)
   set(_curl_zlib_library "${DEPS_INSTALL_DIR}/lib/zlibstatic.lib")
+  set(_curl_zstd_library "${DEPS_INSTALL_DIR}/lib/zstd_static.lib")
 else()
   set(_curl_zlib_library "${DEPS_INSTALL_DIR}/lib/libz.a")
+  set(_curl_zstd_library "${DEPS_INSTALL_DIR}/lib/libzstd.a")
 endif()
 
 set(_curl_platform_flags)
@@ -421,6 +423,7 @@ if(USE_LIBIDN2 AND NOT WIN32)
   list(APPEND _curl_idn_path_flags
     "-DLIBIDN2_INCLUDE_DIRS=${DEPS_INSTALL_DIR}/include"
     "-DLIBIDN2_LIBRARY=${DEPS_INSTALL_DIR}/lib/libidn2.a"
+    "-DLIBIDN2_LIBRARIES=${DEPS_INSTALL_DIR}/lib/libidn2.a|${DEPS_INSTALL_DIR}/lib/libunistring.a"
   )
 endif()
 
@@ -436,6 +439,7 @@ if(CURL_SUBPROJECT_FORCE_OPENSSL_PATHS)
 endif()
 
 ExternalProject_Add(curl
+  LIST_SEPARATOR |
   URL "${CURL_URL}"
   SOURCE_DIR "${DEPS_SRC_DIR}/curl"
   BINARY_DIR "${DEPS_BUILD_DIR}/curl"
@@ -469,6 +473,8 @@ ExternalProject_Add(curl
       -DZLIB_INCLUDE_DIR=${DEPS_INSTALL_DIR}/include
       -DZLIB_LIBRARY=${_curl_zlib_library}
       -DZLIB_LIBRARY_RELEASE=${_curl_zlib_library}
+      -DZSTD_INCLUDE_DIR=${DEPS_INSTALL_DIR}/include
+      -DZSTD_LIBRARY=${_curl_zstd_library}
       -DUSE_NGHTTP2=ON
       -DUSE_NGTCP2=ON
       -DCURL_DISABLE_LDAP=ON
