@@ -265,7 +265,6 @@ jobs:
           install_dir="${{ runner.temp }}/install"
           install_lib_dir="$install_dir/lib"
           deps_lib_dir="${{ github.workspace }}/build/deps/install/lib"
-          boringssl_dir="${{ github.workspace }}/build/deps/build/boringssl"
 
           cp "$deps_lib_dir/libz.a" "$install_lib_dir/"
           cp "$deps_lib_dir/libzstd.a" "$install_lib_dir/"
@@ -276,8 +275,8 @@ jobs:
           cp "$deps_lib_dir/libnghttp3.a" "$install_lib_dir/"
           cp "$deps_lib_dir/libngtcp2.a" "$install_lib_dir/"
           cp "$deps_lib_dir/libngtcp2_crypto_boringssl.a" "$install_lib_dir/"
-          cp "$boringssl_dir/ssl/libssl.a" "$install_lib_dir/"
-          cp "$boringssl_dir/crypto/libcrypto.a" "$install_lib_dir/"
+          cp "$deps_lib_dir/libssl.a" "$install_lib_dir/"
+          cp "$deps_lib_dir/libcrypto.a" "$install_lib_dir/"
           if [[ -f "$deps_lib_dir/libidn2.a" ]]; then
             cp "$deps_lib_dir/libidn2.a" "$install_lib_dir/"
           fi

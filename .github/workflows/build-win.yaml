@@ -21,8 +21,8 @@ jobs:
     strategy:
       matrix:
         include:
-          - { sys: vcvars64, env: x86_64, runner: windows-latest }
-          - { sys: vcvars32, env: i686, runner: windows-latest }
+          - { sys: vcvars64, env: x86_64, runner: windows-2022 }
+          - { sys: vcvars32, env: i686, runner: windows-2022 }
           - { sys: vcvarsarm64, env: arm64, runner: windows-11-arm }
     runs-on: ${{ matrix.runner }}
     steps:

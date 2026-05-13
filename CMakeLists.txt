@@ -197,6 +197,7 @@ set(_boringssl_cmake_args
   ${_common_cmake_args}
   "-DCMAKE_C_FLAGS=${_boringssl_c_flags}"
   "-DCMAKE_CXX_FLAGS=${_boringssl_cxx_flags}"
+  -DCMAKE_INSTALL_PREFIX=${DEPS_INSTALL_DIR}
 )
 if(DISABLE_BORINGSSL_ASM)
   list(APPEND _boringssl_cmake_args -DOPENSSL_NO_ASM=ON)
@@ -209,23 +210,24 @@ ExternalProject_Add(boringssl
   PATCH_COMMAND ${PATCH_EXE} -p1 -i "${CMAKE_SOURCE_DIR}/patches/boringssl.patch"
   CMAKE_ARGS ${_boringssl_cmake_args}
   BUILD_COMMAND ${CMAKE_COMMAND} --build <BINARY_DIR> --config Release --target ssl crypto --parallel ${SUBJOBS}
-  INSTALL_COMMAND ""
+  INSTALL_COMMAND ${CMAKE_COMMAND} --build <BINARY_DIR> --config Release --target install --parallel ${SUBJOBS}
 )
 
 ExternalProject_Get_Property(boringssl source_dir binary_dir)
 set(BORINGSSL_SRC_DIR "${source_dir}")
 set(BORINGSSL_BIN_DIR "${binary_dir}")
 if(WIN32)
-  set(BORINGSSL_SSL_LIB "${BORINGSSL_BIN_DIR}/ssl/ssl.lib")
-  set(BORINGSSL_CRYPTO_LIB "${BORINGSSL_BIN_DIR}/crypto/crypto.lib")
+  set(BORINGSSL_SSL_LIB "${DEPS_INSTALL_DIR}/lib/ssl.lib")
+  set(BORINGSSL_CRYPTO_LIB "${DEPS_INSTALL_DIR}/lib/crypto.lib")
 else()
-  set(BORINGSSL_SSL_LIB "${BORINGSSL_BIN_DIR}/ssl/libssl.a")
-  set(BORINGSSL_CRYPTO_LIB "${BORINGSSL_BIN_DIR}/crypto/libcrypto.a")
+  set(BORINGSSL_SSL_LIB "${DEPS_INSTALL_DIR}/lib/libssl.a")
+  set(BORINGSSL_CRYPTO_LIB "${DEPS_INSTALL_DIR}/lib/libcrypto.a")
 endif()
+set(BORINGSSL_INCLUDE_DIR "${DEPS_INSTALL_DIR}/include")
 
 set(_ngtcp2_boringssl_libs_arg)
 if(WIN32)
-  list(APPEND _ngtcp2_boringssl_libs_arg "-DBORINGSSL_LIBRARIES=${BORINGSSL_SSL_LIB};${BORINGSSL_CRYPTO_LIB}")
+  list(APPEND _ngtcp2_boringssl_libs_arg "-DBORINGSSL_LIBRARIES=${BORINGSSL_SSL_LIB}|${BORINGSSL_CRYPTO_LIB}")
 endif()
 
 # nghttp2
@@ -269,6 +271,7 @@ ExternalProject_Add(nghttp3
 
 # ngtcp2
 ExternalProject_Add(ngtcp2
+  LIST_SEPARATOR |
   URL "${NGTCP2_URL}"
   SOURCE_DIR "${DEPS_SRC_DIR}/ngtcp2"
   BINARY_DIR "${DEPS_BUILD_DIR}/ngtcp2"
@@ -288,7 +291,7 @@ ExternalProject_Add(ngtcp2
     -DENABLE_WOLFSSL=OFF
     -DENABLE_GNUTLS=OFF
     -DBUILD_TESTING=OFF
-    -DBORINGSSL_INCLUDE_DIR=${BORINGSSL_SRC_DIR}/include
+    -DBORINGSSL_INCLUDE_DIR=${BORINGSSL_INCLUDE_DIR}
     ${_ngtcp2_boringssl_libs_arg}
   BUILD_COMMAND ${CMAKE_COMMAND} --build <BINARY_DIR> --config Release --parallel ${SUBJOBS}
   INSTALL_COMMAND ${CMAKE_COMMAND} --build <BINARY_DIR> --config Release --target install --parallel ${SUBJOBS}
@@ -424,8 +427,8 @@ endif()
 set(_curl_openssl_flags)
 if(CURL_SUBPROJECT_FORCE_OPENSSL_PATHS)
   list(APPEND _curl_openssl_flags
-    -DOPENSSL_ROOT_DIR=${BORINGSSL_SRC_DIR}
-    -DOPENSSL_INCLUDE_DIR=${BORINGSSL_SRC_DIR}/include
+    -DOPENSSL_ROOT_DIR=${DEPS_INSTALL_DIR}
+    -DOPENSSL_INCLUDE_DIR=${BORINGSSL_INCLUDE_DIR}
     -DOPENSSL_SSL_LIBRARY=${BORINGSSL_SSL_LIB}
     -DOPENSSL_CRYPTO_LIBRARY=${BORINGSSL_CRYPTO_LIB}
     -DOPENSSL_USE_STATIC_LIBS=ON
