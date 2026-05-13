@@ -1,25 +1,25 @@
 name: "Build on Linux/Darwin"
 
 on:
+  workflow_call:
   push:
     branches:
       - main
       - feature/*
       - bugfix/*
       - chore/*
-    tags:
-      - "v*"
+      - security/*
   pull_request:
     branches:
       - main
 
 permissions:
-  contents: write
+  contents: read
 
 env:
   BORING_SSL_COMMIT: 673e61fc215b178a90c0e67858bbf162c8158993
   MACOSX_DEPLOYMENT_TARGET: 11.0
-  API: "21"  # Targeting an very old android API version
+  API: "21" # Targeting an very old android API version
 
 jobs:
   build:
@@ -91,6 +91,12 @@ jobs:
             host: aarch64-linux-android
             host_label: aarch64-linux-android
             make: make
+          - os: ubuntu-latest
+            platform: android
+            arch: x86_64
+            host: x86_64-linux-android
+            host_label: x86_64-linux-android
+            make: make
           - os: macos-14
             platform: ios
             arch: arm64
@@ -101,9 +107,17 @@ jobs:
             make: gmake
           - os: macos-14
             platform: ios
-            arch: arm64-simulator
+            arch: arm64
             host: arm64-apple-ios
             host_label: arm64-apple-ios-simulator
+            ios_sdk: iphonesimulator
+            ios_min_version: "13.0"
+            make: gmake
+          - os: macos-15-intel
+            platform: ios
+            arch: x86_64
+            host: x86_64-apple-ios
+            host_label: x86_64-apple-ios-simulator
             ios_sdk: iphonesimulator
             ios_min_version: "13.0"
             make: gmake
@@ -183,9 +197,9 @@ jobs:
           echo "AR=$AR" >> $GITHUB_ENV
           echo "RANLIB=$RANLIB" >> $GITHUB_ENV
           echo "STRIP=$STRIP" >> $GITHUB_ENV
-          echo "CFLAGS=-isysroot $SDKROOT -arch arm64 $min_flag -fPIC" >> $GITHUB_ENV
-          echo "CXXFLAGS=-isysroot $SDKROOT -arch arm64 $min_flag -fPIC" >> $GITHUB_ENV
-          echo "LDFLAGS=-isysroot $SDKROOT -arch arm64 $min_flag" >> $GITHUB_ENV
+          echo "CFLAGS=-isysroot $SDKROOT -arch ${{ matrix.arch }} $min_flag -fPIC" >> $GITHUB_ENV
+          echo "CXXFLAGS=-isysroot $SDKROOT -arch ${{ matrix.arch }} $min_flag -fPIC" >> $GITHUB_ENV
+          echo "LDFLAGS=-isysroot $SDKROOT -arch ${{ matrix.arch }} $min_flag" >> $GITHUB_ENV
 
       - name: Install Ubuntu dependencies
         if: runner.os == 'Linux'
@@ -303,7 +317,6 @@ jobs:
           else
             tar -c -z -f ${{ runner.temp }}/curl-impersonate.${{ matrix.host_label }}.tar.gz curl-impersonate curl_*
           fi
-          echo "release_file_bin=${{ runner.temp }}/curl-impersonate-${{ github.ref_name }}.${{ matrix.host_label }}.tar.gz" >> $GITHUB_ENV
 
       - name: Create iOS XCFramework slice
         if: matrix.platform == 'ios'
@@ -334,14 +347,6 @@ jobs:
           name: ios-slice.${{ matrix.host_label }}
           path: ${{ runner.temp }}/ios-slice
 
-      - name: Upload release files
-        uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
-        with:
-          files: |
-              ${{ env.release_file_lib }}
-              ${{ env.release_file_bin }}
-
   ios-xcframework:
     name: (iOS) Create XCFramework
     runs-on: macos-14
@@ -357,7 +362,22 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ios-slice.arm64-apple-ios-simulator
-          path: ${{ runner.temp }}/ios/simulator
+          path: ${{ runner.temp }}/ios/simulator-arm64
+
+      - name: Download Intel simulator slice
+        uses: actions/download-artifact@v4
+        with:
+          name: ios-slice.x86_64-apple-ios-simulator
+          path: ${{ runner.temp }}/ios/simulator-x86_64
+
+      - name: Create universal simulator slice
+        run: |
+          mkdir -p ${{ runner.temp }}/ios/simulator/lib
+          cp -R ${{ runner.temp }}/ios/simulator-arm64/include ${{ runner.temp }}/ios/simulator/
+          lipo -create \
+            ${{ runner.temp }}/ios/simulator-arm64/lib/libcurl-impersonate.a \
+            ${{ runner.temp }}/ios/simulator-x86_64/lib/libcurl-impersonate.a \
+            -output ${{ runner.temp }}/ios/simulator/lib/libcurl-impersonate.a
 
       - name: Create XCFramework
         run: |
@@ -374,17 +394,9 @@ jobs:
           else
             tar -c -z -f ${{ runner.temp }}/libcurl-impersonate.ios-xcframework.tar.gz libcurl-impersonate.xcframework
           fi
-          echo "release_file_xcframework=${{ runner.temp }}/libcurl-impersonate-${{ github.ref_name }}.ios-xcframework.tar.gz" >> $GITHUB_ENV
 
       - name: Upload XCFramework artifact
         uses: actions/upload-artifact@v4
         with:
           name: artifacts.ios-xcframework
           path: ${{ runner.temp }}/libcurl-impersonate*.ios-xcframework.tar.gz
-
-      - name: Upload XCFramework release file
-        uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
-        with:
-          files: |
-            ${{ env.release_file_xcframework }}

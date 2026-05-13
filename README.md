@@ -1,10 +1,12 @@
 # curl-impersonate ![Chrome](https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome_24x24.png "Chrome") ![Edge](https://raw.githubusercontent.com/alrra/browser-logos/main/src/edge/edge_24x24.png "Edge") ![Safari](https://github.com/alrra/browser-logos/blob/main/src/safari/safari_24x24.png "Safari") ![Firefox](https://github.com/alrra/browser-logos/blob/main/src/firefox/firefox_24x24.png "Firefox") ![Tor](https://github.com/alrra/browser-logos/blob/main/src/tor/tor_24x24.png "Tor")
 
 [![Build and test](https://github.com/lexiforest/curl-impersonate/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/lexiforest/curl-impersonate/actions/workflows/build-and-test.yml)
-[![Docker images](https://github.com/lexiforest/curl-impersonate/actions/workflows/build-push-docker.yml/badge.svg)](https://github.com/lexiforest/curl-impersonate/actions/workflows/build-push-docker.yml)
+[![Docker images](https://github.com/lexiforest/curl-impersonate/actions/workflows/build-docker.yml/badge.svg)](https://github.com/lexiforest/curl-impersonate/actions/workflows/build-docker.yml)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/lexiforest/curl-impersonate/blob/main/curl_impersonate_playground.ipynb)
+
 
 > [!NOTE]
-> This is a (slightly) more active fork of [curl-impersonate](https://github.com/lwthiker/curl-impersonate).
+> This is an active fork of [curl-impersonate](https://github.com/lwthiker/curl-impersonate).
 > With the following enhancements:
 >
 > 1. Encrypted Client Hello(ECH) support introduced in Chrome 119.
@@ -16,8 +18,9 @@
 > 7. Single binary to support Chrome, Safari and Firefox.
 > 8. Built with http/3 enabled, http/3 and quic fingerprints are also supported.
 > 9. A user-friendly Python binding: [curl_cffi](https://github.com/lexiforest/curl_cffi).
-> 10. More prebuilt binaries, including Windows, Arm, and even RISC-V!
-> 11. Commercial support at [impersonate.pro](https://impersonate.pro).
+> 10. A user-friendly Nodejs TypeScript binding: [impers](https://github.com/lexiforest/impers).
+> 11. More prebuilt binaries, including Windows, Arm, and even RISC-V!
+> 12. Commercial support at [impersonate.pro](https://impersonate.pro).
 
 > [!WARNING]
 > Breaking changes on v1.0, see release page for details.
@@ -28,7 +31,11 @@ TLS and HTTP handshakes that are identical to that of a real browser.
 
 `curl-impersonate` can be used either as a command line tool, similar to the regular
 curl, or as a library that can be integrated instead of the regular libcurl. See
-[Usage](#basic-usage) below.
+[docs](https://curl-impersonate.readthedocs.io/).
+
+## Documentation
+
+Documentation is available at https://curl-impersonate.readthedocs.io/
 
 ## Why?
 
@@ -67,7 +74,7 @@ Read the original technical description in the blog posts: [part a](https://lwth
 
 ## Supported browsers
 
-The following browsers can be impersonated.
+The following browsers can be impersonated. For a full list of browser profiles, visit the [docs](https://curl-impersonate.readthedocs.com).
 
 | Browser | Version | OS | Target name | Wrapper script | H3 fingerprints |
 | --- | --- | --- | --- | --- | --- |
@@ -87,20 +94,22 @@ The following browsers can be impersonated.
 | ![Chrome](https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome_24x24.png "Chrome") | 136 | macOS Sequoia | `chrome136` | [curl_chrome136](bin/curl_chrome136) |
 | ![Chrome](https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome_24x24.png "Chrome") | 142 | macOS Tahoe | `chrome142` | [curl_chrome142](bin/curl_chrome142) |
 | ![Chrome](https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome_24x24.png "Chrome") | 145 | macOS Tahoe | `chrome145` | [curl_chrome145](bin/curl_chrome145) | ✅ |
+| ![Chrome](https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome_24x24.png "Chrome") | 146 | macOS Tahoe | `chrome146` | [curl_chrome146](bin/curl_chrome146) | ✅ |
 | ![Chrome](https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome_24x24.png "Chrome") | 99 | Android 12 | `chrome99_android` | [curl_chrome99_android](bin/curl_chrome99_android) |
 | ![Chrome](https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome_24x24.png "Chrome") | 131 | Android 14 | `chrome131_android` | [curl_chrome131_android](bin/curl_chrome131_android) |
 | ![Edge](https://raw.githubusercontent.com/alrra/browser-logos/main/src/edge/edge_24x24.png "Edge") | 99 | Windows 10 | `edge99` | [curl_edge99](bin/curl_edge99) |
 | ![Edge](https://raw.githubusercontent.com/alrra/browser-logos/main/src/edge/edge_24x24.png "Edge") | 101 | Windows 10 | `edge101` | [curl_edge101](bin/curl_edge101) |
-| ![Safari](https://github.com/alrra/browser-logos/blob/main/src/safari/safari_24x24.png "Safari") | 15.3 | MacOS Big Sur | `safari153` | [curl_safari153](bin/curl_safari153) |
-| ![Safari](https://github.com/alrra/browser-logos/blob/main/src/safari/safari_24x24.png "Safari") | 15.5 | MacOS Monterey | `safari155` | [curl_safari155](bin/curl_safari155) |
-| ![Safari](https://github.com/alrra/browser-logos/blob/main/src/safari/safari_24x24.png "Safari") | 17.0 | MacOS Sonoma | `safari170` | [curl_safari170](bin/curl_safari170) |
+| ![Safari](https://github.com/alrra/browser-logos/blob/main/src/safari/safari_24x24.png "Safari") | 15.3 | macOS Big Sur | `safari153` | [curl_safari153](bin/curl_safari153) |
+| ![Safari](https://github.com/alrra/browser-logos/blob/main/src/safari/safari_24x24.png "Safari") | 15.5 | macOS Monterey | `safari155` | [curl_safari155](bin/curl_safari155) |
+| ![Safari](https://github.com/alrra/browser-logos/blob/main/src/safari/safari_24x24.png "Safari") | 17.0 | macOS Sonoma | `safari170` | [curl_safari170](bin/curl_safari170) |
 | ![Safari](https://github.com/alrra/browser-logos/blob/main/src/safari/safari_24x24.png "Safari") | 17.2 | iOS 17.2 | `safari172_ios` | [curl_safari172_ios](bin/curl_safari172_ios) |
-| ![Safari](https://github.com/alrra/browser-logos/blob/main/src/safari/safari_24x24.png "Safari") | 18.0 | MacOS Sequoia | `safari180` | [curl_safari180](bin/curl_safari180) |
+| ![Safari](https://github.com/alrra/browser-logos/blob/main/src/safari/safari_24x24.png "Safari") | 18.0 | macOS Sequoia | `safari180` | [curl_safari180](bin/curl_safari180) |
 | ![Safari](https://github.com/alrra/browser-logos/blob/main/src/safari/safari_24x24.png "Safari") | 18.0 | iOS 18.0 | `safari180_ios` | [curl_safari184_ios](bin/curl_safari180_ios) |
-| ![Safari](https://github.com/alrra/browser-logos/blob/main/src/safari/safari_24x24.png "Safari") | 18.4 | MacOS Sequoia | `safari184` | [curl_safari184](bin/curl_safari184) |
+| ![Safari](https://github.com/alrra/browser-logos/blob/main/src/safari/safari_24x24.png "Safari") | 18.4 | macOS Sequoia | `safari184` | [curl_safari184](bin/curl_safari184) |
 | ![Safari](https://github.com/alrra/browser-logos/blob/main/src/safari/safari_24x24.png "Safari") | 18.4 | iOS 18.4 | `safari184_ios` | [curl_safari180_ios](bin/curl_safari184_ios) |
-| ![Safari](https://github.com/alrra/browser-logos/blob/main/src/safari/safari_24x24.png "Safari") | 26.0 | MacOS Tahoe | `safari260` | [curl_safari260](bin/curl_safari260) |
+| ![Safari](https://github.com/alrra/browser-logos/blob/main/src/safari/safari_24x24.png "Safari") | 26.0 | macOS Tahoe | `safari260` | [curl_safari260](bin/curl_safari260) |
 | ![Safari](https://github.com/alrra/browser-logos/blob/main/src/safari/safari_24x24.png "Safari") | 26.0 | iOS 26.0 | `safari260_ios` | [curl_safari260_ios](bin/curl_safari260_ios) |
+| ![Safari](https://github.com/alrra/browser-logos/blob/main/src/safari/safari_24x24.png "Safari") | 26.0.1 | macOS Tahoe | `safari2601` | [curl_safari2601](bin/curl_safari2601) |
 | ![Firefox](https://github.com/alrra/browser-logos/blob/main/src/firefox/firefox_24x24.png "Firefox") | 133.0 | macOS Sonoma | `firefox133` | [curl_firefox133](bin/curl_firefox133) |
 | ![Firefox](https://github.com/alrra/browser-logos/blob/main/src/firefox/firefox_24x24.png "Firefox") | 135.0 | macOS Sonoma | `firefox135` | [curl_firefox135](bin/curl_firefox135) |
 | ![Firefox](https://github.com/alrra/browser-logos/blob/main/src/firefox/firefox_24x24.png "Firefox") | 144.0 | macOS Tahoe | `firefox144` | [curl_firefox144](bin/curl_firefox144) |
@@ -120,7 +129,8 @@ Notes:
 ## Install
 
 The simplest way is to download the prebuilt binaries from the [release page](https://github.com/lexiforest/curl-impersonate/releases).
-If you want to build by yourself, please refer to the [INSTALL.md](INSTALL.md) and [docs/install.md](docs/02_install.md).
+If you want to build by yourself, please refer to [INSTALL.md](INSTALL.md) and
+[docs/install.rst](docs/install.rst).
 
 You can also use the following docker images:
 
@@ -131,7 +141,7 @@ You can also use the following docker images:
 
 For each supported browser there is a wrapper script that launches `curl-impersonate` with all the needed headers and flags. For example:
 
-    curl_chrome123 https://www.wikipedia.org
+    curl_chrome123 https://www.example.com
 
 You can add command line flags and they will be passed on to curl. However, some flags
 change curl's TLS signature which may cause it to be detected.
@@ -144,10 +154,6 @@ Please note that the wrapper scripts use a default set of HTTP headers. If you w
 change these headers, you may want to modify the wrapper scripts to fit your own purpose.
 
 See the [docs](docs) for more options, including using `libcurl-impersonate` as a library.
-
-## Documentation
-
-More documentation is available in the [docs/](docs/) directory.
 
 ## Repository Contents
 

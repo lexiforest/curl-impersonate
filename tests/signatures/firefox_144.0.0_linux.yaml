@@ -21,7 +21,7 @@ signature:
       window_size_increment: 12517377
     - frame_type: HEADERS
       headers:
-      - 'user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:135.0) Gecko/20100101 Firefox/144.0'
+      - 'user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:144.0) Gecko/20100101 Firefox/144.0'
       - 'accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
       - 'accept-language: en-US,en;q=0.5'
       - 'accept-encoding: gzip, deflate, br, zstd'
@@ -144,7 +144,7 @@ signature:
     record_version: TLS_VERSION_1_0
     session_id_length: 32
 third_party:
-  user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:135.0) Gecko/20100101 Firefox/135.0"
+  user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:144.0) Gecko/20100101 Firefox/144.0"
   ja3_hash: "6f7889b9fb1a62a9577e685c1fcfa919"
   ja3_text: "771,4865-4867-4866-49195-49199-52393-52392-49196-49200-49162-49161-49171-49172-156-157-47-53,0-23-65281-10-11-35-16-5-34-18-51-43-13-45-28-27-65037,4588-29-23-24-25-256-257,0"
   ja3n_hash: "e4147a4860c1f347354f0a84d8787c02"
