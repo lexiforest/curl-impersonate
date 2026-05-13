@@ -6760,7 +6760,7 @@ index e54721dd98..57ec8f9bf5 100644
  
  #ifndef CURL_DISABLE_MIME
 diff --git a/lib/vquic/curl_ngtcp2.c b/lib/vquic/curl_ngtcp2.c
-index 69d54ecce2..2807fc3747 100644
+index 69d54ecce2..2cffb5b26d 100644
 --- a/lib/vquic/curl_ngtcp2.c
 +++ b/lib/vquic/curl_ngtcp2.c
 @@ -56,8 +56,10 @@
@@ -6873,7 +6873,7 @@ index 69d54ecce2..2807fc3747 100644
    s->initial_ts = pktx->ts;
    s->handshake_timeout = QUIC_HANDSHAKE_TIMEOUT;
    s->max_window = 100 * ctx->max_stream_window;
-@@ -447,6 +495,862 @@ static void quic_settings(struct cf_ngtcp2_ctx *ctx,
+@@ -447,6 +495,861 @@ static void quic_settings(struct cf_ngtcp2_ctx *ctx,
    if(ctx->qlogfd != -1) {
      s->qlog_write = qlog_callback;
    }
@@ -7615,11 +7615,12 @@ index 69d54ecce2..2807fc3747 100644
 +/* HTTP/3 GREASE setting identifiers follow: 0x1f * N + 0x21 */
 +#define H3_SETTINGS_GREASE_ID_BASE  UINT64_C(0x21)
 +#define H3_SETTINGS_GREASE_ID_STEP  UINT64_C(0x1f)
-+#define H3_VARINT_MAX               UINT64_C(0x3fffffffffffffff)
 +
-+static bool h3_rand_u64(struct Curl_easy *data, uint64_t *val)
++/* Chrome uses a narrower uint32_t range than RFC 9114 allows:
++   https://quiche.googlesource.com/quiche/+/refs/heads/main/quiche/quic/core/http/quic_send_control_stream.cc */
++static bool h3_rand_u32(struct Curl_easy *data, uint32_t *val)
 +{
-+  unsigned char rnd[sizeof(uint64_t)];
++  unsigned char rnd[sizeof(uint32_t)];
 +  CURLcode result;
 +  size_t i;
 +
@@ -7637,17 +7638,15 @@ index 69d54ecce2..2807fc3747 100644
 +static bool h3_generate_grease_setting(struct Curl_easy *data,
 +                                       nghttp3_settings_entry *iv)
 +{
-+  uint64_t n;
-+  uint64_t value;
-+  uint64_t max_n = (H3_VARINT_MAX - H3_SETTINGS_GREASE_ID_BASE) /
-+                   H3_SETTINGS_GREASE_ID_STEP;
++  uint32_t n;
++  uint32_t value;
 +
-+  if(!h3_rand_u64(data, &n) || !h3_rand_u64(data, &value))
++  if(!h3_rand_u32(data, &n) || !h3_rand_u32(data, &value))
 +    return FALSE;
 +
-+  n %= (max_n + 1);
-+  iv->id = H3_SETTINGS_GREASE_ID_STEP * n + H3_SETTINGS_GREASE_ID_BASE;
-+  iv->value = value & H3_VARINT_MAX;
++  iv->id = (H3_SETTINGS_GREASE_ID_STEP * (uint64_t)n) +
++           H3_SETTINGS_GREASE_ID_BASE;
++  iv->value = value;
 +  return TRUE;
 +}
 +
@@ -7736,7 +7735,7 @@ index 69d54ecce2..2807fc3747 100644
  }
  
  static CURLcode init_ngh3_conn(struct Curl_cfilter *cf,
-@@ -1190,6 +2094,10 @@ static CURLcode init_ngh3_conn(struct Curl_cfilter *cf,
+@@ -1190,6 +2093,10 @@ static CURLcode init_ngh3_conn(struct Curl_cfilter *cf,
  {
    struct cf_ngtcp2_ctx *ctx = cf->ctx;
    int64_t ctrl_stream_id, qpack_enc_stream_id, qpack_dec_stream_id;
@@ -7747,7 +7746,7 @@ index 69d54ecce2..2807fc3747 100644
    int rc;
  
    if(ngtcp2_conn_get_streams_uni_left(ctx->qconn) < 3) {
-@@ -1197,7 +2105,15 @@ static CURLcode init_ngh3_conn(struct Curl_cfilter *cf,
+@@ -1197,7 +2104,15 @@ static CURLcode init_ngh3_conn(struct Curl_cfilter *cf,
      return CURLE_QUIC_CONNECT_ERROR;
    }
  
@@ -7763,7 +7762,7 @@ index 69d54ecce2..2807fc3747 100644
  
    rc = nghttp3_conn_client_new(&ctx->h3conn,
                                 &ngh3_callbacks,
-@@ -1205,10 +2121,23 @@ static CURLcode init_ngh3_conn(struct Curl_cfilter *cf,
+@@ -1205,10 +2120,23 @@ static CURLcode init_ngh3_conn(struct Curl_cfilter *cf,
                                 nghttp3_mem_default(),
                                 cf);
    if(rc) {
@@ -7787,7 +7786,7 @@ index 69d54ecce2..2807fc3747 100644
    rc = ngtcp2_conn_open_uni_stream(ctx->qconn, &ctrl_stream_id, NULL);
    if(rc) {
      failf(data, "error creating HTTP/3 control stream: %s",
-@@ -2420,9 +3349,6 @@ static CURLcode cf_connect_start(struct Curl_cfilter *cf,
+@@ -2420,9 +3348,6 @@ static CURLcode cf_connect_start(struct Curl_cfilter *cf,
    CURLcode result;
    const struct Curl_sockaddr_ex *sockaddr = NULL;
    int qfd;
@@ -7797,7 +7796,7 @@ index 69d54ecce2..2807fc3747 100644
  
    DEBUGASSERT(ctx->initialized);
    ctx->dcid.datalen = NGTCP2_MAX_CIDLEN;
-@@ -2431,19 +3357,27 @@ static const struct alpn_spec ALPN_SPEC_H3 = {
+@@ -2431,19 +3356,27 @@ static const struct alpn_spec ALPN_SPEC_H3 = {
      return result;
  
    ctx->scid.datalen = NGTCP2_MAX_CIDLEN;
@@ -7831,7 +7830,7 @@ index 69d54ecce2..2807fc3747 100644
    if(!sockaddr)
      return CURLE_QUIC_CONNECT_ERROR;
    ctx->q.local_addrlen = sizeof(ctx->q.local_addr);
-@@ -2466,6 +3400,19 @@ static const struct alpn_spec ALPN_SPEC_H3 = {
+@@ -2466,6 +3399,19 @@ static const struct alpn_spec ALPN_SPEC_H3 = {
    if(rc)
      return CURLE_QUIC_CONNECT_ERROR;
  
@@ -7851,7 +7850,7 @@ index 69d54ecce2..2807fc3747 100644
    ctx->conn_ref.get_conn = get_conn;
    ctx->conn_ref.user_data = cf;
  
-@@ -2578,7 +3525,7 @@ out:
+@@ -2578,7 +3524,7 @@ out:
    if(result) {
      struct ip_quadruple ip;
  
@@ -7860,7 +7859,7 @@ index 69d54ecce2..2807fc3747 100644
      infof(data, "QUIC connect to %s port %u failed: %s",
            ip.remote_ip, ip.remote_port, curl_easy_strerror(result));
    }
-@@ -2732,7 +3679,10 @@ CURLcode Curl_cf_ngtcp2_create(struct Curl_cfilter **pcf,
+@@ -2732,7 +3678,10 @@ CURLcode Curl_cf_ngtcp2_create(struct Curl_cfilter **pcf,
                                 const struct Curl_addrinfo *ai)
  {
    struct cf_ngtcp2_ctx *ctx = NULL;
@@ -7872,7 +7871,7 @@ index 69d54ecce2..2807fc3747 100644
    CURLcode result;
  
    (void)data;
-@@ -2747,20 +3697,41 @@ CURLcode Curl_cf_ngtcp2_create(struct Curl_cfilter **pcf,
+@@ -2747,20 +3696,41 @@ CURLcode Curl_cf_ngtcp2_create(struct Curl_cfilter **pcf,
    if(result)
      goto out;
  
