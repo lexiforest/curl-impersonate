@@ -362,6 +362,7 @@ set(_curl_build_flags
   -DBUILD_SHARED_LIBS=ON
   -DBUILD_STATIC_LIBS=ON
   -DBUILD_STATIC_CURL=ON
+  -DBUILD_CURL_EXE=ON
 )
 
 set(_curl_ca_flags)
