@@ -448,6 +448,37 @@ if(CURL_SUBPROJECT_FORCE_OPENSSL_PATHS)
   )
 endif()
 
+set(_curl_toolchain_args
+  -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+  -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
+)
+if(CMAKE_SYSTEM_NAME)
+  list(APPEND _curl_toolchain_args -DCMAKE_SYSTEM_NAME=${CMAKE_SYSTEM_NAME})
+endif()
+if(CMAKE_SYSTEM_PROCESSOR)
+  list(APPEND _curl_toolchain_args -DCMAKE_SYSTEM_PROCESSOR=${CMAKE_SYSTEM_PROCESSOR})
+endif()
+if(CMAKE_OSX_SYSROOT)
+  list(APPEND _curl_toolchain_args -DCMAKE_OSX_SYSROOT=${CMAKE_OSX_SYSROOT})
+endif()
+if(CMAKE_OSX_DEPLOYMENT_TARGET)
+  list(APPEND _curl_toolchain_args -DCMAKE_OSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET})
+endif()
+if(CMAKE_MSVC_RUNTIME_LIBRARY)
+  list(APPEND _curl_toolchain_args -DCMAKE_MSVC_RUNTIME_LIBRARY=${CMAKE_MSVC_RUNTIME_LIBRARY})
+endif()
+if(CMAKE_LINKER)
+  list(APPEND _curl_toolchain_args -DCMAKE_LINKER=${CMAKE_LINKER})
+endif()
+if(ANDROID)
+  list(APPEND _curl_toolchain_args
+    -DCMAKE_ANDROID_NDK=${CMAKE_ANDROID_NDK}
+    -DCMAKE_ANDROID_ARCH_ABI=${CMAKE_ANDROID_ARCH_ABI}
+    -DCMAKE_SYSTEM_VERSION=${CMAKE_SYSTEM_VERSION}
+    -DANDROID_PLATFORM_LEVEL=${CMAKE_SYSTEM_VERSION}
+  )
+endif()
+
 ExternalProject_Add(curl
   LIST_SEPARATOR |
   URL "${CURL_URL}"
@@ -464,8 +495,7 @@ ExternalProject_Add(curl
       ${_shadow_avoid_cmake_args}
       -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}
       -DCMAKE_INSTALL_LIBDIR=lib
-      -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
-      -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
+      ${_curl_toolchain_args}
       -DCMAKE_POSITION_INDEPENDENT_CODE=ON
       -DCMAKE_PREFIX_PATH=${_curl_prefix_path}
       ${_curl_use_pkgconfig_flag}

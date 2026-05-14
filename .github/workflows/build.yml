@@ -168,7 +168,6 @@ jobs:
           echo "CC=$TOOLCHAIN/bin/${TARGET}${API}-clang" >> $GITHUB_ENV
           echo "AS=$TOOLCHAIN/bin/${TARGET}${API}-clang" >> $GITHUB_ENV
           echo "CXX=$TOOLCHAIN/bin/${TARGET}${API}-clang++" >> $GITHUB_ENV
-          echo "LD=$TOOLCHAIN/bin/ld" >> $GITHUB_ENV
           echo "RANLIB=$TOOLCHAIN/bin/llvm-ranlib" >> $GITHUB_ENV
           echo "STRIP=$TOOLCHAIN/bin/llvm-strip" >> $GITHUB_ENV
           echo "ANDROID_NDK_HOME=$NDK" >> $GITHUB_ENV
