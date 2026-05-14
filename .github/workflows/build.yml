@@ -244,10 +244,17 @@ jobs:
           fi
           ${{ matrix.make }} configure BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$cmake_args"
           ${{ matrix.make }} build BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$cmake_args"
+          if [[ "${{ matrix.platform }}" == "ios" ]]; then
+            cmake --build build/deps/build/curl --target curl-impersonate --config Release
+          fi
           if [[ "${{ matrix.platform }}" == "linux" || "${{ matrix.platform }}" == "macos" ]]; then
             ${{ matrix.make }} checkbuild BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$cmake_args"
           elif [[ "${{ matrix.platform }}" == "ios" ]]; then
-            test -f build/deps/build/curl/src/curl-impersonate
+            if [[ ! -f build/deps/build/curl/src/curl-impersonate ]]; then
+              echo "Missing iOS curl-impersonate artifact: build/deps/build/curl/src/curl-impersonate" >&2
+              find build/deps/build/curl -maxdepth 3 -type f -name 'curl*' -print >&2
+              exit 1
+            fi
             echo "Built iOS curl-impersonate artifact: ${{ matrix.host_label }}"
           else
             echo "Skipping checkbuild for non-native target: ${{ matrix.host_label }}"
