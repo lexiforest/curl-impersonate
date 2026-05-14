@@ -223,15 +223,20 @@ jobs:
           install_dir="${{ runner.temp }}/install"
           mkdir -p "$install_dir"
 
-          cmake_args="-DCMAKE_INSTALL_PREFIX=$install_dir"
+          cmake_args="-G Ninja -DCMAKE_INSTALL_PREFIX=$install_dir"
           if [[ "${{ matrix.platform }}" == "linux" ]]; then
             cmake_args="$cmake_args -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=${{ matrix.arch }}"
             cmake_args="$cmake_args -DCURL_CA_PATH=/etc/ssl/certs -DCURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt"
           elif [[ "${{ matrix.platform }}" == "android" ]]; then
-            cmake_args="$cmake_args -DCMAKE_SYSTEM_NAME=Android -DCMAKE_SYSTEM_PROCESSOR=${{ matrix.arch }}"
-            cmake_args="$cmake_args -DCMAKE_ANDROID_NDK=${ANDROID_NDK_HOME} -DCMAKE_ANDROID_ARCH_ABI=arm64-v8a -DCMAKE_SYSTEM_VERSION=${API}"
+            case "${{ matrix.arch }}" in
+              aarch64) android_abi="arm64-v8a" ;;
+              x86_64) android_abi="x86_64" ;;
+              *) echo "Unsupported Android arch: ${{ matrix.arch }}"; exit 1 ;;
+            esac
+            cmake_args="$cmake_args -DCMAKE_SYSTEM_NAME=Android"
+            cmake_args="$cmake_args -DCMAKE_ANDROID_NDK=${ANDROID_NDK_HOME} -DCMAKE_ANDROID_ARCH_ABI=$android_abi -DCMAKE_SYSTEM_VERSION=${API}"
           elif [[ "${{ matrix.platform }}" == "ios" ]]; then
-            cmake_args="$cmake_args -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_SYSTEM_PROCESSOR=arm64 -DCMAKE_OSX_ARCHITECTURES=arm64"
+            cmake_args="$cmake_args -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_SYSTEM_PROCESSOR=${{ matrix.arch }} -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch }}"
             cmake_args="$cmake_args -DCMAKE_OSX_SYSROOT=${SDKROOT} -DCMAKE_OSX_DEPLOYMENT_TARGET=${IOS_MIN_VERSION}"
           fi
 

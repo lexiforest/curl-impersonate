@@ -128,7 +128,12 @@ if(CMAKE_LINKER)
   list(APPEND _common_cmake_args -DCMAKE_LINKER=${CMAKE_LINKER})
 endif()
 if(ANDROID)
-  list(APPEND _common_cmake_args -DANDROID_PLATFORM_LEVEL=${CMAKE_SYSTEM_VERSION})
+  list(APPEND _common_cmake_args
+    -DCMAKE_ANDROID_NDK=${CMAKE_ANDROID_NDK}
+    -DCMAKE_ANDROID_ARCH_ABI=${CMAKE_ANDROID_ARCH_ABI}
+    -DCMAKE_SYSTEM_VERSION=${CMAKE_SYSTEM_VERSION}
+    -DANDROID_PLATFORM_LEVEL=${CMAKE_SYSTEM_VERSION}
+  )
 endif()
 
 list(JOIN _common_cmake_args " " _common_cmake_args_str)
@@ -268,7 +273,15 @@ ExternalProject_Add(nghttp3
     -DENABLE_STATIC_LIB=ON
     -DBUILD_TESTING=OFF
   BUILD_COMMAND ${CMAKE_COMMAND} --build <BINARY_DIR> --config Release --parallel ${SUBJOBS}
-  INSTALL_COMMAND ${CMAKE_COMMAND} --build <BINARY_DIR> --config Release --target install --parallel ${SUBJOBS}
+  INSTALL_COMMAND
+    ${CMAKE_COMMAND} --build <BINARY_DIR> --config Release --target install --parallel ${SUBJOBS}
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      <SOURCE_DIR>/lib/includes/nghttp3/nghttp3.h
+      <INSTALL_DIR>/include/nghttp3/nghttp3.h
+    COMMAND ${CMAKE_COMMAND}
+      -DHEADER=<INSTALL_DIR>/include/nghttp3/nghttp3.h
+      -DNEEDLE=nghttp3_settings_entry
+      -P "${CMAKE_SOURCE_DIR}/cmake/CheckFileContains.cmake"
 )
 
 # ngtcp2
@@ -405,6 +418,13 @@ if(NOT WIN32)
   )
 endif()
 
+set(_curl_find_isolation_flags)
+if(APPLE)
+  list(APPEND _curl_find_isolation_flags
+    "-DCMAKE_IGNORE_PREFIX_PATH=/usr/local|/opt/homebrew"
+  )
+endif()
+
 set(_curl_idn_path_flags)
 if(USE_LIBIDN2 AND NOT WIN32)
   # The prebuild makes libidn2 self-contained with its included libunistring.
@@ -486,6 +506,7 @@ ExternalProject_Add(curl
       ${_curl_build_flags}
       ${_curl_platform_flags}
       ${_curl_http_stack_path_flags}
+      ${_curl_find_isolation_flags}
       -GNinja
       -S <SOURCE_DIR> -B <BINARY_DIR>
   BUILD_COMMAND ${CMAKE_COMMAND} --build <BINARY_DIR> --config Release --parallel ${SUBJOBS}
