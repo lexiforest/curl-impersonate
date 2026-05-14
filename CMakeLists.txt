@@ -315,18 +315,8 @@ endif()
 
 # curl
 set(_curl_prefix_path "${DEPS_INSTALL_DIR}")
-if(WIN32)
-  set(_curl_pkg_path_sep ";")
-  set(_curl_use_pkgconfig_flag -DCURL_USE_PKGCONFIG=OFF)
-  set(_curl_configure_env)
-else()
-  set(_curl_pkg_path_sep ":")
-  set(_curl_use_pkgconfig_flag -DCURL_USE_PKGCONFIG=ON)
-  set(_curl_configure_env
-    PKG_CONFIG_PATH=${DEPS_INSTALL_DIR}/lib/pkgconfig${_curl_pkg_path_sep}${DEPS_INSTALL_DIR}/share/pkgconfig
-    PKG_CONFIG_LIBDIR=${DEPS_INSTALL_DIR}/lib/pkgconfig${_curl_pkg_path_sep}${DEPS_INSTALL_DIR}/share/pkgconfig
-  )
-endif()
+set(_curl_use_pkgconfig_flag -DCURL_USE_PKGCONFIG=OFF)
+set(_curl_configure_env)
 
 if(WIN32)
   set(_curl_idn_flags -DUSE_WIN32_IDN=ON -DUSE_LIBIDN2=OFF)
@@ -432,6 +422,9 @@ if(CURL_SUBPROJECT_FORCE_OPENSSL_PATHS)
     -DOPENSSL_SSL_LIBRARY=${BORINGSSL_SSL_LIB}
     -DOPENSSL_CRYPTO_LIBRARY=${BORINGSSL_CRYPTO_LIB}
     -DOPENSSL_USE_STATIC_LIBS=ON
+    -DHAVE_BORINGSSL=1
+    -DHAVE_AWSLC=0
+    -DHAVE_LIBRESSL=0
   )
 endif()
 
