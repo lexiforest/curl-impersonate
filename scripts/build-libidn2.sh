@@ -12,29 +12,8 @@ src_dir="$build_dir/deps/src"
 build_deps_dir="$build_dir/deps/build"
 downloads_dir="$build_dir/deps/downloads"
 
-libunistring_version=${LIBUNISTRING_VERSION:-1.1}
-libunistring_url=${LIBUNISTRING_URL:-https://ftp.gnu.org/gnu/libunistring/libunistring-$libunistring_version.tar.gz}
 libidn2_version=${LIBIDN2_VERSION:-2.3.7}
 libidn2_url=${LIBIDN2_URL:-https://ftp.gnu.org/gnu/libidn/libidn2-$libidn2_version.tar.gz}
-
-case "${PREPARE_LIBIDN2:-auto}:${CMAKE_CONFIGURE_ARGS:-}" in
-  off:*|OFF:*|0:*|false:*|FALSE:*|no:*|NO:*|*:*-DUSE_LIBIDN2=OFF*|*:*-DUSE_LIBIDN2=FALSE*|*:*-DUSE_LIBIDN2=0*)
-    echo "Skipping libidn2 preparation"
-    exit 0
-    ;;
-  *:*-DUSE_LIBIDN2=ON*|*:*-DUSE_LIBIDN2=TRUE*|*:*-DUSE_LIBIDN2=1*)
-    ;;
-  auto:*-DCMAKE_SYSTEM_NAME=Android*|auto:*-DCMAKE_SYSTEM_NAME=iOS*|auto:*-DCMAKE_SYSTEM_NAME=Windows*)
-    echo "Skipping libidn2 preparation"
-    exit 0
-    ;;
-  auto:*)
-    if [ "$(uname -s)" = Darwin ]; then
-      echo "Skipping libidn2 preparation"
-      exit 0
-    fi
-    ;;
-esac
 
 make_cmd=${MAKE:-make}
 if command -v gmake >/dev/null 2>&1; then

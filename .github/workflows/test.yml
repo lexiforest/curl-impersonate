@@ -61,6 +61,8 @@ jobs:
             echo "$cmake_args"
             echo "EOF"
           } >> "$GITHUB_ENV"
+          export CMAKE_CONFIGURE_ARGS="$cmake_args"
+          make prepare-libidn2
           make configure
 
       - name: Build curl-impersonate
