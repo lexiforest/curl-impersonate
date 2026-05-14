@@ -21,9 +21,9 @@ jobs:
     strategy:
       matrix:
         include:
-          - { env: x86_64, runner: windows-2022 }
-          - { env: i686, runner: windows-2022 }
-          - { env: arm64, runner: windows-11-arm }
+          - { sys: vcvars64, env: x86_64, runner: windows-2022 }
+          - { sys: vcvars32, env: i686, runner: windows-2022 }
+          - { sys: vcvarsarm64, env: arm64, runner: windows-11-arm }
     runs-on: ${{ matrix.runner }}
     steps:
       - name: configure Pagefile
@@ -58,7 +58,7 @@ jobs:
 
       - name: Build
         shell: cmd
-        run: ./win/build.bat ${{ matrix.env }}
+        run: ./win/build.bat ${{ matrix.sys }}
 
       - name: Build tarball
         shell: bash

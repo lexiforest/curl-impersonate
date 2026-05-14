@@ -89,10 +89,45 @@ if(NOT PATCH_EXE)
   set(PATCH_EXE patch)
 endif()
 
+set(_toolchain_cmake_args)
+if(CMAKE_C_COMPILER)
+  list(APPEND _toolchain_cmake_args "-DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}")
+endif()
+if(CMAKE_CXX_COMPILER)
+  list(APPEND _toolchain_cmake_args "-DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}")
+endif()
+if(CMAKE_SYSTEM_NAME)
+  list(APPEND _toolchain_cmake_args "-DCMAKE_SYSTEM_NAME=${CMAKE_SYSTEM_NAME}")
+endif()
+if(CMAKE_SYSTEM_PROCESSOR)
+  list(APPEND _toolchain_cmake_args "-DCMAKE_SYSTEM_PROCESSOR=${CMAKE_SYSTEM_PROCESSOR}")
+endif()
+if(CMAKE_OSX_SYSROOT)
+  list(APPEND _toolchain_cmake_args "-DCMAKE_OSX_SYSROOT=${CMAKE_OSX_SYSROOT}")
+endif()
+if(CMAKE_OSX_DEPLOYMENT_TARGET)
+  list(APPEND _toolchain_cmake_args "-DCMAKE_OSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET}")
+endif()
+if(CMAKE_MSVC_RUNTIME_LIBRARY)
+  list(APPEND _toolchain_cmake_args "-DCMAKE_MSVC_RUNTIME_LIBRARY=${CMAKE_MSVC_RUNTIME_LIBRARY}")
+endif()
+if(CMAKE_LINKER)
+  list(APPEND _toolchain_cmake_args "-DCMAKE_LINKER=${CMAKE_LINKER}")
+endif()
+if(ANDROID)
+  list(APPEND _toolchain_cmake_args
+    "-DCMAKE_ANDROID_NDK=${CMAKE_ANDROID_NDK}"
+    "-DCMAKE_ANDROID_ARCH_ABI=${CMAKE_ANDROID_ARCH_ABI}"
+    "-DCMAKE_SYSTEM_VERSION=${CMAKE_SYSTEM_VERSION}"
+    "-DANDROID_PLATFORM_LEVEL=${CMAKE_SYSTEM_VERSION}"
+  )
+endif()
+
 set(_common_cmake_args
   -DCMAKE_BUILD_TYPE=Release
   -DCMAKE_INSTALL_LIBDIR=lib
   -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+  ${_toolchain_cmake_args}
 )
 
 # Avoid include shadowing from system/local prefixes when building deps:
@@ -102,39 +137,6 @@ set(_shadow_avoid_cmake_args
   -DCMAKE_NO_SYSTEM_FROM_IMPORTED=ON
   -DCMAKE_INCLUDE_SYSTEM_FLAG_C=-I
 )
-
-if(CMAKE_C_COMPILER)
-  list(APPEND _common_cmake_args -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER})
-endif()
-if(CMAKE_CXX_COMPILER)
-  list(APPEND _common_cmake_args -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER})
-endif()
-if(CMAKE_SYSTEM_NAME)
-  list(APPEND _common_cmake_args -DCMAKE_SYSTEM_NAME=${CMAKE_SYSTEM_NAME})
-endif()
-if(CMAKE_SYSTEM_PROCESSOR)
-  list(APPEND _common_cmake_args -DCMAKE_SYSTEM_PROCESSOR=${CMAKE_SYSTEM_PROCESSOR})
-endif()
-if(CMAKE_OSX_SYSROOT)
-  list(APPEND _common_cmake_args -DCMAKE_OSX_SYSROOT=${CMAKE_OSX_SYSROOT})
-endif()
-if(CMAKE_OSX_DEPLOYMENT_TARGET)
-  list(APPEND _common_cmake_args -DCMAKE_OSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET})
-endif()
-if(CMAKE_MSVC_RUNTIME_LIBRARY)
-  list(APPEND _common_cmake_args -DCMAKE_MSVC_RUNTIME_LIBRARY=${CMAKE_MSVC_RUNTIME_LIBRARY})
-endif()
-if(CMAKE_LINKER)
-  list(APPEND _common_cmake_args -DCMAKE_LINKER=${CMAKE_LINKER})
-endif()
-if(ANDROID)
-  list(APPEND _common_cmake_args
-    -DCMAKE_ANDROID_NDK=${CMAKE_ANDROID_NDK}
-    -DCMAKE_ANDROID_ARCH_ABI=${CMAKE_ANDROID_ARCH_ABI}
-    -DCMAKE_SYSTEM_VERSION=${CMAKE_SYSTEM_VERSION}
-    -DANDROID_PLATFORM_LEVEL=${CMAKE_SYSTEM_VERSION}
-  )
-endif()
 
 list(JOIN _common_cmake_args " " _common_cmake_args_str)
 
@@ -327,9 +329,17 @@ if(USE_LIBIDN2)
 endif()
 
 # curl
-set(_curl_prefix_path "${DEPS_INSTALL_DIR}")
 set(_curl_use_pkgconfig_flag -DCURL_USE_PKGCONFIG=OFF)
-set(_curl_configure_env)
+set(_curl_clean_env)
+if(NOT WIN32)
+  list(APPEND _curl_clean_env
+    "CPATH="
+    "C_INCLUDE_PATH="
+    "CPLUS_INCLUDE_PATH="
+    "LIBRARY_PATH="
+    "PKG_CONFIG_PATH="
+  )
+endif()
 
 if(WIN32)
   set(_curl_idn_flags -DUSE_WIN32_IDN=ON -DUSE_LIBIDN2=OFF)
@@ -375,6 +385,46 @@ else()
   set(_curl_zstd_library "${DEPS_INSTALL_DIR}/lib/libzstd.a")
 endif()
 
+set(_curl_staged_dependency_args
+  "-DCMAKE_PREFIX_PATH=${DEPS_INSTALL_DIR}"
+)
+if(NOT WIN32)
+  set(_curl_c_flags "${CMAKE_C_FLAGS}")
+  set(_curl_cxx_flags "${CMAKE_CXX_FLAGS}")
+  string(PREPEND _curl_c_flags "-I${DEPS_INSTALL_DIR}/include ")
+  string(PREPEND _curl_cxx_flags "-I${DEPS_INSTALL_DIR}/include ")
+  string(STRIP "${_curl_c_flags}" _curl_c_flags)
+  string(STRIP "${_curl_cxx_flags}" _curl_cxx_flags)
+
+  list(APPEND _curl_staged_dependency_args
+    "-DCMAKE_C_FLAGS=${_curl_c_flags}"
+    "-DCMAKE_CXX_FLAGS=${_curl_cxx_flags}"
+    "-DBROTLI_INCLUDE_DIR=${DEPS_INSTALL_DIR}/include"
+    "-DBROTLIDEC_LIBRARY=${DEPS_INSTALL_DIR}/lib/libbrotlidec.a"
+    "-DBROTLICOMMON_LIBRARY=${DEPS_INSTALL_DIR}/lib/libbrotlicommon.a"
+    "-DNGHTTP2_INCLUDE_DIR=${DEPS_INSTALL_DIR}/include"
+    "-DNGHTTP2_LIBRARY=${DEPS_INSTALL_DIR}/lib/libnghttp2.a"
+    "-DNGHTTP3_INCLUDE_DIR=${DEPS_INSTALL_DIR}/include"
+    "-DNGHTTP3_LIBRARY=${DEPS_INSTALL_DIR}/lib/libnghttp3.a"
+    "-DNGTCP2_INCLUDE_DIR=${DEPS_INSTALL_DIR}/include"
+    "-DNGTCP2_LIBRARY=${DEPS_INSTALL_DIR}/lib/libngtcp2.a"
+    "-DNGTCP2_CRYPTO_BORINGSSL_LIBRARY=${DEPS_INSTALL_DIR}/lib/libngtcp2_crypto_boringssl.a"
+  )
+endif()
+if(APPLE)
+  list(APPEND _curl_staged_dependency_args
+    "-DCMAKE_IGNORE_PREFIX_PATH=/usr/local|/opt/homebrew"
+    "-DCMAKE_IGNORE_PATH=/usr/local/include|/usr/local/lib|/opt/homebrew/include|/opt/homebrew/lib"
+  )
+endif()
+if(USE_LIBIDN2 AND NOT WIN32)
+  # The prebuild makes libidn2 self-contained with its included libunistring.
+  list(APPEND _curl_staged_dependency_args
+    "-DLIBIDN2_INCLUDE_DIR=${DEPS_INSTALL_DIR}/include"
+    "-DLIBIDN2_LIBRARY=${DEPS_INSTALL_DIR}/lib/libidn2.a"
+  )
+endif()
+
 set(_curl_platform_flags)
 if(WIN32)
   set(_curl_platform_c_flags "${CMAKE_C_FLAGS}")
@@ -403,37 +453,6 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
   list(APPEND _curl_platform_flags "-DCMAKE_SHARED_LINKER_FLAGS=${_curl_shared_linker_flags}")
 endif()
 
-set(_curl_http_stack_path_flags)
-if(NOT WIN32)
-  # Force curl to use our staged nghttp2/nghttp3/ngtcp2 artifacts. This avoids
-  # accidental pickup of system/Homebrew headers, which may miss patched APIs.
-  list(APPEND _curl_http_stack_path_flags
-    "-DNGHTTP2_INCLUDE_DIR=${DEPS_INSTALL_DIR}/include"
-    "-DNGHTTP2_LIBRARY=${DEPS_INSTALL_DIR}/lib/libnghttp2.a"
-    "-DNGHTTP3_INCLUDE_DIR=${DEPS_INSTALL_DIR}/include"
-    "-DNGHTTP3_LIBRARY=${DEPS_INSTALL_DIR}/lib/libnghttp3.a"
-    "-DNGTCP2_INCLUDE_DIR=${DEPS_INSTALL_DIR}/include"
-    "-DNGTCP2_LIBRARY=${DEPS_INSTALL_DIR}/lib/libngtcp2.a"
-    "-DNGTCP2_CRYPTO_BORINGSSL_LIBRARY=${DEPS_INSTALL_DIR}/lib/libngtcp2_crypto_boringssl.a"
-  )
-endif()
-
-set(_curl_find_isolation_flags)
-if(APPLE)
-  list(APPEND _curl_find_isolation_flags
-    "-DCMAKE_IGNORE_PREFIX_PATH=/usr/local|/opt/homebrew"
-  )
-endif()
-
-set(_curl_idn_path_flags)
-if(USE_LIBIDN2 AND NOT WIN32)
-  # The prebuild makes libidn2 self-contained with its included libunistring.
-  list(APPEND _curl_idn_path_flags
-    "-DLIBIDN2_INCLUDE_DIR=${DEPS_INSTALL_DIR}/include"
-    "-DLIBIDN2_LIBRARY=${DEPS_INSTALL_DIR}/lib/libidn2.a"
-  )
-endif()
-
 set(_curl_openssl_flags)
 if(CURL_SUBPROJECT_FORCE_OPENSSL_PATHS)
   list(APPEND _curl_openssl_flags
@@ -448,37 +467,6 @@ if(CURL_SUBPROJECT_FORCE_OPENSSL_PATHS)
   )
 endif()
 
-set(_curl_toolchain_args
-  -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
-  -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
-)
-if(CMAKE_SYSTEM_NAME)
-  list(APPEND _curl_toolchain_args -DCMAKE_SYSTEM_NAME=${CMAKE_SYSTEM_NAME})
-endif()
-if(CMAKE_SYSTEM_PROCESSOR)
-  list(APPEND _curl_toolchain_args -DCMAKE_SYSTEM_PROCESSOR=${CMAKE_SYSTEM_PROCESSOR})
-endif()
-if(CMAKE_OSX_SYSROOT)
-  list(APPEND _curl_toolchain_args -DCMAKE_OSX_SYSROOT=${CMAKE_OSX_SYSROOT})
-endif()
-if(CMAKE_OSX_DEPLOYMENT_TARGET)
-  list(APPEND _curl_toolchain_args -DCMAKE_OSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET})
-endif()
-if(CMAKE_MSVC_RUNTIME_LIBRARY)
-  list(APPEND _curl_toolchain_args -DCMAKE_MSVC_RUNTIME_LIBRARY=${CMAKE_MSVC_RUNTIME_LIBRARY})
-endif()
-if(CMAKE_LINKER)
-  list(APPEND _curl_toolchain_args -DCMAKE_LINKER=${CMAKE_LINKER})
-endif()
-if(ANDROID)
-  list(APPEND _curl_toolchain_args
-    -DCMAKE_ANDROID_NDK=${CMAKE_ANDROID_NDK}
-    -DCMAKE_ANDROID_ARCH_ABI=${CMAKE_ANDROID_ARCH_ABI}
-    -DCMAKE_SYSTEM_VERSION=${CMAKE_SYSTEM_VERSION}
-    -DANDROID_PLATFORM_LEVEL=${CMAKE_SYSTEM_VERSION}
-  )
-endif()
-
 ExternalProject_Add(curl
   LIST_SEPARATOR |
   URL "${CURL_URL}"
@@ -489,15 +477,15 @@ ExternalProject_Add(curl
   DEPENDS ${_curl_deps}
   CONFIGURE_COMMAND
     ${CMAKE_COMMAND} -E env
-      ${_curl_configure_env}
+      ${_curl_clean_env}
     ${CMAKE_COMMAND}
       -DCMAKE_BUILD_TYPE=Release
       ${_shadow_avoid_cmake_args}
       -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}
       -DCMAKE_INSTALL_LIBDIR=lib
-      ${_curl_toolchain_args}
+      ${_toolchain_cmake_args}
       -DCMAKE_POSITION_INDEPENDENT_CODE=ON
-      -DCMAKE_PREFIX_PATH=${_curl_prefix_path}
+      ${_curl_staged_dependency_args}
       ${_curl_use_pkgconfig_flag}
       -DCURL_USE_OPENSSL=ON
       -DCURL_ENABLE_SSL=ON
@@ -532,14 +520,14 @@ ExternalProject_Add(curl
       -DENABLE_CURL_MANUAL=OFF
       ${_curl_ca_flags}
       ${_curl_idn_flags}
-      ${_curl_idn_path_flags}
       ${_curl_build_flags}
       ${_curl_platform_flags}
-      ${_curl_http_stack_path_flags}
-      ${_curl_find_isolation_flags}
       -GNinja
       -S <SOURCE_DIR> -B <BINARY_DIR>
-  BUILD_COMMAND ${CMAKE_COMMAND} --build <BINARY_DIR> --config Release --parallel ${SUBJOBS}
+  BUILD_COMMAND
+    ${CMAKE_COMMAND} -E env
+      ${_curl_clean_env}
+    ${CMAKE_COMMAND} --build <BINARY_DIR> --config Release --parallel ${SUBJOBS}
   INSTALL_COMMAND ""
 )
 
