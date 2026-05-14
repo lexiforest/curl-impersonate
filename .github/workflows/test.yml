@@ -48,7 +48,7 @@ jobs:
           # More dependencies for the tests
           sudo apt-get install tcpdump nghttp2-server
 
-      - name: Configure (CMake)
+      - name: Build curl-impersonate
         run: |
           set -e
           install_dir="${{ runner.temp }}/install"
@@ -56,21 +56,11 @@ jobs:
           cmake_args="-DCMAKE_INSTALL_PREFIX=$install_dir"
           cmake_args="$cmake_args -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=x86_64"
           cmake_args="$cmake_args -DCURL_CA_PATH=/etc/ssl/certs -DCURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt"
-          {
-            echo "CMAKE_CONFIGURE_ARGS<<EOF"
-            echo "$cmake_args"
-            echo "EOF"
-          } >> "$GITHUB_ENV"
-          export CMAKE_CONFIGURE_ARGS="$cmake_args"
-          make prepare-libidn2
-          make configure
-
-      - name: Build curl-impersonate
-        run: |
-          set -e
-          make build
-          make checkbuild
-          make install
+          make prepare-libidn2 BUILD_DIR=build
+          make configure BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$cmake_args"
+          make build BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$cmake_args"
+          make checkbuild BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$cmake_args"
+          make install BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$cmake_args"
 
       - uses: actions/setup-python@v4
         with:

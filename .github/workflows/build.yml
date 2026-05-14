@@ -218,7 +218,7 @@ jobs:
           # Dependencies for the tests
           brew install tcpdump curl nghttp2
 
-      - name: Configure (CMake)
+      - name: Build
         run: |
           set -e
           install_dir="${{ runner.temp }}/install"
@@ -236,31 +236,20 @@ jobs:
             cmake_args="$cmake_args -DCMAKE_OSX_SYSROOT=${SDKROOT} -DCMAKE_OSX_DEPLOYMENT_TARGET=${IOS_MIN_VERSION}"
           fi
 
-          {
-            echo "CMAKE_CONFIGURE_ARGS<<EOF"
-            echo "$cmake_args"
-            echo "EOF"
-          } >> "$GITHUB_ENV"
-
-          export CMAKE_CONFIGURE_ARGS="$cmake_args"
           if [[ "${{ matrix.platform }}" == "linux" ]]; then
-            ${{ matrix.make }} prepare-libidn2
+            ${{ matrix.make }} prepare-libidn2 BUILD_DIR=build
           fi
-          ${{ matrix.make }} configure
-
-      - name: Build statically
-        run: |
-          set -e
-          ${{ matrix.make }} build
-          if [[ ("${{ matrix.platform }}" == "linux" && "${{ matrix.arch }}" == "x86_64") || "${{ matrix.platform }}" == "macos" ]]; then
-            ${{ matrix.make }} checkbuild
+          ${{ matrix.make }} configure BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$cmake_args"
+          ${{ matrix.make }} build BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$cmake_args"
+          if [[ "${{ matrix.platform }}" != "android" ]]; then
+            ${{ matrix.make }} checkbuild BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$cmake_args"
           else
             echo "Skipping checkbuild for non-native target: ${{ matrix.host_label }}"
           fi
           if [[ "${{ runner.os }}" == "Linux" && "${{ endsWith(matrix.host, 'musl') }}" == "true" ]]; then
-            ${{ matrix.make }} install
+            ${{ matrix.make }} install BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$cmake_args"
           else
-            ${{ matrix.make }} install-strip
+            ${{ matrix.make }} install-strip BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$cmake_args"
           fi
 
       - name: Create tar release files
@@ -284,18 +273,12 @@ jobs:
           if [[ -f "$deps_lib_dir/libidn2.a" ]]; then
             cp "$deps_lib_dir/libidn2.a" "$install_lib_dir/"
           fi
-          if [[ -f "$deps_lib_dir/libunistring.a" ]]; then
-            cp "$deps_lib_dir/libunistring.a" "$install_lib_dir/"
-          fi
 
           cd "$install_lib_dir"
           mv libcurl-impersonate.a libcurl-impersonate.orig.a
           lib_list="libcurl-impersonate.orig.a libz.a libzstd.a libbrotlidec.a libbrotlicommon.a libbrotlienc.a libnghttp2.a libnghttp3.a libngtcp2.a libngtcp2_crypto_boringssl.a libssl.a libcrypto.a"
           if [[ -f libidn2.a ]]; then
             lib_list="$lib_list libidn2.a"
-          fi
-          if [[ -f libunistring.a ]]; then
-            lib_list="$lib_list libunistring.a"
           fi
           if [[ "${{ runner.os }}" == "macOS" || "${{ matrix.platform }}" == "ios" ]]; then
             libtool -static -o libcurl-impersonate.a $lib_list
@@ -304,7 +287,7 @@ jobs:
             ar rcs libcurl-impersonate.a libcurl-impersonate.full.o
             rm -f libcurl-impersonate.full.o
           fi
-          rm -f libz.a libzstd.a libbrotlidec.a libbrotlicommon.a libbrotlienc.a libnghttp2.a libnghttp3.a libngtcp2.a libngtcp2_crypto_boringssl.a libssl.a libcrypto.a libidn2.a libunistring.a
+          rm -f libz.a libzstd.a libbrotlidec.a libbrotlicommon.a libbrotlienc.a libnghttp2.a libnghttp3.a libngtcp2.a libngtcp2_crypto_boringssl.a libssl.a libcrypto.a libidn2.a
           rm -f libcurl-impersonate.orig.a
           ls -lah .
           if [[ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]]; then
@@ -327,12 +310,6 @@ jobs:
           slice_dir="${{ runner.temp }}/ios-slice"
           mkdir -p "$slice_dir/lib" "$slice_dir/include/curl"
           cp "${{ github.workspace }}/build/deps/src/curl/include/curl/"*.h "$slice_dir/include/curl/"
-          curlbuild_h="$(find "${{ github.workspace }}/build/deps/build/curl" -path '*/include/curl/curlbuild.h' -print -quit)"
-          if [[ -z "$curlbuild_h" ]]; then
-            echo "Missing generated curlbuild.h in build/deps/build/curl"
-            exit 1
-          fi
-          cp "$curlbuild_h" "$slice_dir/include/curl/"
           cp ${{ runner.temp }}/install/lib/libcurl-impersonate.a "$slice_dir/lib/"
 
       - name: Upload artifacts

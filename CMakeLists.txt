@@ -128,6 +128,9 @@ endif()
 if(CMAKE_LINKER)
   list(APPEND _common_cmake_args -DCMAKE_LINKER=${CMAKE_LINKER})
 endif()
+if(ANDROID)
+  list(APPEND _common_cmake_args -DANDROID_PLATFORM_LEVEL=${CMAKE_SYSTEM_VERSION})
+endif()
 
 list(JOIN _common_cmake_args " " _common_cmake_args_str)
 
@@ -223,7 +226,7 @@ else()
   set(BORINGSSL_SSL_LIB "${DEPS_INSTALL_DIR}/lib/libssl.a")
   set(BORINGSSL_CRYPTO_LIB "${DEPS_INSTALL_DIR}/lib/libcrypto.a")
 endif()
-set(BORINGSSL_INCLUDE_DIR "${DEPS_INSTALL_DIR}/include")
+set(BORINGSSL_INCLUDE_DIR "${BORINGSSL_SRC_DIR}/include")
 
 set(_ngtcp2_boringssl_libs_arg)
 if(WIN32)
