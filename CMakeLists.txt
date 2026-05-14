@@ -25,7 +25,6 @@ set(SUBJOBS "${_nproc}" CACHE STRING "Parallel build jobs")
 # Versions and URLs
 set(BROTLI_VERSION "1.2.0")
 # Chrome 135.0.7049.41
-# In case this is changed, update build-and-test-make.yml and build-win as well
 set(BORING_SSL_COMMIT "673e61fc215b178a90c0e67858bbf162c8158993")
 # We need to pin to 1.64 or lower, since the priority flag was removed.
 # See: https://nghttp2.org/blog/2025/03/02/nghttp2-v1-65-0/

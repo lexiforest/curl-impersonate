@@ -17,7 +17,6 @@ permissions:
   contents: read
 
 env:
-  BORING_SSL_COMMIT: 673e61fc215b178a90c0e67858bbf162c8158993
   MACOSX_DEPLOYMENT_TARGET: 11.0
   API: "21"  # Targeting an very old android API version
 

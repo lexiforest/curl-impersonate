@@ -15,9 +15,6 @@ on:
 permissions:
   contents: read
 
-env:
-  BORING_SSL_COMMIT: 673e61fc215b178a90c0e67858bbf162c8158993
-
 jobs:
   test-linux:
     name: (x86_64-linux-gnu) Build and run tests
