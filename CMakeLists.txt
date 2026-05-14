@@ -300,21 +300,13 @@ ExternalProject_Add(ngtcp2
 # libidn2
 if(USE_LIBIDN2)
   set(_libidn2_archive "${DEPS_INSTALL_DIR}/lib/libidn2.a")
-  set(_libunistring_archive "${DEPS_INSTALL_DIR}/lib/libunistring.a")
-  set(_libunistring_la "${DEPS_INSTALL_DIR}/lib/libunistring.la")
-  if(NOT EXISTS "${_libidn2_archive}"
-      OR NOT EXISTS "${_libunistring_archive}"
-      OR NOT EXISTS "${_libunistring_la}")
+  if(NOT EXISTS "${_libidn2_archive}")
     message(FATAL_ERROR
-      "USE_LIBIDN2 requires prebuilt libidn2/libunistring in ${DEPS_INSTALL_DIR}. "
+      "USE_LIBIDN2 requires prebuilt libidn2 in ${DEPS_INSTALL_DIR}. "
       "Run `make prepare-libidn2` before configuring CMake, or use "
       "`make configure` so the Autotools IDN preparation runs first.")
   endif()
-  add_custom_target(libunistring
-    COMMAND ${CMAKE_COMMAND} -E echo "Using prebuilt libunistring from ${DEPS_INSTALL_DIR}"
-  )
   add_custom_target(libidn2
-    DEPENDS libunistring
     COMMAND ${CMAKE_COMMAND} -E echo "Using prebuilt libidn2 from ${DEPS_INSTALL_DIR}"
   )
 endif()
@@ -423,11 +415,10 @@ endif()
 
 set(_curl_idn_path_flags)
 if(USE_LIBIDN2 AND NOT WIN32)
-  # Static libidn2 depends on libunistring. Some pkg-config/CMake paths do not
-  # propagate this transitive archive when linking static curl.
+  # The prebuild makes libidn2 self-contained with its included libunistring.
   list(APPEND _curl_idn_path_flags
     "-DLIBIDN2_INCLUDE_DIR=${DEPS_INSTALL_DIR}/include"
-    "-DLIBIDN2_LIBRARY=${DEPS_INSTALL_DIR}/lib/libidn2.a|${DEPS_INSTALL_DIR}/lib/libunistring.a"
+    "-DLIBIDN2_LIBRARY=${DEPS_INSTALL_DIR}/lib/libidn2.a"
   )
 endif()
 

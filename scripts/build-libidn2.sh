@@ -60,24 +60,8 @@ fi
 
 mkdir -p "$downloads_dir" "$src_dir" "$build_deps_dir" "$install_dir"
 
-if [ ! -f "$install_dir/lib/libunistring.a" ]; then
-  archive="$downloads_dir/libunistring-$libunistring_version.tar.gz"
-  [ -f "$archive" ] || curl -L "$libunistring_url" -o "$archive"
-  rm -rf "$src_dir/libunistring" "$build_deps_dir/libunistring"
-  mkdir -p "$src_dir/libunistring" "$build_deps_dir/libunistring"
-  tar -xf "$archive" -C "$src_dir/libunistring" --strip-components=1
-  cd "$build_deps_dir/libunistring"
-  "$src_dir/libunistring/configure" \
-    --prefix="$install_dir" \
-    --disable-shared \
-    --enable-static \
-    --with-pic \
-    $host_arg
-  "$make_cmd" MAKEFLAGS="$make_jobs"
-  "$make_cmd" install MAKEFLAGS=
-fi
-
-if [ ! -f "$install_dir/lib/libidn2.a" ]; then
+included_unistring_marker="$install_dir/.libidn2-included-unistring"
+if [ ! -f "$install_dir/lib/libidn2.a" ] || [ ! -f "$included_unistring_marker" ]; then
   archive="$downloads_dir/libidn2-$libidn2_version.tar.gz"
   [ -f "$archive" ] || curl -L "$libidn2_url" -o "$archive"
   rm -rf "$src_dir/libidn2" "$build_deps_dir/libidn2"
@@ -91,7 +75,9 @@ if [ ! -f "$install_dir/lib/libidn2.a" ]; then
       --enable-static \
       --with-pic \
       --disable-nls \
+      --with-included-libunistring \
       $host_arg
   "$make_cmd" MAKEFLAGS="$make_jobs"
   "$make_cmd" install MAKEFLAGS=
+  touch "$included_unistring_marker"
 fi
