@@ -384,6 +384,11 @@ if(WIN32)
   string(APPEND _curl_platform_c_flags " /DNGHTTP2_STATICLIB=1 /DNGTCP2_STATICLIB=1 /DNGHTTP3_STATICLIB=1 /Dstrtok_r=strtok_s")
   list(APPEND _curl_platform_flags "-DCMAKE_C_FLAGS=${_curl_platform_c_flags}")
   list(APPEND _curl_platform_flags -DENABLE_UNICODE=ON)
+  if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+    list(APPEND _curl_platform_flags "-Dssize_t=__int64")
+  else()
+    list(APPEND _curl_platform_flags "-Dssize_t=long")
+  endif()
 endif()
 if(CMAKE_MSVC_RUNTIME_LIBRARY)
   list(APPEND _curl_platform_flags "-DCMAKE_MSVC_RUNTIME_LIBRARY=${CMAKE_MSVC_RUNTIME_LIBRARY}")
@@ -421,9 +426,8 @@ if(USE_LIBIDN2 AND NOT WIN32)
   # Static libidn2 depends on libunistring. Some pkg-config/CMake paths do not
   # propagate this transitive archive when linking static curl.
   list(APPEND _curl_idn_path_flags
-    "-DLIBIDN2_INCLUDE_DIRS=${DEPS_INSTALL_DIR}/include"
-    "-DLIBIDN2_LIBRARY=${DEPS_INSTALL_DIR}/lib/libidn2.a"
-    "-DLIBIDN2_LIBRARIES=${DEPS_INSTALL_DIR}/lib/libidn2.a|${DEPS_INSTALL_DIR}/lib/libunistring.a"
+    "-DLIBIDN2_INCLUDE_DIR=${DEPS_INSTALL_DIR}/include"
+    "-DLIBIDN2_LIBRARY=${DEPS_INSTALL_DIR}/lib/libidn2.a|${DEPS_INSTALL_DIR}/lib/libunistring.a"
   )
 endif()
 
