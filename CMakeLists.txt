@@ -547,6 +547,8 @@ add_custom_target(install-all
 # Do not call curl's own install target, which also installs docs/manpages.
 if(WIN32)
   install(PROGRAMS "${DEPS_BUILD_DIR}/curl/src/curl-impersonate.exe" DESTINATION ${CMAKE_INSTALL_BINDIR})
+elseif(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+  install(PROGRAMS "${DEPS_BUILD_DIR}/curl/src/curl-impersonate.app/curl-impersonate" DESTINATION ${CMAKE_INSTALL_BINDIR})
 else()
   install(PROGRAMS "${DEPS_BUILD_DIR}/curl/src/curl-impersonate" DESTINATION ${CMAKE_INSTALL_BINDIR})
 endif()
