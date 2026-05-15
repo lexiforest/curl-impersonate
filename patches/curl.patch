@@ -76,7 +76,7 @@ index 0000000000..bdf93cdbc0
 +- Implement in `tool_operate.c`, note the difference between my_setopt and my_setopt_str
 +- Add the option in `config2setopts.c`
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index c0cc0c57b8..45ab13b124 100644
+index c0cc0c57b8..e147f1a262 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -174,7 +174,7 @@ else()
@@ -88,12 +88,14 @@ index c0cc0c57b8..45ab13b124 100644
  
  set_property(DIRECTORY APPEND PROPERTY INCLUDE_DIRECTORIES "${PROJECT_SOURCE_DIR}/include")
  
-@@ -775,8 +775,13 @@ if(CURL_USE_OPENSSL)
+@@ -774,9 +774,14 @@ if(CURL_USE_OPENSSL)
+   cmake_pop_check_state()
  
    if(HAVE_BORINGSSL OR HAVE_AWSLC)
-     if(OPENSSL_USE_STATIC_LIBS AND CMAKE_C_COMPILER_ID MATCHES "Clang")
+-    if(OPENSSL_USE_STATIC_LIBS AND CMAKE_C_COMPILER_ID MATCHES "Clang")
 -      list(APPEND CURL_LIBS "stdc++")
 -      list(APPEND CMAKE_REQUIRED_LIBRARIES "stdc++")
++    if(OPENSSL_USE_STATIC_LIBS AND CMAKE_C_COMPILER_ID MATCHES "Clang" AND NOT MSVC)
 +      if(APPLE OR BSD OR ANDROID)
 +        set(_cxx_runtime_lib "c++")
 +      else()
