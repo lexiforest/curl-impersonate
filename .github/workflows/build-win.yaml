@@ -60,17 +60,26 @@ jobs:
         shell: cmd
         run: ./win/build.bat ${{ matrix.sys }}
 
-      - name: Build tarball
+      - name: Build tarballs
         shell: bash
         run: |
+          set -euo pipefail
+          suffix="${{ matrix.env }}-win32"
           if [[ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]]; then
-            tar cvzf libcurl-impersonate-${{ github.head_ref || github.ref_name }}.${{ matrix.env }}-win32.tar.gz -C ./packages .
+            ver="${{ github.head_ref || github.ref_name }}"
+            curl_tar="curl-impersonate-${ver}.${suffix}.tar.gz"
+            lib_tar="libcurl-impersonate-${ver}.${suffix}.tar.gz"
           else
-            tar cvzf libcurl-impersonate-${{ matrix.env }}-win32.tar.gz -C ./packages .
+            curl_tar="curl-impersonate-${suffix}.tar.gz"
+            lib_tar="libcurl-impersonate-${suffix}.tar.gz"
           fi
+          tar -czf "$curl_tar" -C packages/bin .
+          tar -czf "$lib_tar"  -C packages/lib .
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: artifacts.windows.${{ matrix.env }}
-          path: ./libcurl-impersonate*.tar.gz
+          path: |
+            ./curl-impersonate*.tar.gz
+            ./libcurl-impersonate*.tar.gz
