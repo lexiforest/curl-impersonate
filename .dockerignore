@@ -1,0 +1,5 @@
+build/
+**/__pycache__
+config.log
+config.status
+.DS_Store

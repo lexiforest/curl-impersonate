@@ -1,0 +1,29 @@
+set(_install_manifests
+  "@CMAKE_BINARY_DIR@/install_manifest.txt"
+  "@CMAKE_BINARY_DIR@/deps/build/curl/install_manifest.txt"
+)
+
+set(_removed_count 0)
+foreach(_manifest IN LISTS _install_manifests)
+  if(NOT EXISTS "${_manifest}")
+    message(STATUS "Skipping missing uninstall manifest: ${_manifest}")
+    continue()
+  endif()
+
+  file(STRINGS "${_manifest}" _files)
+  foreach(_file IN LISTS _files)
+    if(EXISTS "${_file}" OR IS_SYMLINK "${_file}")
+      message(STATUS "Removing ${_file}")
+      file(REMOVE "${_file}")
+      math(EXPR _removed_count "${_removed_count}+1")
+    endif()
+  endforeach()
+
+  file(REMOVE "${_manifest}")
+endforeach()
+
+if(_removed_count EQUAL 0)
+  message(STATUS "Nothing to uninstall.")
+else()
+  message(STATUS "Uninstalled ${_removed_count} file(s).")
+endif()

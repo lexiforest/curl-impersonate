@@ -17,9 +17,8 @@ permissions:
   contents: read
 
 env:
-  BORING_SSL_COMMIT: 673e61fc215b178a90c0e67858bbf162c8158993
   MACOSX_DEPLOYMENT_TARGET: 11.0
-  API: "21" # Targeting an very old android API version
+  API: "21"  # Targeting an very old android API version
 
 jobs:
   build:
@@ -169,9 +168,9 @@ jobs:
           echo "CC=$TOOLCHAIN/bin/${TARGET}${API}-clang" >> $GITHUB_ENV
           echo "AS=$TOOLCHAIN/bin/${TARGET}${API}-clang" >> $GITHUB_ENV
           echo "CXX=$TOOLCHAIN/bin/${TARGET}${API}-clang++" >> $GITHUB_ENV
-          echo "LD=$TOOLCHAIN/bin/ld" >> $GITHUB_ENV
           echo "RANLIB=$TOOLCHAIN/bin/llvm-ranlib" >> $GITHUB_ENV
           echo "STRIP=$TOOLCHAIN/bin/llvm-strip" >> $GITHUB_ENV
+          echo "ANDROID_NDK_HOME=$NDK" >> $GITHUB_ENV
           echo "CFLAGS=-fPIC" >> $GITHUB_ENV
           echo "CXXFLAGS=-fPIC" >> $GITHUB_ENV
 
@@ -204,75 +203,91 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install build-essential pkg-config cmake ninja-build curl autoconf automake libtool
+          sudo apt-get install build-essential pkg-config cmake ninja-build curl autoconf automake libtool gperf
           sudo apt-get install gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf gcc-riscv64-linux-gnu gcc-14-loongarch64-linux-gnu
           sudo apt-get install golang-go
 
       - name: Install macOS dependencies
         if: runner.os == 'macOS'
         run: |
-          brew install pkg-config make cmake ninja autoconf automake libtool gpatch
+          brew install pkg-config make cmake ninja autoconf automake libtool gpatch gperf
           # Chrome version dependencies, install only not installed.
           which go || brew install go
           # Dependencies for the tests
           brew install tcpdump curl nghttp2
 
-      - name: Build release artifacts
+      - name: Build
         run: |
           set -e
           install_dir="${{ runner.temp }}/install"
           mkdir -p "$install_dir"
 
-          configure_args=(--prefix="$install_dir")
-          if [[ "${{ matrix.platform }}" == "ios" ]]; then
-            configure_args+=(--host=${{ matrix.host }})
-          elif [[ "${{ runner.os }}" == "Linux" ]]; then
-            configure_args+=(--host=${{ matrix.host }})
-            configure_args+=(--with-ca-path=/etc/ssl/certs)
-            configure_args+=(--with-ca-bundle=/etc/ssl/certs/ca-certificates.crt)
+          cmake_args="-G Ninja -DCMAKE_INSTALL_PREFIX=$install_dir"
+          if [[ "${{ matrix.platform }}" == "linux" ]]; then
+            cmake_args="$cmake_args -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=${{ matrix.arch }}"
+            cmake_args="$cmake_args -DCURL_CA_PATH=/etc/ssl/certs -DCURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt"
+          elif [[ "${{ matrix.platform }}" == "android" ]]; then
+            case "${{ matrix.arch }}" in
+              aarch64) android_abi="arm64-v8a" ;;
+              x86_64) android_abi="x86_64" ;;
+              *) echo "Unsupported Android arch: ${{ matrix.arch }}"; exit 1 ;;
+            esac
+            cmake_args="$cmake_args -DCMAKE_SYSTEM_NAME=Android"
+            cmake_args="$cmake_args -DCMAKE_ANDROID_NDK=${ANDROID_NDK_HOME} -DCMAKE_ANDROID_ARCH_ABI=$android_abi -DCMAKE_SYSTEM_VERSION=${API}"
+          elif [[ "${{ matrix.platform }}" == "ios" ]]; then
+            cmake_args="$cmake_args -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_SYSTEM_PROCESSOR=${{ matrix.arch }} -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch }}"
+            cmake_args="$cmake_args -DCMAKE_OSX_SYSROOT=${SDKROOT} -DCMAKE_OSX_DEPLOYMENT_TARGET=${IOS_MIN_VERSION}"
           fi
 
-          if [[ "${{ matrix.platform }}" != "ios" ]]; then
-            ./configure "${configure_args[@]}"
-            ${{ matrix.make }} build
-            if [[ "${{ matrix.platform }}" != "android" ]]; then
-              ${{ matrix.make }} checkbuild
+          if [[ "${{ matrix.platform }}" == "linux" ]]; then
+            ${{ matrix.make }} prepare-libidn2 BUILD_DIR=build
+          fi
+          ${{ matrix.make }} configure BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$cmake_args"
+          ${{ matrix.make }} build BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$cmake_args"
+          if [[ "${{ matrix.platform }}" == "linux" || "${{ matrix.platform }}" == "macos" ]]; then
+            ${{ matrix.make }} checkbuild BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$cmake_args"
+          elif [[ "${{ matrix.platform }}" == "ios" ]]; then
+            if [[ ! -f build/deps/build/curl/src/curl-impersonate.app/curl-impersonate ]]; then
+              echo "Missing iOS curl-impersonate artifact: build/deps/build/curl/src/curl-impersonate.app/curl-impersonate" >&2
+              find build/deps/build/curl -maxdepth 3 -type f -name 'curl*' -print >&2
+              exit 1
             fi
-            ${{ matrix.make }} install
-          fi
-
-          # Reconfigure for the static CLI/archive build while preserving the
-          # shared-library install from the first pass.
-          ./configure "${configure_args[@]}" --enable-static
-          rm -f curl-*/.chrome
-          ${{ matrix.make }} build
-          if [[ "${{ matrix.platform }}" != "android" ]]; then
-            ${{ matrix.make }} checkbuild
+            echo "Built iOS curl-impersonate artifact: ${{ matrix.host_label }}"
+          else
+            echo "Skipping checkbuild for non-native target: ${{ matrix.host_label }}"
           fi
           if [[ "${{ runner.os }}" == "Linux" && "${{ endsWith(matrix.host, 'musl') }}" == "true" ]]; then
-            ${{ matrix.make }} install
+            ${{ matrix.make }} install BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$cmake_args"
           else
-            ${{ matrix.make }} install-strip
+            ${{ matrix.make }} install-strip BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$cmake_args"
           fi
 
       - name: Create tar release files
         run: |
-          cp zlib-*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
-          cp zstd-*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
-          cp nghttp2*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
-          cp nghttp3*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
-          cp ngtcp2*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
-          cp brotli*/out/installed/lib/lib*.a ${{ runner.temp }}/install/lib
-          cp boringssl*/lib/lib*.a ${{ runner.temp }}/install/lib
-          if [[ "${{ matrix.platform }}" == "linux" ]]; then
-            cp libidn2*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
-            cp libunistring*/installed/lib/lib*.a ${{ runner.temp }}/install/lib
+          set -e
+          install_dir="${{ runner.temp }}/install"
+          install_lib_dir="$install_dir/lib"
+          deps_lib_dir="${{ github.workspace }}/build/deps/install/lib"
+
+          cp "$deps_lib_dir/libz.a" "$install_lib_dir/"
+          cp "$deps_lib_dir/libzstd.a" "$install_lib_dir/"
+          cp "$deps_lib_dir/libbrotlidec.a" "$install_lib_dir/"
+          cp "$deps_lib_dir/libbrotlicommon.a" "$install_lib_dir/"
+          cp "$deps_lib_dir/libbrotlienc.a" "$install_lib_dir/"
+          cp "$deps_lib_dir/libnghttp2.a" "$install_lib_dir/"
+          cp "$deps_lib_dir/libnghttp3.a" "$install_lib_dir/"
+          cp "$deps_lib_dir/libngtcp2.a" "$install_lib_dir/"
+          cp "$deps_lib_dir/libngtcp2_crypto_boringssl.a" "$install_lib_dir/"
+          cp "$deps_lib_dir/libssl.a" "$install_lib_dir/"
+          cp "$deps_lib_dir/libcrypto.a" "$install_lib_dir/"
+          if [[ -f "$deps_lib_dir/libidn2.a" ]]; then
+            cp "$deps_lib_dir/libidn2.a" "$install_lib_dir/"
           fi
 
-          cd ${{ runner.temp }}/install/lib
+          cd "$install_lib_dir"
           mv libcurl-impersonate.a libcurl-impersonate.orig.a
           lib_list="libcurl-impersonate.orig.a libz.a libzstd.a libbrotlidec.a libbrotlicommon.a libbrotlienc.a libnghttp2.a libnghttp3.a libngtcp2.a libngtcp2_crypto_boringssl.a libssl.a libcrypto.a"
-          if [[ "${{ matrix.platform }}" == "linux" ]]; then
+          if [[ -f libidn2.a ]]; then
             lib_list="$lib_list libidn2.a"
           fi
           if [[ "${{ runner.os }}" == "macOS" || "${{ matrix.platform }}" == "ios" ]]; then
@@ -282,10 +297,7 @@ jobs:
             ar rcs libcurl-impersonate.a libcurl-impersonate.full.o
             rm -f libcurl-impersonate.full.o
           fi
-          rm -f libz.a libzstd.a libbrotlidec.a libbrotlicommon.a libbrotlienc.a libnghttp2.a libnghttp3.a libngtcp2.a libngtcp2_crypto_boringssl.a libssl.a libcrypto.a
-          if [[ "${{ matrix.platform }}" == "linux" ]]; then
-            rm -f libidn2.a libunistring.a
-          fi
+          rm -f libz.a libzstd.a libbrotlidec.a libbrotlicommon.a libbrotlienc.a libnghttp2.a libnghttp3.a libngtcp2.a libngtcp2_crypto_boringssl.a libssl.a libcrypto.a libidn2.a
           rm -f libcurl-impersonate.orig.a
           ls -lah .
           if [[ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]]; then
@@ -293,8 +305,9 @@ jobs:
           else
             tar -c -z -f ${{ runner.temp }}/libcurl-impersonate.${{ matrix.host_label }}.tar.gz lib*
           fi
+          echo "release_file_lib=${{ runner.temp }}/libcurl-impersonate-${{ github.ref_name }}.${{ matrix.host_label }}.tar.gz" >> $GITHUB_ENV
 
-          cd ${{ runner.temp }}/install/bin
+          cd "$install_dir/bin"
           if [[ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]]; then
             tar -c -z -f ${{ runner.temp }}/curl-impersonate-${{ github.ref_name }}.${{ matrix.host_label }}.tar.gz curl-impersonate curl_*
           else
@@ -305,8 +318,8 @@ jobs:
         if: matrix.platform == 'ios'
         run: |
           slice_dir="${{ runner.temp }}/ios-slice"
-          mkdir -p "$slice_dir/lib"
-          cp -R ${{ runner.temp }}/install/include "$slice_dir/"
+          mkdir -p "$slice_dir/lib" "$slice_dir/include/curl"
+          cp "${{ github.workspace }}/build/deps/src/curl/include/curl/"*.h "$slice_dir/include/curl/"
           cp ${{ runner.temp }}/install/lib/libcurl-impersonate.a "$slice_dir/lib/"
 
       - name: Upload artifacts
