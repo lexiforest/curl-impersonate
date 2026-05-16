@@ -8936,10 +8936,462 @@ index 662539cd89..29f545c69e 100644
      r = cf_ssl_peer_key_add_path(&buf, "CA", ssl->CAfile, &is_local);
      if(r)
 diff --git a/lib/ws.c b/lib/ws.c
-index 7f8a688ca1..ab34231bcc 100644
+index 7f8a688ca1..42d45dab9b 100644
 --- a/lib/ws.c
 +++ b/lib/ws.c
-@@ -1587,7 +1587,7 @@ const struct Curl_handler Curl_handler_wss = {
+@@ -26,6 +26,24 @@
+ 
+ #if !defined(CURL_DISABLE_WEBSOCKETS) && !defined(CURL_DISABLE_HTTP)
+ 
++#include <stdint.h>
++
++/*
++ * Include architecture-specific SIMD intrinsics and CPUID headers.
++ * MSVC requires <intrin.h>, while GCC/Clang uses <cpuid.h>.
++ */
++#if defined(__x86_64__) || defined(_M_X64) || \
++    defined(__i386__) || defined(_M_IX86)
++#  include <immintrin.h>
++#  if defined(_MSC_VER)
++#    include <intrin.h>
++#  else
++#    include <cpuid.h>
++#  endif
++#elif defined(__aarch64__) || defined(_M_ARM64) || defined(__ARM_NEON)
++#  include <arm_neon.h>
++#endif
++
+ #include "urldata.h"
+ #include "url.h"
+ #include "bufq.h"
+@@ -74,8 +92,232 @@
+ #define WSBIT_MASK 0x80
+ 
+ /* buffer dimensioning */
+-#define WS_CHUNK_SIZE 65535
+-#define WS_CHUNK_COUNT 2
++#define WS_CHUNK_SIZE 131072
++#define WS_CHUNK_COUNT 4
++
++#ifndef WS_ENC_XBUF_SIZE
++#define WS_ENC_XBUF_SIZE 8192
++#endif
++
++/* Feature Bitmask Constants */
++#define WS_CPU_FEAT_INIT    (1 << 0)
++#define WS_CPU_FEAT_AVX2    (1 << 1)
++#define WS_CPU_FEAT_AVX512  (1 << 2)
++
++/* Determine endianness reliably across compilers and OSes. */
++#if (defined(__BYTE_ORDER__) && \
++      (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)) || \
++    defined(_WIN32) || defined(_WIN64) || defined(__LITTLE_ENDIAN__) || \
++    defined(__ARMEL__) || defined(__AARCH64EL__) || \
++    defined(_M_IX86) || defined(_M_X64) || \
++    defined(_M_ARM) || defined(_M_ARM64)
++#  define WS_IS_LITTLE_ENDIAN 1
++#else
++#  define WS_IS_LITTLE_ENDIAN 0
++#endif
++
++/* Identify 64-bit architectures for the fallback path */
++#if defined(__x86_64__) || defined(_M_X64) || \
++    defined(__aarch64__) || defined(_M_ARM64)
++#  define WS_64BIT_NATIVE 1
++#else
++#  define WS_64BIT_NATIVE 0
++#endif
++
++#if WS_IS_LITTLE_ENDIAN
++
++/* SIMD Configuration */
++#if defined(__x86_64__) || defined(_M_X64) || \
++    defined(__i386__) || defined(_M_IX86)
++#  define WS_HAVE_X86_SIMD 1
++#  if defined(__GNUC__) || defined(__clang__)
++#    if defined(__has_attribute)
++#      if __has_attribute(target)
++#        define WS_TARGET_AVX2   __attribute__((target("avx2")))
++#        if defined(__clang__) && \
++            ((defined(__apple_build_version__) && __clang_major__ >= 16) || \
++             (!defined(__apple_build_version__) && __clang_major__ >= 18))
++#          define WS_TARGET_AVX512 __attribute__((target("avx512f,evex512")))
++#        else
++#          define WS_TARGET_AVX512 __attribute__((target("avx512f")))
++#        endif
++#        define WS_SUPPORT_AVX_RUNTIME 1
++#      else
++#        define WS_TARGET_AVX2
++#        define WS_TARGET_AVX512
++#      endif
++#    else
++#      define WS_TARGET_AVX2
++#      define WS_TARGET_AVX512
++#    endif
++#  else
++#    define WS_TARGET_AVX2
++#    define WS_TARGET_AVX512
++#  endif
++
++#  if defined(_MSC_VER)
++#    define WS_ATOMIC_LOAD(var) \
++       (uint32_t)_InterlockedOr((volatile long*)&(var), 0)
++#    define WS_ATOMIC_STORE(var, val) \
++       _InterlockedExchange((volatile long*)&(var), (long)(val))
++#  else
++#    define WS_ATOMIC_LOAD(var) \
++       __atomic_load_n(&(var), __ATOMIC_RELAXED)
++#    define WS_ATOMIC_STORE(var, val) \
++       __atomic_store_n(&(var), (val), __ATOMIC_RELAXED)
++#  endif
++#endif
++
++/* ARM SIMD Configuration */
++#if defined(__aarch64__) || defined(_M_ARM64) || defined(__ARM_NEON)
++#  define WS_HAVE_ARM_SIMD 1
++#endif
++
++#if defined(WS_HAVE_X86_SIMD)
++
++/* AVX-512 Path: 128 bytes per iteration (2x unrolled) */
++#if defined(WS_SUPPORT_AVX_RUNTIME) || defined(__AVX512F__)
++WS_TARGET_AVX512
++static size_t ws_xor_avx512(const unsigned char *src, unsigned char *dst,
++                            size_t len, uint32_t m32)
++{
++  size_t j = 0;
++  __m512i vmask = _mm512_set1_epi32((int)m32);
++  for(; j + 128 <= len; j += 128) {
++    __m512i v0 = _mm512_loadu_si512((const __m512i *)(const void *)
++                                    (src + j));
++    __m512i v1 = _mm512_loadu_si512((const __m512i *)(const void *)
++                                    (src + j + 64));
++    _mm512_storeu_si512((__m512i *)(void *)(dst + j),
++                        _mm512_xor_si512(v0, vmask));
++    _mm512_storeu_si512((__m512i *)(void *)(dst + j + 64),
++                        _mm512_xor_si512(v1, vmask));
++  }
++  return j;
++}
++#endif
++
++/* AVX2 Path: 64 bytes per iteration (2x unrolled) */
++#if defined(WS_SUPPORT_AVX_RUNTIME) || defined(__AVX2__)
++WS_TARGET_AVX2
++static size_t ws_xor_avx2(const unsigned char *src, unsigned char *dst,
++                          size_t len, uint32_t m32)
++{
++  size_t j = 0;
++  __m256i vmask = _mm256_set1_epi32((int)m32);
++  for(; j + 64 <= len; j += 64) {
++    __m256i v0 = _mm256_loadu_si256((const __m256i *)(const void *)(src + j));
++    __m256i v1 = _mm256_loadu_si256((const __m256i *)(const void *)
++                                    (src + j + 32));
++    _mm256_storeu_si256((__m256i *)(void *)(dst + j),
++                        _mm256_xor_si256(v0, vmask));
++    _mm256_storeu_si256((__m256i *)(void *)(dst + j + 32),
++                        _mm256_xor_si256(v1, vmask));
++  }
++  return j;
++}
++#endif
++
++/*
++ * Dynamically check for hardware SIMD support at runtime.
++ * We must check both the CPU hardware bits AND the OS capability bits.
++ */
++static uint32_t ws_get_cpu_features(void)
++{
++  uint32_t features = WS_CPU_FEAT_INIT;
++
++#if defined(_MSC_VER)
++  int cpuinfo[4];
++  int max_leaf;
++  unsigned long long xcr0;
++
++  /* Check max CPUID leaf */
++  __cpuid(cpuinfo, 0);
++  max_leaf = cpuinfo[0];
++  if(max_leaf < 1)
++    return features;
++
++  __cpuidex(cpuinfo, 1, 0);
++  /* Check XSAVE (26), OSXSAVE (27), and AVX (28) */
++  if((cpuinfo[2] & ((1 << 26) | (1 << 27) | (1 << 28))) !=
++                   ((1 << 26) | (1 << 27) | (1 << 28)))
++    return features;
++
++  xcr0 = _xgetbv(0);
++  if((xcr0 & 0x06) != 0x06)
++    return features;
++
++  /* Check extended CPU features */
++  if(max_leaf >= 7) {
++    __cpuidex(cpuinfo, 7, 0);
++    if(cpuinfo[1] & (1 << 5))
++      features |= WS_CPU_FEAT_AVX2;
++
++    if((xcr0 & 0xe6) == 0xe6) {
++      if(cpuinfo[1] & (1 << 16))
++        features |= WS_CPU_FEAT_AVX512;
++    }
++  }
++#elif defined(__GNUC__) || defined(__clang__)
++  unsigned int eax = 0, ebx = 0, ecx = 0, edx = 0;
++  unsigned int max_leaf;
++  uint32_t xcr0_eax, xcr0_edx;
++
++  /* Check max CPUID leaf */
++  max_leaf = __get_cpuid_max(0, NULL);
++  if(max_leaf < 1)
++    return features;
++
++  if(!__get_cpuid(1, &eax, &ebx, &ecx, &edx))
++    return features;
++
++  /* Check XSAVE (26), OSXSAVE (27), and AVX (28) */
++  if((ecx & ((1 << 26) | (1 << 27) | (1 << 28))) !=
++            ((1 << 26) | (1 << 27) | (1 << 28)))
++    return features;
++
++  __asm__ volatile("xgetbv" : "=a"(xcr0_eax), "=d"(xcr0_edx) : "c"(0));
++
++  if((xcr0_eax & 0x06) != 0x06)
++    return features;
++
++  /* Check extended CPU features */
++  if(max_leaf >= 7) {
++    __cpuid_count(7, 0, eax, ebx, ecx, edx);
++    if(ebx & (1 << 5))
++      features |= WS_CPU_FEAT_AVX2;
++
++    if((xcr0_eax & 0xe6) == 0xe6) {
++      if(ebx & (1 << 16))
++        features |= WS_CPU_FEAT_AVX512;
++    }
++  }
++#endif
++
++  return features;
++}
++#endif
++
++#if defined(WS_HAVE_ARM_SIMD)
++/* NEON Path: 32 bytes per iteration (2x unrolled) */
++static size_t ws_xor_neon(const unsigned char *src, unsigned char *dst,
++                          size_t len, uint32_t m32)
++{
++  size_t j = 0;
++  uint32x4_t vmask = vdupq_n_u32(m32);
++  for(; j + 32 <= len; j += 32) {
++    uint8x16_t v0 = vld1q_u8(src + j);
++    uint8x16_t v1 = vld1q_u8(src + j + 16);
++    v0 = veorq_u8(v0, vreinterpretq_u8_u32(vmask));
++    v1 = veorq_u8(v1, vreinterpretq_u8_u32(vmask));
++    vst1q_u8(dst + j, v0);
++    vst1q_u8(dst + j + 16, v1);
++  }
++  return j;
++}
++#endif
++
++#endif
+ 
+ 
+ /* a client-side WS frame decoder, parsing frame headers and
+@@ -106,6 +348,7 @@ struct ws_encoder {
+   unsigned char mask[4]; /* 32-bit mask for this connection */
+   unsigned char firstbyte; /* first byte of frame we encode */
+   BIT(contfragment); /* set TRUE if the previous fragment sent was not final */
++  unsigned char xbuf[WS_ENC_XBUF_SIZE]; /* 8KB heap buffer for XOR masking */
+ };
+ 
+ /* A websocket connection with en- and decoder that treat frames
+@@ -682,9 +925,10 @@ static CURLcode ws_cw_write(struct Curl_easy *data,
+     }
+   }
+ 
+-  if((type & CLIENTWRITE_EOS) && !Curl_bufq_is_empty(&ctx->buf)) {
+-    failf(data, "[WS] decode ending with %zd frame bytes remaining",
+-          Curl_bufq_len(&ctx->buf));
++  if((type & CLIENTWRITE_EOS) &&
++     (!Curl_bufq_is_empty(&ctx->buf) || ws->dec.state != WS_DEC_INIT)) {
++    failf(data, "[WS] decode ending with %zd bytes remaining and "
++          "incomplete frame", Curl_bufq_len(&ctx->buf));
+     return CURLE_RECV_ERROR;
+   }
+ 
+@@ -853,29 +1097,121 @@ static ssize_t ws_enc_write_payload(struct ws_encoder *enc,
+                                     const unsigned char *buf, size_t buflen,
+                                     struct bufq *out, CURLcode *err)
+ {
+-  size_t i, len, n;
++  size_t i = 0, len, n, chunk, j, xbuf_i;
++  unsigned char *xbuf = enc->xbuf;
++#if defined(WS_HAVE_X86_SIMD) && WS_IS_LITTLE_ENDIAN
++  static uint32_t cpu_feats = 0;
++  uint32_t f;
++#endif
+ 
+-  if(Curl_bufq_is_full(out)) {
+-    *err = CURLE_AGAIN;
+-    return -1;
++  /* Defensive check for finished payloads */
++  if(enc->payload_remain <= 0) {
++    *err = CURLE_OK;
++    ws_enc_info(enc, data, "buffered");
++    return 0;
+   }
+ 
+-  /* not the most performant way to do this */
+   len = buflen;
+   if((curl_off_t)len > enc->payload_remain)
+     len = (size_t)enc->payload_remain;
+ 
+-  for(i = 0; i < len; ++i) {
+-    unsigned char c = buf[i] ^ enc->mask[enc->xori];
+-    *err = Curl_bufq_write(out, &c, 1, &n);
+-    if(*err) {
+-      if((*err != CURLE_AGAIN) || !i)
+-        return -1;
+-      break;
++#if defined(WS_HAVE_X86_SIMD) && WS_IS_LITTLE_ENDIAN
++  /* Evaluation of process-global CPU feature cache */
++  f = WS_ATOMIC_LOAD(cpu_feats);
++  if(!(f & WS_CPU_FEAT_INIT)) {
++    f = ws_get_cpu_features();
++    WS_ATOMIC_STORE(cpu_feats, f);
++  }
++  (void)f;
++#endif
++
++  while(i < len) {
++    unsigned char m[4];
++#if WS_IS_LITTLE_ENDIAN
++    uint32_t m32;
++#endif
++
++    /* Setup the 4-byte mask rotated to the current frame offset */
++    m[0] = enc->mask[enc->xori];
++    m[1] = enc->mask[(enc->xori + 1) & 3];
++    m[2] = enc->mask[(enc->xori + 2) & 3];
++    m[3] = enc->mask[(enc->xori + 3) & 3];
++
++    chunk = len - i;
++    if(chunk > WS_ENC_XBUF_SIZE)
++      chunk = WS_ENC_XBUF_SIZE;
++
++    j = 0;
++
++#if WS_IS_LITTLE_ENDIAN
++    memcpy(&m32, m, 4);
++
++    /* SIMD Ladder (128, 64, or 32 bytes per iteration) */
++#if defined(WS_HAVE_X86_SIMD)
++#  if defined(WS_SUPPORT_AVX_RUNTIME) || defined(__AVX512F__)
++    if(f & WS_CPU_FEAT_AVX512)
++      j = ws_xor_avx512(buf + i, xbuf, chunk, m32);
++#  endif
++#  if defined(WS_SUPPORT_AVX_RUNTIME) || defined(__AVX2__)
++    if(!j && (f & WS_CPU_FEAT_AVX2))
++      j = ws_xor_avx2(buf + i, xbuf, chunk, m32);
++#  endif
++#elif defined(WS_HAVE_ARM_SIMD)
++    j = ws_xor_neon(buf + i, xbuf, chunk, m32);
++#endif
++
++    /* Scalar Ladder (8 or 4 bytes per iteration) */
++#if WS_64BIT_NATIVE
++    {
++      uint64_t m64 = ((uint64_t)m32 << 32) | m32;
++      for(; j + 8 <= chunk; j += 8) {
++        uint64_t d64;
++        memcpy(&d64, buf + i + j, 8);
++        d64 ^= m64;
++        memcpy(xbuf + j, &d64, 8);
++      }
++    }
++#endif
++    for(; j + 4 <= chunk; j += 4) {
++      uint32_t d32;
++      memcpy(&d32, buf + i + j, 4);
++      d32 ^= m32;
++      memcpy(xbuf + j, &d32, 4);
++    }
++#endif /* WS_IS_LITTLE_ENDIAN */
++
++    /* Final Remainder (1 byte per iteration) */
++    for(; j < chunk; ++j)
++      xbuf[j] = buf[i + j] ^ m[j & 3];
++
++    /* Write Loop: Flushes the staging buffer to the connection queue.
++     * This handles short writes and phantom stalls (n=0) by coercing
++     * them into EAGAIN and exiting for the caller to retry. */
++    xbuf_i = 0;
++    while(xbuf_i < chunk) {
++      *err = Curl_bufq_write(out, xbuf + xbuf_i, chunk - xbuf_i, &n);
++
++      if(n > 0) {
++        xbuf_i += n;
++        i += n;
++        enc->xori = (enc->xori + (unsigned int)n) & 3;
++      }
++
++      if(*err) {
++        if((*err != CURLE_AGAIN) || !i)
++          return -1;
++        goto write_done;
++      }
++      if(n == 0) {
++        *err = CURLE_AGAIN;
++        if(!i)
++          return -1;
++        goto write_done;
++      }
+     }
+-    enc->xori++;
+-    enc->xori &= 3;
+   }
++
++write_done:
+   enc->payload_remain -= (curl_off_t)i;
+   ws_enc_info(enc, data, "buffered");
+   return (ssize_t)i;
+@@ -1270,6 +1606,13 @@ static CURLcode ws_flush(struct Curl_easy *data, struct websocket *ws,
+           result = CURLE_AGAIN;
+       }
+ 
++      /* Advance buffer for any bytes successfully written before
++         handling errors */
++      if(n > 0) {
++        CURL_TRC_WS(data, "flushed %zu bytes", n);
++        Curl_bufq_skip(&ws->sendbuf, n);
++      }
++
+       if(result == CURLE_AGAIN) {
+         CURL_TRC_WS(data, "flush EAGAIN, %zu bytes remain in buffer",
+                     Curl_bufq_len(&ws->sendbuf));
+@@ -1279,10 +1622,6 @@ static CURLcode ws_flush(struct Curl_easy *data, struct websocket *ws,
+         failf(data, "[WS] flush, write error %d", result);
+         return result;
+       }
+-      else {
+-        CURL_TRC_WS(data, "flushed %zu bytes", n);
+-        Curl_bufq_skip(&ws->sendbuf, n);
+-      }
+     }
+   }
+   return CURLE_OK;
+@@ -1353,6 +1692,8 @@ static CURLcode ws_send_raw(struct Curl_easy *data, const void *buffer,
+     if(result)
+       return result;
+     result = ws_send_raw_blocking(data, ws, buffer, buflen);
++    if(!result)
++      *pnwritten = buflen;
+   }
+   else {
+     /* We need any pending data to be sent or EAGAIN this call. */
+@@ -1587,7 +1928,7 @@ const struct Curl_handler Curl_handler_wss = {
    CURLPROTO_WSS,                        /* protocol */
    CURLPROTO_HTTP,                       /* family */
    PROTOPT_SSL | PROTOPT_CREDSPERREQUEST | /* flags */
