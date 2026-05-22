@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   build-unix:
-    name: Build Linux, macOS, Android, and iOS artifacts
+    name: Build Linux, macOS, BSD, Android, and iOS artifacts
     uses: ./.github/workflows/build.yml
 
   build-windows:
