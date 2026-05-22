@@ -237,6 +237,7 @@ jobs:
           elif [[ "${{ matrix.platform }}" == "bsd" ]]; then
             cmake_args="$cmake_args -DCMAKE_SYSTEM_NAME=${{ matrix.system_name }} -DCMAKE_SYSTEM_PROCESSOR=${{ matrix.arch }}"
             cmake_args="$cmake_args -DCURL_CA_PATH=/etc/ssl/certs -DCURL_CA_BUNDLE=/etc/ssl/cert.pem"
+            cmake_args="$cmake_args -DUSE_LIBIDN2=OFF"
           elif [[ "${{ matrix.platform }}" == "android" ]]; then
             case "${{ matrix.arch }}" in
               aarch64) android_abi="arm64-v8a" ;;
@@ -250,7 +251,7 @@ jobs:
             cmake_args="$cmake_args -DCMAKE_OSX_SYSROOT=${SDKROOT} -DCMAKE_OSX_DEPLOYMENT_TARGET=${IOS_MIN_VERSION}"
           fi
 
-          if [[ "${{ matrix.platform }}" == "linux" || "${{ matrix.platform }}" == "bsd" ]]; then
+          if [[ "${{ matrix.platform }}" == "linux" ]]; then
             ${{ matrix.make }} prepare-libidn2 BUILD_DIR=build
           fi
           ${{ matrix.make }} configure BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$cmake_args"
