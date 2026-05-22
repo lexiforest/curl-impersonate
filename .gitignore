@@ -1,4 +1,5 @@
 build/
+.freebsd-vm/
 **/__pycache__
 config.log
 config.status

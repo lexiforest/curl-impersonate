@@ -9,6 +9,7 @@ There are currently three build paths, depending on your use case:
 
 * Native build
 * Cross compiling
+* FreeBSD VM build
 * Docker container build
 
 Unlike the upstream project, this fork uses a single build for all major browser
@@ -118,6 +119,53 @@ Configure and build:
     # Optionally remove all the build files
     cd ../ && rm -Rf build
 
+FreeBSD
+~~~~~~~
+
+FreeBSD is built natively, not with the ``zig`` cross toolchain. The release
+workflow runs a FreeBSD VM on an Ubuntu GitHub Actions runner and builds inside
+that VM for both ``x86_64-freebsd`` and ``aarch64-freebsd`` artifacts. The
+build currently disables ``libidn2`` because the standalone ``libidn2``
+preparation step is not used on BSD.
+
+The FreeBSD dependencies are:
+
+.. code-block:: bash
+
+    pkg install -y \
+        pkgconf cmake ninja curl autoconf automake libtool \
+        gmake gperf go
+
+Configure and build:
+
+.. code-block:: bash
+
+    cmake_args="-G Ninja -DCMAKE_INSTALL_PREFIX=$PWD/freebsd-install"
+    cmake_args="$cmake_args -DUSE_LIBIDN2=OFF"
+
+    gmake configure BUILD_DIR=build-freebsd CMAKE_CONFIGURE_ARGS="$cmake_args"
+    gmake build BUILD_DIR=build-freebsd CMAKE_CONFIGURE_ARGS="$cmake_args"
+    gmake install-strip BUILD_DIR=build-freebsd CMAKE_CONFIGURE_ARGS="$cmake_args"
+
+For local development from macOS, use the helper script in ``scripts/``. It
+downloads an official FreeBSD cloud image, creates a QEMU/HVF VM, syncs this
+repository into the VM, and runs the same native build:
+
+.. code-block:: bash
+
+    scripts/freebsd-vm-macos.sh setup
+    scripts/freebsd-vm-macos.sh start
+    scripts/freebsd-vm-macos.sh build
+    scripts/freebsd-vm-macos.sh fetch-artifacts
+    scripts/freebsd-vm-macos.sh stop
+
+The VM state is stored in ``.freebsd-vm/``. Useful overrides include
+``FREEBSD_RELEASE``, ``VM_ARCH``, ``VM_CPUS``, ``VM_MEM``, ``VM_DISK_SIZE``,
+and ``SSH_PORT``. ``VM_ARCH`` defaults to ``host``. On Apple Silicon this means
+an ARM64 FreeBSD VM, matching the ``aarch64-freebsd`` artifacts. Use
+``VM_ARCH=amd64`` if you need to test ``x86_64-freebsd`` artifacts, but expect
+it to be much slower because QEMU must emulate the CPU.
+
 Static compilation
 ------------------
 
@@ -161,4 +209,3 @@ The resulting binaries and libraries are placed in ``/usr/local`` and include:
 
 You can use these files inside the container, copy them out with ``docker cp``, or use
 them in a multi-stage Docker build.
-

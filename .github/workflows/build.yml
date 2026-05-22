@@ -338,8 +338,16 @@ jobs:
           path: ${{ runner.temp }}/ios-slice
 
   build-freebsd:
-    name: (x86_64-freebsd) Build curl-impersonate
+    name: (${{ matrix.host_label }}) Build curl-impersonate
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - vm_arch: x86_64
+            host_label: x86_64-freebsd
+          - vm_arch: aarch64
+            host_label: aarch64-freebsd
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
@@ -348,6 +356,9 @@ jobs:
         uses: vmactions/freebsd-vm@v1
         with:
           release: "14.3"
+          arch: ${{ matrix.vm_arch }}
+          cpu: 4
+          mem: 8192
           usesh: true
           prepare: |
             pkg update -f
@@ -404,19 +415,19 @@ jobs:
             rm -f libcurl-impersonate.orig.a
 
             if [ "${{ startsWith(github.ref, 'refs/tags/') }}" = "true" ]; then
-              tar -czf "$artifacts_dir/libcurl-impersonate-${{ github.ref_name }}.x86_64-freebsd.tar.gz" lib* -C "$install_dir" include
+              tar -czf "$artifacts_dir/libcurl-impersonate-${{ github.ref_name }}.${{ matrix.host_label }}.tar.gz" lib* -C "$install_dir" include
               cd "$install_dir/bin"
-              tar -czf "$artifacts_dir/curl-impersonate-${{ github.ref_name }}.x86_64-freebsd.tar.gz" curl-impersonate curl_*
+              tar -czf "$artifacts_dir/curl-impersonate-${{ github.ref_name }}.${{ matrix.host_label }}.tar.gz" curl-impersonate curl_*
             else
-              tar -czf "$artifacts_dir/libcurl-impersonate.x86_64-freebsd.tar.gz" lib* -C "$install_dir" include
+              tar -czf "$artifacts_dir/libcurl-impersonate.${{ matrix.host_label }}.tar.gz" lib* -C "$install_dir" include
               cd "$install_dir/bin"
-              tar -czf "$artifacts_dir/curl-impersonate.x86_64-freebsd.tar.gz" curl-impersonate curl_*
+              tar -czf "$artifacts_dir/curl-impersonate.${{ matrix.host_label }}.tar.gz" curl-impersonate curl_*
             fi
 
       - name: Upload FreeBSD artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: artifacts.x86_64-freebsd
+          name: artifacts.${{ matrix.host_label }}
           path: freebsd-artifacts/*.tar.gz
 
   ios-xcframework:
