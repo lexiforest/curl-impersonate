@@ -351,7 +351,7 @@ jobs:
           usesh: true
           prepare: |
             pkg update -f
-            pkg install -y pkgconf cmake ninja curl autoconf automake libtool gmake gpatch gperf go ca_root_nss
+            pkg install -y pkgconf cmake ninja curl autoconf automake libtool gmake gperf go
           run: |
             set -e
             install_dir="$PWD/freebsd-install"
@@ -361,7 +361,6 @@ jobs:
 
             cmake_args="-G Ninja -DCMAKE_INSTALL_PREFIX=$install_dir"
             cmake_args="$cmake_args -DUSE_LIBIDN2=OFF"
-            cmake_args="$cmake_args -DCURL_CA_PATH=/etc/ssl/certs -DCURL_CA_BUNDLE=/etc/ssl/cert.pem"
 
             gmake configure BUILD_DIR=build-freebsd CMAKE_CONFIGURE_ARGS="$cmake_args"
             gmake build BUILD_DIR=build-freebsd CMAKE_CONFIGURE_ARGS="$cmake_args"
