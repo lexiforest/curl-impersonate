@@ -55,3 +55,4 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           files: ${{ steps.collect-release-files.outputs.files }}
+          prerelease: ${{ contains(github.ref_name, 'a') || contains(github.ref_name, 'b') || contains(github.ref_name, 'rc') }}

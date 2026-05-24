@@ -346,13 +346,21 @@ jobs:
         include:
           - vm_arch: x86_64
             host_label: x86_64-freebsd
+            release_only: false
           - vm_arch: aarch64
             host_label: aarch64-freebsd
+            release_only: true
     steps:
+      - name: Skip release-only FreeBSD target
+        if: ${{ matrix.release_only && !startsWith(github.ref, 'refs/tags/') }}
+        run: echo "Skipping ${{ matrix.host_label }} outside release tag builds."
+
       - name: Check out the repo
+        if: ${{ !matrix.release_only || startsWith(github.ref, 'refs/tags/') }}
         uses: actions/checkout@v2
 
       - name: Build in FreeBSD
+        if: ${{ !matrix.release_only || startsWith(github.ref, 'refs/tags/') }}
         uses: vmactions/freebsd-vm@v1
         with:
           release: "14.3"
@@ -425,6 +433,7 @@ jobs:
             fi
 
       - name: Upload FreeBSD artifacts
+        if: ${{ !matrix.release_only || startsWith(github.ref, 'refs/tags/') }}
         uses: actions/upload-artifact@v4
         with:
           name: artifacts.${{ matrix.host_label }}
