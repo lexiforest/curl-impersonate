@@ -15,9 +15,6 @@ on:
 permissions:
   contents: read
 
-env:
-  BORING_SSL_COMMIT: 673e61fc215b178a90c0e67858bbf162c8158993
-
 jobs:
   test-linux:
     name: (x86_64-linux-gnu) Build and run tests
@@ -41,26 +38,26 @@ jobs:
       - name: Install Ubuntu dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install build-essential pkg-config cmake ninja-build curl autoconf automake libtool
+          sudo apt-get install build-essential pkg-config cmake ninja-build curl autoconf automake libtool gperf
           sudo apt-get install golang-go
           # Needed to compile 'minicurl'
           sudo apt-get install libcurl4-openssl-dev
           # More dependencies for the tests
           sudo apt-get install tcpdump nghttp2-server
 
-      - name: Run configure script
-        run: |
-          mkdir ${{ runner.temp }}/install
-          ./configure --prefix=${{ runner.temp }}/install \
-                      --host=x86_64-linux-gnu \
-                      --with-ca-path=/etc/ssl/certs \
-                      --with-ca-bundle=/etc/ssl/certs/ca-certificates.crt
-
       - name: Build curl-impersonate
         run: |
-          make build
-          make checkbuild
-          make install
+          set -e
+          install_dir="${{ runner.temp }}/install"
+          mkdir -p "$install_dir"
+          cmake_args="-DCMAKE_INSTALL_PREFIX=$install_dir"
+          cmake_args="$cmake_args -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=x86_64"
+          cmake_args="$cmake_args -DCURL_CA_PATH=/etc/ssl/certs -DCURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt"
+          make prepare-libidn2 BUILD_DIR=build
+          make configure BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$cmake_args"
+          make build BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$cmake_args"
+          make checkbuild BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$cmake_args"
+          make install BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$cmake_args"
 
       - uses: actions/setup-python@v4
         with:

@@ -128,7 +128,7 @@ signature:
       psk_ke_mode: 1
       type: psk_key_exchange_modes
     - length: 2
-      record_size_limit: 4001
+      record_size_limit: 16385
       type: record_size_limit
     - algorithms:
       - 1

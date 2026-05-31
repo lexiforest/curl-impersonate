@@ -89,7 +89,7 @@ TLS
   Command line: ``--tls-delegated-credentials <value>``.
 
 ``CURLOPT_TLS_RECORD_SIZE_LIMIT`` (long)
-  Controls Firefox-style TLS record size limit behavior. The typical value is ``4001``
+  Controls Firefox-style TLS record size limit behavior. The typical value is ``16385``
   Command line: ``--tls-record-size-limit <integer>``.
 
 ``CURLOPT_TLS_KEY_SHARES_LIMIT`` (long)
