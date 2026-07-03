@@ -1,0 +1,122 @@
+diff --git CMakeLists.txt CMakeLists.txt
+index 41051c8..e3a3481 100644
+--- CMakeLists.txt
++++ CMakeLists.txt
+@@ -3,8 +3,48 @@ if(POLICY CMP0135)
+   cmake_policy(SET CMP0135 NEW)
+ endif()
+ 
++# ======================================================
++# Compiler Selection (prefer GCC on OpenBSD and elsewhere)
++# ======================================================
++option(PREFER_GCC "Prefer GCC (egcc/eg++) over the default compiler" ON)
++
++if(PREFER_GCC)
++    find_program(GCC_C_COMPILER NAMES gcc egcc PATHS /usr/local/bin /usr/bin NO_DEFAULT_PATH)
++    find_program(GCC_CXX_COMPILER NAMES g++ eg++ PATHS /usr/local/bin /usr/bin NO_DEFAULT_PATH)
++
++    if(GCC_C_COMPILER AND GCC_CXX_COMPILER)
++        set(CMAKE_C_COMPILER   "${GCC_C_COMPILER}"   CACHE STRING "C compiler"   FORCE)
++        set(CMAKE_CXX_COMPILER "${GCC_CXX_COMPILER}" CACHE STRING "C++ compiler" FORCE)
++    else()
++        message(WARNING "PREFER_GCC=ON but could not find gcc/egcc or g++/eg++")
++    endif()
++endif()
++
+ project(curl_impersonate_superbuild LANGUAGES C CXX)
+ 
++# Debug output
++message(STATUS "CMAKE_EXE_LINKER_FLAGS (after GCC block) = ${CMAKE_EXE_LINKER_FLAGS}")
++
++# ======================================================
++# Compiler and Runtime Report
++# ======================================================
++message(STATUS "========================================")
++message(STATUS "Selected C compiler:     ${CMAKE_C_COMPILER}")
++message(STATUS "Selected C++ compiler:   ${CMAKE_CXX_COMPILER}")
++message(STATUS "C compiler version:      ${CMAKE_C_COMPILER_VERSION}")
++message(STATUS "C++ compiler version:    ${CMAKE_CXX_COMPILER_VERSION}")
++
++if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
++    message(STATUS "C++ runtime library:     libstdc++ (via eg++)")
++elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
++    message(STATUS "C++ runtime library:     libc++")
++endif()
++message(STATUS "========================================")
++
++set(CMAKE_CXX_STANDARD 17 CACHE STRING "C++ standard")
++set(CMAKE_CXX_STANDARD_REQUIRED ON)
++set(CMAKE_CXX_EXTENSIONS OFF)
++
+ include(ExternalProject)
+ include(GNUInstallDirs)
+ include(ProcessorCount)
+@@ -96,6 +136,12 @@ endif()
+ if(CMAKE_CXX_COMPILER)
+   list(APPEND _toolchain_cmake_args "-DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}")
+ endif()
++if(CMAKE_EXE_LINKER_FLAGS)
++    list(APPEND _toolchain_cmake_args "-DCMAKE_EXE_LINKER_FLAGS=${CMAKE_EXE_LINKER_FLAGS}")
++endif()
++if(CMAKE_SHARED_LINKER_FLAGS)
++    list(APPEND _toolchain_cmake_args "-DCMAKE_SHARED_LINKER_FLAGS=${CMAKE_SHARED_LINKER_FLAGS}")
++endif()
+ if(CMAKE_CROSSCOMPILING AND CMAKE_SYSTEM_NAME)
+   list(APPEND _toolchain_cmake_args "-DCMAKE_SYSTEM_NAME=${CMAKE_SYSTEM_NAME}")
+ endif()
+@@ -211,6 +257,7 @@ set(_boringssl_cmake_args
+   "-DCMAKE_CXX_FLAGS=${_boringssl_cxx_flags}"
+   -DCMAKE_INSTALL_PREFIX=${DEPS_INSTALL_DIR}
+ )
++
+ if(DISABLE_BORINGSSL_ASM)
+   list(APPEND _boringssl_cmake_args -DOPENSSL_NO_ASM=ON)
+ endif()
+@@ -444,17 +491,26 @@ endif()
+ if(CMAKE_MSVC_RUNTIME_LIBRARY)
+   list(APPEND _curl_platform_flags "-DCMAKE_MSVC_RUNTIME_LIBRARY=${CMAKE_MSVC_RUNTIME_LIBRARY}")
+ endif()
+-if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+-  # Static BoringSSL is C++. Force stdc++ retention even when link flags are
+-  # evaluated before static OpenSSL archives.
+-  set(_curl_exe_linker_flags "${CMAKE_EXE_LINKER_FLAGS}")
+-  set(_curl_shared_linker_flags "${CMAKE_SHARED_LINKER_FLAGS}")
+-  string(APPEND _curl_exe_linker_flags " -Wl,--no-as-needed -lstdc++ -Wl,--as-needed")
+-  string(APPEND _curl_shared_linker_flags " -Wl,--no-as-needed -lstdc++ -Wl,--as-needed")
+-  string(STRIP "${_curl_exe_linker_flags}" _curl_exe_linker_flags)
+-  string(STRIP "${_curl_shared_linker_flags}" _curl_shared_linker_flags)
+-  list(APPEND _curl_platform_flags "-DCMAKE_EXE_LINKER_FLAGS=${_curl_exe_linker_flags}")
+-  list(APPEND _curl_platform_flags "-DCMAKE_SHARED_LINKER_FLAGS=${_curl_shared_linker_flags}")
++if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
++    # Belt + suspenders approach for linking against static BoringSSL (C++ code)
++    #
++    # 1. CMAKE_CXX_STANDARD_LIBRARIES → CMake usually places this late in the link line.
++    # 2. --no-as-needed wrapper on EXE/SHARED flags → extra protection in case ordering isn't perfect.
++    list(APPEND _curl_platform_flags
++        "-DCMAKE_CXX_STANDARD_LIBRARIES=stdc++"
++        "-DCMAKE_EXE_LINKER_FLAGS=-Wl,--no-as-needed -lstdc++ -Wl,--as-needed"
++        "-DCMAKE_SHARED_LINKER_FLAGS=-Wl,--no-as-needed -lstdc++ -Wl,--as-needed"
++    )
++endif()
++
++option(ENABLE_AVX512 "Compile curl with -mavx512f" OFF)
++if(ENABLE_AVX512 AND CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
++  set(_curl_avx512_c_flags "${CMAKE_C_FLAGS} -mavx512f")
++  set(_curl_avx512_cxx_flags "${CMAKE_CXX_FLAGS} -mavx512f")
++  list(APPEND _curl_platform_flags
++    "-DCMAKE_C_FLAGS=${_curl_avx512_c_flags}"
++    "-DCMAKE_CXX_FLAGS=${_curl_avx512_cxx_flags}"
++  )
+ endif()
+ 
+ set(_curl_openssl_flags)
+@@ -527,7 +583,8 @@ ExternalProject_Add(curl
+       ${_curl_build_flags}
+       ${_curl_platform_flags}
+       -GNinja
+-      -S <SOURCE_DIR> -B <BINARY_DIR>
++      -S <SOURCE_DIR>
++      -B <BINARY_DIR>
+   BUILD_COMMAND
+     ${CMAKE_COMMAND} -E env
+       ${_curl_clean_env}
