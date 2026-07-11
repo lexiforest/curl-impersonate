@@ -369,6 +369,7 @@ jobs:
           mem: 8192
           usesh: true
           prepare: |
+            export IGNORE_OSVERSION=yes
             pkg update -f
             pkg install -y pkgconf cmake ninja curl autoconf automake libtool gmake gperf go
           run: |
