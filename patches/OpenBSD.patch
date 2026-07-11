@@ -26,23 +26,23 @@ index 41051c8..e3a3481 100644
  project(curl_impersonate_superbuild LANGUAGES C CXX)
  
 +# Debug output
-+message(STATUS "CMAKE_EXE_LINKER_FLAGS (after GCC block) = ${CMAKE_EXE_LINKER_FLAGS}")
++# message(STATUS "CMAKE_EXE_LINKER_FLAGS (after GCC block) = ${CMAKE_EXE_LINKER_FLAGS}")
 +
 +# ======================================================
 +# Compiler and Runtime Report
 +# ======================================================
-+message(STATUS "========================================")
-+message(STATUS "Selected C compiler:     ${CMAKE_C_COMPILER}")
-+message(STATUS "Selected C++ compiler:   ${CMAKE_CXX_COMPILER}")
-+message(STATUS "C compiler version:      ${CMAKE_C_COMPILER_VERSION}")
-+message(STATUS "C++ compiler version:    ${CMAKE_CXX_COMPILER_VERSION}")
-+
-+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-+    message(STATUS "C++ runtime library:     libstdc++ (via eg++)")
-+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-+    message(STATUS "C++ runtime library:     libc++")
-+endif()
-+message(STATUS "========================================")
++# message(STATUS "========================================")
++# message(STATUS "Selected C compiler:     ${CMAKE_C_COMPILER}")
++# message(STATUS "Selected C++ compiler:   ${CMAKE_CXX_COMPILER}")
++# message(STATUS "C compiler version:      ${CMAKE_C_COMPILER_VERSION}")
++# message(STATUS "C++ compiler version:    ${CMAKE_CXX_COMPILER_VERSION}")
++#
++# if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
++#     message(STATUS "C++ runtime library:     libstdc++ (via eg++)")
++# elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
++#     message(STATUS "C++ runtime library:     libc++")
++# endif()
++# message(STATUS "========================================")
 +
 +set(CMAKE_CXX_STANDARD 17 CACHE STRING "C++ standard")
 +set(CMAKE_CXX_STANDARD_REQUIRED ON)
