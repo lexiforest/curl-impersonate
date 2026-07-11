@@ -1,0 +1,204 @@
+# HTTP/3-enabled wrapper scripts and their expected H3 / QUIC fingerprints.
+#
+# The values come from the built-in impersonation profiles in patches/curl.patch.
+# Chrome QUIC transport parameters are intentionally permuted by the
+# impersonation profile, so those targets allow order-insensitive matching.
+- curl_binary: curl_chrome145
+  expected:
+    http3:
+      pseudo_headers:
+        - :method
+        - :authority
+        - :scheme
+        - :path
+      headers:
+        - 'sec-ch-ua: "Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"'
+        - 'sec-ch-ua-mobile: ?0'
+        - 'sec-ch-ua-platform: "macOS"'
+        - 'upgrade-insecure-requests: 1'
+        - 'user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36'
+        - 'accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7'
+        - 'sec-fetch-site: none'
+        - 'sec-fetch-mode: navigate'
+        - 'sec-fetch-user: ?1'
+        - 'sec-fetch-dest: document'
+        - 'accept-encoding: gzip, deflate, br, zstd'
+        - 'accept-language: en-US,en;q=0.9'
+        - 'priority: u=0, i'
+      settings:
+        - key: 1
+          value: 65536
+        - key: 6
+          value: 262144
+        - key: 7
+          value: 100
+        - key: 51
+          value: 1
+        - grease: true
+    quic:
+      allow_permutation: true
+      transport_parameters:
+        - key: 1
+          value: 30000
+        - key: 3
+          value: 1472
+        - key: 4
+          value: 15728640
+        - key: 5
+          value: 6291456
+        - key: 6
+          value: 6291456
+        - key: 7
+          value: 6291456
+        - key: 8
+          value: 100
+        - key: 9
+          value: 103
+        - key: 15
+          hex: ''
+        - key: 17
+          version_information:
+            chosen: 1
+            available:
+              - value: 1
+              - grease: true
+        - key: 32
+          value: 65536
+        - key: 12583
+          value: any
+        - key: 18258
+          value: 1
+        - grease: true
+
+- curl_binary: curl_chrome146
+  expected:
+    http3:
+      pseudo_headers:
+        - :method
+        - :authority
+        - :scheme
+        - :path
+      headers:
+        - 'sec-ch-ua: "Chromium";v="146", "Not-A.Brand";v="24", "Google Chrome";v="146"'
+        - 'sec-ch-ua-mobile: ?0'
+        - 'sec-ch-ua-platform: "macOS"'
+        - 'upgrade-insecure-requests: 1'
+        - 'user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36'
+        - 'accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7'
+        - 'sec-fetch-site: none'
+        - 'sec-fetch-mode: navigate'
+        - 'sec-fetch-user: ?1'
+        - 'sec-fetch-dest: document'
+        - 'accept-encoding: gzip, deflate, br, zstd'
+        - 'accept-language: en-US,en;q=0.9'
+        - 'priority: u=0, i'
+      settings:
+        - key: 1
+          value: 65536
+        - key: 6
+          value: 262144
+        - key: 7
+          value: 100
+        - key: 51
+          value: 1
+        - grease: true
+    quic:
+      allow_permutation: true
+      transport_parameters:
+        - key: 1
+          value: 30000
+        - key: 3
+          value: 1472
+        - key: 4
+          value: 15728640
+        - key: 5
+          value: 6291456
+        - key: 6
+          value: 6291456
+        - key: 7
+          value: 6291456
+        - key: 8
+          value: 100
+        - key: 9
+          value: 103
+        - key: 15
+          hex: ''
+        - key: 17
+          version_information:
+            chosen: 1
+            available:
+              - value: 1
+              - grease: true
+        - key: 32
+          value: 65536
+        - key: 12583
+          value: any
+        - key: 12584
+          hex: '4f524947'
+        - grease: true
+
+- curl_binary: curl_firefox147
+  expected:
+    http3:
+      pseudo_headers:
+        - :method
+        - :scheme
+        - :authority
+        - :path
+      headers:
+        - 'user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:147.0) Gecko/20100101 Firefox/147.0'
+        - 'accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+        - 'accept-language: en-US,en;q=0.9'
+        - 'accept-encoding: gzip, deflate, br, zstd'
+        - 'upgrade-insecure-requests: 1'
+        - 'sec-fetch-dest: document'
+        - 'sec-fetch-mode: navigate'
+        - 'sec-fetch-site: none'
+        - 'sec-fetch-user: ?1'
+        - 'priority: u=0, i'
+        - 'te: trailers'
+      settings:
+        - key: 1
+          value: 65536
+        - key: 7
+          value: 20
+        - key: 727725890
+          value: 0
+        - key: 16765559
+          value: 1
+        - key: 51
+          value: 1
+        - key: 8
+          value: 1
+    quic:
+      allow_permutation: false
+      transport_parameters:
+        - key: 1
+          value: 30000
+        - key: 4
+          value: 25165824
+        - key: 5
+          value: 12582912
+        - key: 6
+          value: 1048576
+        - key: 7
+          value: 1048576
+        - key: 8
+          value: 100
+        - key: 9
+          value: 100
+        - key: 11
+          value: 20
+        - key: 14
+          value: 8
+        - key: 15
+          hex: any
+        - key: 17
+          version_information:
+            chosen: 1
+            available:
+              - grease: true
+              - value: 1
+        - grease: true
+        - key: 32
+          value: 65535
