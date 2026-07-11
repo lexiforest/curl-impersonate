@@ -1,5 +1,5 @@
 diff --git CMakeLists.txt CMakeLists.txt
-index 41051c8..e3a3481 100644
+index edcb399..4c596f9 100644
 --- CMakeLists.txt
 +++ CMakeLists.txt
 @@ -3,8 +3,48 @@ if(POLICY CMP0135)
@@ -51,7 +51,7 @@ index 41051c8..e3a3481 100644
  include(ExternalProject)
  include(GNUInstallDirs)
  include(ProcessorCount)
-@@ -96,6 +136,12 @@ endif()
+@@ -104,6 +144,12 @@ endif()
  if(CMAKE_CXX_COMPILER)
    list(APPEND _toolchain_cmake_args "-DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}")
  endif()
@@ -64,7 +64,7 @@ index 41051c8..e3a3481 100644
  if(CMAKE_CROSSCOMPILING AND CMAKE_SYSTEM_NAME)
    list(APPEND _toolchain_cmake_args "-DCMAKE_SYSTEM_NAME=${CMAKE_SYSTEM_NAME}")
  endif()
-@@ -211,6 +257,7 @@ set(_boringssl_cmake_args
+@@ -222,6 +268,7 @@ set(_boringssl_cmake_args
    "-DCMAKE_CXX_FLAGS=${_boringssl_cxx_flags}"
    -DCMAKE_INSTALL_PREFIX=${DEPS_INSTALL_DIR}
  )
@@ -72,7 +72,7 @@ index 41051c8..e3a3481 100644
  if(DISABLE_BORINGSSL_ASM)
    list(APPEND _boringssl_cmake_args -DOPENSSL_NO_ASM=ON)
  endif()
-@@ -444,17 +491,26 @@ endif()
+@@ -459,17 +506,26 @@ endif()
  if(CMAKE_MSVC_RUNTIME_LIBRARY)
    list(APPEND _curl_platform_flags "-DCMAKE_MSVC_RUNTIME_LIBRARY=${CMAKE_MSVC_RUNTIME_LIBRARY}")
  endif()
@@ -110,7 +110,7 @@ index 41051c8..e3a3481 100644
  endif()
  
  set(_curl_openssl_flags)
-@@ -527,7 +583,8 @@ ExternalProject_Add(curl
+@@ -543,7 +599,8 @@ ExternalProject_Add(curl
        ${_curl_build_flags}
        ${_curl_platform_flags}
        -GNinja
