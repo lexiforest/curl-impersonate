@@ -1,5 +1,6 @@
 import os
 import sys
+import json
 import random
 import logging
 import pathlib
@@ -23,13 +24,14 @@ def browser_signatures():
     for path in pathlib.Path("signatures").glob("**/*.yaml"):
         with open(path, "r") as f:
             # Parse signatures.yaml database.
-            docs.update(
-                {
-                    f'{doc["browser"]["name"]}_{doc["browser"]["version"]}_{doc["browser"]["os"]}': doc
-                    for doc in yaml.safe_load_all(f.read())
-                    if doc
-                }
-            )
+            for doc in yaml.safe_load_all(f.read()):
+                if not doc:
+                    continue
+                browser = doc["browser"]
+                key = f'{browser["name"]}_{browser["version"]}_{browser["os"]}'
+                docs[key] = doc
+                if browser.get("target"):
+                    docs[browser["target"]] = doc
     return docs
 
 
@@ -60,6 +62,28 @@ TEST_URLS = [
 
 # List of binaries and their expected signatures
 CURL_BINARIES_AND_SIGNATURES = yaml.safe_load(open("./targets.yaml"))
+HTTP3_CLIENTS = []
+for path in pathlib.Path("signatures").glob("**/*.yaml"):
+    for doc in yaml.safe_load_all(path.read_text()):
+        if not doc or not doc.get("signature", {}).get("http3"):
+            continue
+        profile = doc["browser"].get("target")
+        if not profile:
+            continue
+        HTTP3_CLIENTS.extend(
+            [
+                pytest.param(
+                    f"curl_{profile}", None, None, profile, id=f"{profile}-wrapper"
+                ),
+                pytest.param(
+                    "minicurl",
+                    {},
+                    "libcurl-impersonate",
+                    profile,
+                    id=f"{profile}-libcurl",
+                ),
+            ]
+        )
 
 
 @pytest.fixture
@@ -345,6 +369,109 @@ async def test_http2_headers(
     )
 
     equals, msg = sig.equals(expected_sig)
+    assert equals, msg
+
+
+@pytest.mark.parametrize(
+    "curl_binary, env_vars, ld_preload, profile", HTTP3_CLIENTS
+)
+def test_http3_fingerprint(
+    pytestconfig, browser_signatures, curl_binary, env_vars, ld_preload, profile
+):
+    """Compare stable HTTP/3, QUIC, and QUIC TLS fingerprint fields."""
+    curl_binary = os.path.join(
+        pytestconfig.getoption("install_dir"), "bin", curl_binary
+    )
+    expected = browser_signatures[profile]["signature"]["http3"]
+    env_vars = dict(env_vars or {})
+    if ld_preload:
+        if not sys.platform.startswith("linux"):
+            pytest.skip()
+        env_vars["CURL_IMPERSONATE"] = profile
+        _set_ld_preload(
+            env_vars,
+            os.path.join(pytestconfig.getoption("install_dir"), "lib", ld_preload),
+        )
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        output = os.path.join(tmpdir, "fingerprint.json")
+        for attempt in range(2):
+            ret = _run_curl(
+                curl_binary,
+                env_vars=env_vars,
+                extra_args=["--http3-only"],
+                urls=["https://fp.impersonate.pro/api/http3"],
+                output=output,
+            )
+            if ret == 0:
+                break
+            logging.warning("HTTP/3 fingerprint attempt %d failed", attempt + 1)
+        assert ret == 0
+
+        with open(output, "r") as f:
+            response = json.load(f)
+
+    assert "http3" in response, response.get("info", response)
+    assert response["http3"]["perk_text_normalized"] == expected[
+        "perk_text_normalized"
+    ]
+
+    actual_headers = response["http3"]["headers"]
+    for name, value in expected["headers"].items():
+        assert actual_headers.get(name) == value
+
+    assert response["tls"]["ja3"]["text"] == expected["ja3_text"]
+    signature_algorithms = next(
+        extension
+        for extension in response["tls"]["extensions"]
+        if extension["name"] == "signature_algorithms"
+    )
+    assert signature_algorithms["data"]["algorithms"] == expected[
+        "signature_algorithms"
+    ]
+
+
+@pytest.mark.parametrize(
+    "curl_binary, env_vars, ld_preload, profile", HTTP3_CLIENTS
+)
+async def test_http3_fallback_to_http2(
+    pytestconfig,
+    nghttpd,
+    browser_signatures,
+    curl_binary,
+    env_vars,
+    ld_preload,
+    profile,
+):
+    """HTTP/3 preferred mode must retain the profile when falling back to H2."""
+    curl_binary = os.path.join(
+        pytestconfig.getoption("install_dir"), "bin", curl_binary
+    )
+    env_vars = dict(env_vars or {})
+    if ld_preload:
+        if not sys.platform.startswith("linux"):
+            pytest.skip()
+        env_vars["CURL_IMPERSONATE"] = profile
+        _set_ld_preload(
+            env_vars,
+            os.path.join(pytestconfig.getoption("install_dir"), "lib", ld_preload),
+        )
+    ret = _run_curl(
+        curl_binary,
+        env_vars=env_vars,
+        extra_args=["--http3", "-k"],
+        urls=["https://localhost:8443"],
+    )
+    assert ret == 0
+
+    output = await _read_proc_output(nghttpd, timeout=2)
+    assert len(output) > 0
+
+    actual = parse_nghttpd_log(output)
+    expected = HTTP2Signature.from_dict(
+        browser_signatures[profile]["signature"]["http2"]
+    )
+    equals, msg = actual.equals(expected)
     assert equals, msg
 
 

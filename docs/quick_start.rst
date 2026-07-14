@@ -151,18 +151,10 @@ them yourself with ``curl_easy_setopt()``. For example:
 Note that the ``LD_PRELOAD`` method does not work for ``curl`` itself because the curl
 tool overrides the TLS settings. Use the wrapper scripts instead.
 
-Warning on HTTP/3
------------------
+HTTP/3 with ``CURL_IMPERSONATE``
+--------------------------------
 
-Avoid using ``CURL_IMPERSONATE`` with HTTP/3. The environment hook calls
-``curl_easy_impersonate()`` very early, during easy handle initialization or reset,
-before later HTTP version configuration may be applied. This can lead to suboptimal HTTP/3
-behavior.
-
-Prefer explicit impersonation setup:
-
-* On the command line, use ``--http3`` or ``--http3-only`` together with
-  ``--impersonate``.
-* With libcurl, set ``CURLOPT_HTTP_VERSION`` first, then call
-  ``curl_easy_impersonate()``.
-
+The ``CURL_IMPERSONATE`` environment hook can be used with HTTP/3 in the same
+way as with HTTP/2. Set ``CURLOPT_HTTP_VERSION`` (or use ``--http3``/
+``--http3-only``) in the application or command line, and select the profile
+through ``CURL_IMPERSONATE`` as usual.

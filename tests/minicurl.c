@@ -25,6 +25,7 @@ struct opts {
     uint16_t local_port_start;
     uint16_t local_port_end;
     bool insecure;
+    long http_version;
     char *urls[MAX_URLS];
     char *user_agent;
     struct curl_slist *headers;
@@ -78,6 +79,8 @@ int parse_opts(int argc, char **argv, struct opts *opts)
             {"header", required_argument, NULL, 'H'},
             {"local-port", required_argument, NULL, 'l'},
             {"user-agent", required_argument, NULL, 'A'},
+            {"http3", no_argument, NULL, 1},
+            {"http3-only", no_argument, NULL, 2},
             {0, 0, NULL, 0}
         };
 
@@ -87,6 +90,12 @@ int parse_opts(int argc, char **argv, struct opts *opts)
         }
 
         switch (c) {
+        case 1:
+            opts->http_version = CURL_HTTP_VERSION_3;
+            break;
+        case 2:
+            opts->http_version = CURL_HTTP_VERSION_3ONLY;
+            break;
         case 'A':
             opts->user_agent = optarg;
             break;
@@ -150,6 +159,14 @@ int set_opts(CURL *curl, struct opts *opts, FILE *file)
     if (c) {
         fprintf(stderr, "curl_easy_setopt(CURLOPT_WRITEFUNCTION) failed\n");
         return 1;
+    }
+
+    if (opts->http_version) {
+        c = curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, opts->http_version);
+        if (c) {
+            fprintf(stderr, "curl_easy_setopt(CURLOPT_HTTP_VERSION) failed\n");
+            return 1;
+        }
     }
 
     c = curl_easy_setopt(curl, CURLOPT_WRITEDATA, file);
