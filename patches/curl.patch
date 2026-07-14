@@ -1171,7 +1171,7 @@ index d5337eb353..b2fb669979 100644
  /**
   * Return the n-th header entry or NULL if it does not exist.
 diff --git a/lib/easy.c b/lib/easy.c
-index d60bdaed7b..d3b1bbbe75 100644
+index d60bdaed7b..fe9d1e7517 100644
 --- a/lib/easy.c
 +++ b/lib/easy.c
 @@ -70,10 +70,14 @@
@@ -1189,7 +1189,7 @@ index d60bdaed7b..d3b1bbbe75 100644
  
  #include "easy_lock.h"
  
-@@ -323,6 +327,390 @@ CURLsslset curl_global_sslset(curl_sslbackend id, const char *name,
+@@ -323,6 +327,389 @@ CURLsslset curl_global_sslset(curl_sslbackend id, const char *name,
    return rc;
  }
  
@@ -1226,8 +1226,7 @@ index d60bdaed7b..d3b1bbbe75 100644
 +
 +  // Use impersonate ssl_version if user didn't set it.
 +  // QUIC inherently uses TLS 1.3, enforced in the QUIC TLS setup.
-+  if((data->set.ssl.primary.version == CURL_SSLVERSION_DEFAULT) &&
-+     (data->set.ssl.primary.version_max == CURL_SSLVERSION_MAX_NONE) &&
++  if(!data->set.ssl_version_set &&
 +     (opts->ssl_version != CURL_SSLVERSION_DEFAULT)) {
 +    ret = curl_easy_setopt(data, CURLOPT_SSLVERSION, opts->ssl_version);
 +    if(ret)
@@ -1580,7 +1579,7 @@ index d60bdaed7b..d3b1bbbe75 100644
  /*
   * curl_easy_init() is the external interface to alloc, setup and init an
   * easy handle that is returned. If anything goes wrong, NULL is returned.
-@@ -331,6 +719,8 @@ CURL *curl_easy_init(void)
+@@ -331,6 +718,8 @@ CURL *curl_easy_init(void)
  {
    CURLcode result;
    struct Curl_easy *data;
@@ -1589,7 +1588,7 @@ index d60bdaed7b..d3b1bbbe75 100644
  
    /* Make sure we inited the global SSL stuff */
    global_init_lock();
-@@ -353,6 +743,30 @@ CURL *curl_easy_init(void)
+@@ -353,6 +742,30 @@ CURL *curl_easy_init(void)
      return NULL;
    }
  
@@ -1620,7 +1619,7 @@ index d60bdaed7b..d3b1bbbe75 100644
    return data;
  }
  
-@@ -1027,6 +1441,13 @@ CURL *curl_easy_duphandle(CURL *curl)
+@@ -1027,6 +1440,13 @@ CURL *curl_easy_duphandle(CURL *curl)
        goto fail;
    }
  
@@ -1634,7 +1633,7 @@ index d60bdaed7b..d3b1bbbe75 100644
    /* Reinitialize an SSL engine for the new handle
     * note: the engine name has already been copied by dupset */
    if(outcurl->set.str[STRING_SSL_ENGINE]) {
-@@ -1088,6 +1509,9 @@ fail:
+@@ -1088,6 +1508,9 @@ fail:
   */
  void curl_easy_reset(CURL *curl)
  {
@@ -1644,7 +1643,7 @@ index d60bdaed7b..d3b1bbbe75 100644
    struct Curl_easy *data = curl;
    if(!GOOD_EASY_HANDLE(data))
      return;
-@@ -1120,6 +1544,23 @@ void curl_easy_reset(CURL *curl)
+@@ -1120,6 +1543,23 @@ void curl_easy_reset(CURL *curl)
    Curl_http_auth_cleanup_digest(data);
  #endif
    data->master_mid = UINT32_MAX;
@@ -5437,7 +5436,7 @@ index 8d57c058c6..6725bbeaea 100644
  };
  
 diff --git a/lib/setopt.c b/lib/setopt.c
-index eb9ff2e396..56d4a29b66 100644
+index eb9ff2e396..fa39d968b4 100644
 --- a/lib/setopt.c
 +++ b/lib/setopt.c
 @@ -46,8 +46,10 @@
@@ -5557,7 +5556,16 @@ index eb9ff2e396..56d4a29b66 100644
    return CURLE_OK;
  }
  #endif /* !CURL_DISABLE_HTTP */
-@@ -499,6 +593,9 @@ static CURLcode setopt_long_bool(struct Curl_easy *data, CURLoption option,
+@@ -343,6 +437,8 @@ CURLcode Curl_setopt_SSLVERSION(struct Curl_easy *data, CURLoption option,
+ 
+     primary->version = (unsigned char)version;
+     primary->version_max = (unsigned int)version_max;
++    if(option == CURLOPT_SSLVERSION)
++      data->set.ssl_version_set = TRUE;
+   }
+   return CURLE_OK;
+ }
+@@ -499,6 +595,9 @@ static CURLcode setopt_long_bool(struct Curl_easy *data, CURLoption option,
       */
      s->cookiesession = enabled;
      break;
@@ -5567,7 +5575,7 @@ index eb9ff2e396..56d4a29b66 100644
  #endif
    case CURLOPT_AUTOREFERER:
      /*
-@@ -586,6 +683,9 @@ static CURLcode setopt_long_bool(struct Curl_easy *data, CURLoption option,
+@@ -586,6 +685,9 @@ static CURLcode setopt_long_bool(struct Curl_easy *data, CURLoption option,
       */
      s->proxy_transfer_mode = enabled;
      break;
@@ -5577,7 +5585,7 @@ index eb9ff2e396..56d4a29b66 100644
  #endif /* !CURL_DISABLE_PROXY */
  #if defined(HAVE_GSSAPI) || defined(USE_WINDOWS_SSPI)
    case CURLOPT_SOCKS5_GSSAPI_NEC:
-@@ -776,6 +876,30 @@ static CURLcode setopt_long_bool(struct Curl_easy *data, CURLoption option,
+@@ -776,6 +878,30 @@ static CURLcode setopt_long_bool(struct Curl_easy *data, CURLoption option,
    case CURLOPT_SSL_ENABLE_ALPN:
      s->ssl_enable_alpn = enabled;
      break;
@@ -5608,7 +5616,7 @@ index eb9ff2e396..56d4a29b66 100644
    case CURLOPT_PATH_AS_IS:
      s->path_as_is = enabled;
      break;
-@@ -987,6 +1111,15 @@ static CURLcode setopt_long_ssl(struct Curl_easy *data, CURLoption option,
+@@ -987,6 +1113,15 @@ static CURLcode setopt_long_ssl(struct Curl_easy *data, CURLoption option,
  #endif
    case CURLOPT_SSL_ENABLE_NPN:
      break;
@@ -5624,7 +5632,7 @@ index eb9ff2e396..56d4a29b66 100644
    case CURLOPT_SSLENGINE_DEFAULT:
      curlx_safefree(s->str[STRING_SSL_ENGINE]);
      result = Curl_ssl_set_engine_default(data);
-@@ -1064,7 +1197,7 @@ static CURLcode setopt_long_http(struct Curl_easy *data, CURLoption option,
+@@ -1064,7 +1199,7 @@ static CURLcode setopt_long_http(struct Curl_easy *data, CURLoption option,
  
    switch(option) {
    case CURLOPT_FOLLOWLOCATION:
@@ -5633,7 +5641,7 @@ index eb9ff2e396..56d4a29b66 100644
        result = CURLE_BAD_FUNCTION_ARGUMENT;
      else
        s->http_follow_mode = (unsigned char)arg;
-@@ -1090,6 +1223,29 @@ static CURLcode setopt_long_http(struct Curl_easy *data, CURLoption option,
+@@ -1090,6 +1225,29 @@ static CURLcode setopt_long_http(struct Curl_easy *data, CURLoption option,
      return httpauth(data, FALSE, (unsigned long)arg);
    case CURLOPT_HTTP_VERSION:
      return setopt_HTTP_VERSION(data, arg);
@@ -5663,7 +5671,7 @@ index eb9ff2e396..56d4a29b66 100644
    case CURLOPT_EXPECT_100_TIMEOUT_MS:
      result = value_range(&arg, 0, 0, 0xffff);
      if(!result)
-@@ -1393,6 +1549,23 @@ static CURLcode setopt_slist(struct Curl_easy *data, CURLoption option,
+@@ -1393,6 +1551,23 @@ static CURLcode setopt_slist(struct Curl_easy *data, CURLoption option,
       */
      s->headers = slist;
      break;
@@ -5687,7 +5695,7 @@ index eb9ff2e396..56d4a29b66 100644
  #endif
  #ifndef CURL_DISABLE_TELNET
    case CURLOPT_TELNETOPTIONS:
-@@ -1484,6 +1657,9 @@ static CURLcode setopt_pointers(struct Curl_easy *data, CURLoption option,
+@@ -1484,6 +1659,9 @@ static CURLcode setopt_pointers(struct Curl_easy *data, CURLoption option,
  #ifndef CURL_DISABLE_MIME
    case CURLOPT_MIMEPOST:
      result = setopt_mimepost(data, va_arg(param, curl_mime *));
@@ -5697,7 +5705,7 @@ index eb9ff2e396..56d4a29b66 100644
      break;
  #endif /* !CURL_DISABLE_MIME */
  #endif /* !CURL_DISABLE_HTTP || !CURL_DISABLE_SMTP || !CURL_DISABLE_IMAP */
-@@ -1998,6 +2174,9 @@ static CURLcode setopt_cptr_ssl(struct Curl_easy *data, CURLoption option,
+@@ -1998,6 +2176,9 @@ static CURLcode setopt_cptr_ssl(struct Curl_easy *data, CURLoption option,
      if(Curl_ssl_supports(data, SSLSUPP_SSL_EC_CURVES))
        return Curl_setstropt(&s->str[STRING_SSL_EC_CURVES], ptr);
      return CURLE_NOT_BUILT_IN;
@@ -5707,7 +5715,7 @@ index eb9ff2e396..56d4a29b66 100644
    case CURLOPT_SSL_SIGNATURE_ALGORITHMS:
      /*
       * Set accepted signature algorithms.
-@@ -2494,12 +2673,106 @@ static CURLcode setopt_cptr_misc(struct Curl_easy *data, CURLoption option,
+@@ -2494,12 +2675,106 @@ static CURLcode setopt_cptr_misc(struct Curl_easy *data, CURLoption option,
    return result;
  }
  
@@ -5814,7 +5822,7 @@ index eb9ff2e396..56d4a29b66 100644
  #ifndef CURL_DISABLE_PROXY
      setopt_cptr_proxy,
  #endif
-@@ -2892,6 +3165,9 @@ CURLcode Curl_vsetopt(struct Curl_easy *data, CURLoption option, va_list param)
+@@ -2892,6 +3167,9 @@ CURLcode Curl_vsetopt(struct Curl_easy *data, CURLoption option, va_list param)
         way than being listed explicitly */
      switch(option) {
      case CURLOPT_HTTPHEADER:
@@ -6609,7 +6617,7 @@ index 7507ce27bd..6c89e49ae2 100644
                          const char *thisheader,
                          const size_t thislen);
 diff --git a/lib/url.c b/lib/url.c
-index 505e08a7e1..5f19d83efa 100644
+index 505e08a7e1..dfc23e43f8 100644
 --- a/lib/url.c
 +++ b/lib/url.c
 @@ -288,6 +288,10 @@ CURLcode Curl_close(struct Curl_easy **datap)
@@ -6623,7 +6631,15 @@ index 505e08a7e1..5f19d83efa 100644
  
  #if !defined(CURL_DISABLE_HTTP) && !defined(CURL_DISABLE_FORM_API)
    Curl_mime_cleanpart(data->state.formp);
-@@ -413,8 +417,14 @@ void Curl_init_userdefined(struct Curl_easy *data)
+@@ -399,6 +403,7 @@ void Curl_init_userdefined(struct Curl_easy *data)
+   Curl_setopt_SSLVERSION(data, CURLOPT_PROXY_SSLVERSION,
+                          CURL_SSLVERSION_DEFAULT);
+ #endif
++  set->ssl_version_set = FALSE;
+ #endif
+ #ifndef CURL_DISABLE_FTP
+   set->wildcard_enabled = FALSE;
+@@ -413,8 +418,14 @@ void Curl_init_userdefined(struct Curl_easy *data)
    set->tcp_fastopen = FALSE;
    set->tcp_nodelay = TRUE;
    set->ssl_enable_alpn = TRUE;
@@ -6638,7 +6654,7 @@ index 505e08a7e1..5f19d83efa 100644
    set->buffer_size = READBUFFER_SIZE;
    set->upload_buffer_size = UPLOADBUFFER_DEFAULT;
    set->upload_flags = CURLULFLAG_SEEN;
-@@ -1296,6 +1306,10 @@ static struct connectdata *allocate_conn(struct Curl_easy *data)
+@@ -1296,6 +1307,10 @@ static struct connectdata *allocate_conn(struct Curl_easy *data)
  #endif
    conn->ip_version = data->set.ipver;
    conn->bits.connect_only = (bool)data->set.connect_only;
@@ -6649,7 +6665,7 @@ index 505e08a7e1..5f19d83efa 100644
    conn->transport_wanted = TRNSPRT_TCP; /* most of them are TCP streams */
  
    /* Store the local bind parameters that will be used for this connection */
-@@ -2171,6 +2185,11 @@ static CURLcode url_create_needle(struct Curl_easy *data,
+@@ -2171,6 +2186,11 @@ static CURLcode url_create_needle(struct Curl_easy *data,
         (default) */
      if(data->set.ssl_enable_alpn)
        needle->bits.tls_enable_alpn = TRUE;
@@ -6661,7 +6677,7 @@ index 505e08a7e1..5f19d83efa 100644
    }
  
    if(network_scheme) {
-@@ -2373,7 +2392,7 @@ static CURLcode url_find_or_create_conn(struct Curl_easy *data)
+@@ -2373,7 +2393,7 @@ static CURLcode url_find_or_create_conn(struct Curl_easy *data)
  #endif
  
    /* Complete the easy's SSL configuration for connection cache matching */
@@ -6670,7 +6686,7 @@ index 505e08a7e1..5f19d83efa 100644
    if(result)
      goto out;
  
-@@ -2421,7 +2440,6 @@ static CURLcode url_find_or_create_conn(struct Curl_easy *data)
+@@ -2421,7 +2441,6 @@ static CURLcode url_find_or_create_conn(struct Curl_easy *data)
      /* We have decided that we want a new connection. We may not be able to do
         that if we have reached the limit of how many connections we are
         allowed to open. */
@@ -6679,7 +6695,7 @@ index 505e08a7e1..5f19d83efa 100644
        /* There is a connection that *might* become usable for multiplexing
           "soon", and we wait for that */
 diff --git a/lib/urldata.h b/lib/urldata.h
-index d4d336d8db..f5a414ae14 100644
+index d4d336d8db..9d22517e03 100644
 --- a/lib/urldata.h
 +++ b/lib/urldata.h
 @@ -193,6 +193,7 @@ struct ConnectBits {
@@ -6797,9 +6813,11 @@ index d4d336d8db..f5a414ae14 100644
  #endif
    BIT(prefer_ascii);     /* ASCII rather than binary */
    BIT(remote_append);    /* append, not overwrite, on upload */
-@@ -1176,6 +1221,15 @@ struct UserDefined {
+@@ -1175,7 +1220,17 @@ struct UserDefined {
+   BIT(sasl_ir);         /* Enable/disable SASL initial response */
    BIT(tcp_keepalive);  /* use TCP keepalives */
    BIT(tcp_fastopen);   /* use TCP Fast Open */
++  BIT(ssl_version_set); /* CURLOPT_SSLVERSION was explicitly set */
    BIT(ssl_enable_alpn);/* TLS ALPN extension? */
 +  BIT(ssl_enable_alps);/* TLS ALPS extension? */
 +  BIT(ssl_enable_ticket); /* TLS session ticket extension */
@@ -6813,7 +6831,7 @@ index d4d336d8db..f5a414ae14 100644
    BIT(path_as_is);     /* allow dotdots? */
    BIT(pipewait);       /* wait for multiplex status before starting a new
                            connection */
-@@ -1197,10 +1251,15 @@ struct UserDefined {
+@@ -1197,10 +1252,15 @@ struct UserDefined {
    BIT(doh_verifystatus);   /* DoH certificate status verification */
  #endif
    BIT(http09_allowed); /* allow HTTP/0.9 responses */
