@@ -75,8 +75,21 @@ index 0000000000..bdf93cdbc0
 +- Add the option in `tool_getparam.c`, 2 places. note the argument type, like `ARG_BOOL`, etc.
 +- Implement in `tool_operate.c`, note the difference between my_setopt and my_setopt_str
 +- Add the option in `config2setopts.c`
+diff --git a/CMake/Macros.cmake b/CMake/Macros.cmake
+index 953c1c6ee6..1174eb4181 100644
+--- a/CMake/Macros.cmake
++++ b/CMake/Macros.cmake
+@@ -45,7 +45,7 @@ macro(curl_internal_test _curl_test)
+       ${PROJECT_BINARY_DIR}
+       "${CMAKE_CURRENT_SOURCE_DIR}/CMake/CurlTests.c"
+       COMPILE_DEFINITIONS "-D${_curl_test}" ${CURL_TEST_DEFINES} ${CMAKE_REQUIRED_FLAGS} ${CMAKE_REQUIRED_DEFINITIONS}
+-      LINK_LIBRARIES "${CMAKE_REQUIRED_LIBRARIES}"
++      LINK_LIBRARIES ${CMAKE_REQUIRED_LIBRARIES}
+       OUTPUT_VARIABLE CURL_TEST_OUTPUT)
+     if(${_curl_test})
+       set(${_curl_test} 1 CACHE INTERNAL "curl test")
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index e459b3d076..4ba1a8dc39 100644
+index e459b3d076..1bc3795713 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -153,8 +153,8 @@ if(CURL_PATCHSTAMP)
@@ -109,6 +122,35 @@ index e459b3d076..4ba1a8dc39 100644
      endif()
    endif()
  
+@@ -2105,7 +2111,7 @@ endif()
+ 
+ if(NOT CURL_DISABLE_INSTALL)
+ 
+-  # curl-config needs the following options to be set.
++  # curl-impersonate-config needs the following options to be set.
+   set(CC                      "${CMAKE_C_COMPILER}")
+   set(CONFIGURE_OPTIONS       "")
+   set(CURLVERSION             "${_curl_version}")
+@@ -2303,7 +2309,7 @@ if(NOT CURL_DISABLE_INSTALL)
+     set(ENABLE_STATIC       "no")
+   endif()
+ 
+-  # Generate a "curl-config" matching this config.
++  # Generate a "curl-impersonate-config" matching this config.
+   # Consumed variables:
+   #   CC
+   #   CONFIGURE_OPTIONS
+@@ -2325,8 +2331,8 @@ if(NOT CURL_DISABLE_INSTALL)
+   #   VERSIONNUM
+   configure_file(
+     "${PROJECT_SOURCE_DIR}/curl-config.in"
+-    "${PROJECT_BINARY_DIR}/curl-config" @ONLY)
+-  install(FILES "${PROJECT_BINARY_DIR}/curl-config"
++    "${PROJECT_BINARY_DIR}/curl-impersonate-config" @ONLY)
++  install(FILES "${PROJECT_BINARY_DIR}/curl-impersonate-config"
+     DESTINATION ${CMAKE_INSTALL_BINDIR}
+     PERMISSIONS
+       OWNER_READ OWNER_WRITE OWNER_EXECUTE
 @@ -2463,7 +2469,7 @@ if(NOT CURL_DISABLE_INSTALL)
    endif()
  
@@ -918,15 +960,14 @@ index 8a2bd4e68e..593ed1af15 100644
  libcurlu_la_CPPFLAGS = $(AM_CPPFLAGS) -DCURL_STATICLIB -DUNITTESTS
  libcurlu_la_LDFLAGS = -static $(LIBCURL_PC_LIBS_PRIVATE)
 diff --git a/lib/Makefile.inc b/lib/Makefile.inc
-index 266ba52af3..8e957fc494 100644
+index 266ba52af3..54608e8cc2 100644
 --- a/lib/Makefile.inc
 +++ b/lib/Makefile.inc
-@@ -230,6 +230,8 @@ LIB_CFILES =         \
+@@ -230,6 +230,7 @@ LIB_CFILES =         \
    idn.c              \
    if2ip.c            \
    imap.c             \
 +  impersonate.c      \
-+  krb5.c             \
    ldap.c             \
    llist.c            \
    macos.c            \
@@ -1079,7 +1120,7 @@ index 097306cec9..e58b4e8c71 100644
  {
    DEBUGASSERT(dynhds);
 diff --git a/lib/dynhds.h b/lib/dynhds.h
-index d5337eb353..f1874412f6 100644
+index d5337eb353..b2fb669979 100644
 --- a/lib/dynhds.h
 +++ b/lib/dynhds.h
 @@ -52,6 +52,7 @@ struct dynhds {
@@ -1100,54 +1141,6 @@ index d5337eb353..f1874412f6 100644
  
  /**
   * Return the n-th header entry or NULL if it does not exist.
-@@ -94,6 +98,47 @@ struct dynhds_entry *Curl_dynhds_get(struct dynhds *dynhds,
-                                      const char *name, size_t namelen);
- struct dynhds_entry *Curl_dynhds_cget(struct dynhds *dynhds, const char *name);
- 
-+#ifdef UNITTESTS
-+/* used by unit2602.c */
-+
-+/**
-+ * Return TRUE if one or more headers with the given name exist.
-+ */
-+bool Curl_dynhds_contains(struct dynhds *dynhds,
-+                          const char *name, size_t namelen);
-+bool Curl_dynhds_ccontains(struct dynhds *dynhds, const char *name);
-+
-+/**
-+ * Return how often the given name appears in `dynhds`.
-+ * Names are case-insensitive.
-+ */
-+size_t Curl_dynhds_count_name(struct dynhds *dynhds,
-+                              const char *name, size_t namelen);
-+
-+/**
-+ * Return how often the given null-terminated name appears in `dynhds`.
-+ * Names are case-insensitive.
-+ */
-+size_t Curl_dynhds_ccount_name(struct dynhds *dynhds, const char *name);
-+
-+/**
-+ * Remove all entries with the given name.
-+ * Returns number of entries removed.
-+ */
-+size_t Curl_dynhds_remove(struct dynhds *dynhds,
-+                          const char *name, size_t namelen);
-+size_t Curl_dynhds_cremove(struct dynhds *dynhds, const char *name);
-+
-+
-+/**
-+ * Set the give header name and value, replacing any entries with
-+ * the same name. The header is added at the end of all (remaining)
-+ * entries.
-+ */
-+CURLcode Curl_dynhds_set(struct dynhds *dynhds,
-+                         const char *name, size_t namelen,
-+                         const char *value, size_t valuelen);
-+#endif
- CURLcode Curl_dynhds_cset(struct dynhds *dynhds,
-                           const char *name, const char *value);
- 
 diff --git a/lib/easy.c b/lib/easy.c
 index d60bdaed7b..b82e8e5e90 100644
 --- a/lib/easy.c
@@ -1647,7 +1640,7 @@ index d60bdaed7b..b82e8e5e90 100644
  
  /*
 diff --git a/lib/easyoptions.c b/lib/easyoptions.c
-index 4c0b4f0ce4..611929182a 100644
+index 4c0b4f0ce4..31afae471b 100644
 --- a/lib/easyoptions.c
 +++ b/lib/easyoptions.c
 @@ -99,6 +99,7 @@ const struct curl_easyoption Curl_easyopts[] = {
@@ -1703,24 +1696,24 @@ index 4c0b4f0ce4..611929182a 100644
    { "PROXY_CRLFILE", CURLOPT_PROXY_CRLFILE, CURLOT_STRING, 0 },
    { "PROXY_ISSUERCERT", CURLOPT_PROXY_ISSUERCERT, CURLOT_STRING, 0 },
    { "PROXY_ISSUERCERT_BLOB", CURLOPT_PROXY_ISSUERCERT_BLOB, CURLOT_BLOB, 0 },
-@@ -252,6 +274,8 @@ const struct curl_easyoption Curl_easyopts[] = {
+@@ -251,6 +273,8 @@ const struct curl_easyoption Curl_easyopts[] = {
+   { "PROXY_TRANSFER_MODE", CURLOPT_PROXY_TRANSFER_MODE, CURLOT_LONG, 0 },
    { "PUT", CURLOPT_PUT, CURLOT_LONG, 0 },
    { "QUICK_EXIT", CURLOPT_QUICK_EXIT, CURLOT_LONG, 0 },
-   { "QUOTE", CURLOPT_QUOTE, CURLOT_SLIST, 0 },
 +  { "QUIC_TRANSPORT_PARAMETERS", CURLOPT_QUIC_TRANSPORT_PARAMETERS,
 +    CURLOT_STRING, 0 },
+   { "QUOTE", CURLOPT_QUOTE, CURLOT_SLIST, 0 },
    { "RANDOM_FILE", CURLOPT_RANDOM_FILE, CURLOT_STRING, 0 },
    { "RANGE", CURLOPT_RANGE, CURLOT_STRING, 0 },
-   { "READDATA", CURLOPT_READDATA, CURLOT_CBPTR, 0 },
-@@ -302,6 +326,7 @@ const struct curl_easyoption Curl_easyopts[] = {
-   { "SSH_KNOWNHOSTS", CURLOPT_SSH_KNOWNHOSTS, CURLOT_STRING, 0 },
-   { "SSH_PRIVATE_KEYFILE", CURLOPT_SSH_PRIVATE_KEYFILE, CURLOT_STRING, 0 },
-   { "SSH_PUBLIC_KEYFILE", CURLOPT_SSH_PUBLIC_KEYFILE, CURLOT_STRING, 0 },
+@@ -289,6 +313,7 @@ const struct curl_easyoption Curl_easyopts[] = {
+   { "SOCKS5_GSSAPI_NEC", CURLOPT_SOCKS5_GSSAPI_NEC, CURLOT_LONG, 0 },
+   { "SOCKS5_GSSAPI_SERVICE", CURLOPT_SOCKS5_GSSAPI_SERVICE,
+     CURLOT_STRING, 0 },
 +  { "SPLIT_COOKIES", CURLOPT_SPLIT_COOKIES, CURLOT_LONG, 0 },
-   { "SSLCERT", CURLOPT_SSLCERT, CURLOT_STRING, 0 },
-   { "SSLCERTPASSWD", CURLOPT_KEYPASSWD, CURLOT_STRING, CURLOT_FLAG_ALIAS },
-   { "SSLCERTTYPE", CURLOPT_SSLCERTTYPE, CURLOT_STRING, 0 },
-@@ -313,15 +338,21 @@ const struct curl_easyoption Curl_easyopts[] = {
+   { "SSH_AUTH_TYPES", CURLOPT_SSH_AUTH_TYPES, CURLOT_VALUES, 0 },
+   { "SSH_COMPRESSION", CURLOPT_SSH_COMPRESSION, CURLOT_LONG, 0 },
+   { "SSH_HOSTKEYDATA", CURLOPT_SSH_HOSTKEYDATA, CURLOT_CBPTR, 0 },
+@@ -313,23 +338,30 @@ const struct curl_easyoption Curl_easyopts[] = {
    { "SSLKEYTYPE", CURLOPT_SSLKEYTYPE, CURLOT_STRING, 0 },
    { "SSLKEY_BLOB", CURLOPT_SSLKEY_BLOB, CURLOT_BLOB, 0 },
    { "SSLVERSION", CURLOPT_SSLVERSION, CURLOT_VALUES, 0 },
@@ -1731,18 +1724,19 @@ index 4c0b4f0ce4..611929182a 100644
    { "SSL_EC_CURVES", CURLOPT_SSL_EC_CURVES, CURLOT_STRING, 0 },
    { "SSL_ENABLE_ALPN", CURLOPT_SSL_ENABLE_ALPN, CURLOT_LONG, 0 },
 +  { "SSL_ENABLE_ALPS", CURLOPT_SSL_ENABLE_ALPS, CURLOT_LONG, 0 },
-+  { "SSL_ENABLE_TICKET", CURLOPT_SSL_ENABLE_TICKET, CURLOT_LONG, 0 },
    { "SSL_ENABLE_NPN", CURLOPT_SSL_ENABLE_NPN, CURLOT_LONG, 0 },
++  { "SSL_ENABLE_TICKET", CURLOPT_SSL_ENABLE_TICKET, CURLOT_LONG, 0 },
    { "SSL_FALSESTART", CURLOPT_SSL_FALSESTART, CURLOT_LONG, 0 },
    { "SSL_OPTIONS", CURLOPT_SSL_OPTIONS, CURLOT_VALUES, 0 },
 +  { "SSL_PERMUTE_EXTENSIONS", CURLOPT_SSL_PERMUTE_EXTENSIONS,
 +    CURLOT_LONG, 0 },
    { "SSL_SESSIONID_CACHE", CURLOPT_SSL_SESSIONID_CACHE, CURLOT_LONG, 0 },
-+  { "SSL_SIG_HASH_ALGS", CURLOPT_SSL_SIG_HASH_ALGS, CURLOT_STRING, 0 },
    { "SSL_SIGNATURE_ALGORITHMS", CURLOPT_SSL_SIGNATURE_ALGORITHMS,
      CURLOT_STRING, 0 },
++  { "SSL_SIG_HASH_ALGS", CURLOPT_SSL_SIG_HASH_ALGS, CURLOT_STRING, 0 },
    { "SSL_VERIFYHOST", CURLOPT_SSL_VERIFYHOST, CURLOT_LONG, 0 },
-@@ -330,9 +361,23 @@ const struct curl_easyoption Curl_easyopts[] = {
+   { "SSL_VERIFYPEER", CURLOPT_SSL_VERIFYPEER, CURLOT_LONG, 0 },
+   { "SSL_VERIFYSTATUS", CURLOPT_SSL_VERIFYSTATUS, CURLOT_LONG, 0 },
    { "STDERR", CURLOPT_STDERR, CURLOT_OBJECT, 0 },
    { "STREAM_DEPENDS", CURLOPT_STREAM_DEPENDS, CURLOT_OBJECT, 0 },
    { "STREAM_DEPENDS_E", CURLOPT_STREAM_DEPENDS_E, CURLOT_OBJECT, 0 },
@@ -1750,6 +1744,10 @@ index 4c0b4f0ce4..611929182a 100644
    { "STREAM_WEIGHT", CURLOPT_STREAM_WEIGHT, CURLOT_LONG, 0 },
    { "SUPPRESS_CONNECT_HEADERS", CURLOPT_SUPPRESS_CONNECT_HEADERS,
      CURLOT_LONG, 0 },
+@@ -351,6 +383,19 @@ const struct curl_easyoption Curl_easyopts[] = {
+   { "TLSAUTH_PASSWORD", CURLOPT_TLSAUTH_PASSWORD, CURLOT_STRING, 0 },
+   { "TLSAUTH_TYPE", CURLOPT_TLSAUTH_TYPE, CURLOT_STRING, 0 },
+   { "TLSAUTH_USERNAME", CURLOPT_TLSAUTH_USERNAME, CURLOT_STRING, 0 },
 +  { "TLS_DELEGATED_CREDENTIALS", CURLOPT_TLS_DELEGATED_CREDENTIALS,
 +    CURLOT_STRING, 0 },
 +  { "TLS_EXTENSION_ORDER", CURLOPT_TLS_EXTENSION_ORDER, CURLOT_STRING, 0 },
@@ -1763,9 +1761,9 @@ index 4c0b4f0ce4..611929182a 100644
 +  { "TLS_STATUS_REQUEST", CURLOPT_TLS_STATUS_REQUEST, CURLOT_LONG, 0 },
 +  { "TLS_USE_NEW_ALPS_CODEPOINT", CURLOPT_TLS_USE_NEW_ALPS_CODEPOINT,
 +    CURLOT_LONG, 0 },
-   { "TCP_FASTOPEN", CURLOPT_TCP_FASTOPEN, CURLOT_LONG, 0 },
-   { "TCP_KEEPALIVE", CURLOPT_TCP_KEEPALIVE, CURLOT_LONG, 0 },
-   { "TCP_KEEPCNT", CURLOPT_TCP_KEEPCNT, CURLOT_LONG, 0 },
+   { "TRAILERDATA", CURLOPT_TRAILERDATA, CURLOT_CBPTR, 0 },
+   { "TRAILERFUNCTION", CURLOPT_TRAILERFUNCTION, CURLOT_FUNCTION, 0 },
+   { "TRANSFERTEXT", CURLOPT_TRANSFERTEXT, CURLOT_LONG, 0 },
 @@ -371,7 +416,12 @@ const struct curl_easyoption Curl_easyopts[] = {
    { "WRITEDATA", CURLOPT_WRITEDATA, CURLOT_CBPTR, 0 },
    { "WRITEFUNCTION", CURLOPT_WRITEFUNCTION, CURLOT_FUNCTION, 0 },
@@ -2447,7 +2445,7 @@ index 83d0e01152..bb4f4f496a 100644
    }
  
 diff --git a/lib/http2.c b/lib/http2.c
-index a820439ef4..6523e0ffd9 100644
+index a820439ef4..3213d6856b 100644
 --- a/lib/http2.c
 +++ b/lib/http2.c
 @@ -46,6 +46,7 @@
@@ -2458,7 +2456,7 @@ index a820439ef4..6523e0ffd9 100644
  
  #if NGHTTP2_VERSION_NUM < 0x010f00
  #error "nghttp2 1.15.0 or greater required"
-@@ -63,11 +64,12 @@
+@@ -63,11 +64,13 @@
  /* on send into TLS, we want to accumulate small frames */
  #define H2_NW_SEND_CHUNKS       1
  /* this is how much we want "in flight" for a stream, unthrottled */
@@ -2469,15 +2467,17 @@ index a820439ef4..6523e0ffd9 100644
   * nghttp2 allows us to tweak the local window size. */
  #if NGHTTP2_HAS_SET_LOCAL_WINDOW_SIZE
 -#define H2_STREAM_WINDOW_SIZE_INITIAL  (64 * 1024)
++/* curl-impersonate: match Chrome's initial stream window. */
 +#define H2_STREAM_WINDOW_SIZE_INITIAL  (1024 * 1024)
  #else
  #define H2_STREAM_WINDOW_SIZE_INITIAL H2_STREAM_WINDOW_SIZE_MAX
  #endif
-@@ -81,9 +83,9 @@
+@@ -81,9 +84,10 @@
   * the overall connection. Streams might become PAUSED which will block their
   * received QUOTA in the connection window. If we run out of space, the server
   * is blocked from sending us any data. See #10988 for an issue with this. */
 -#define HTTP2_HUGE_WINDOW_SIZE (100 * H2_STREAM_WINDOW_SIZE_MAX)
++/* curl-impersonate: match Chrome's connection window. */
 +#define HTTP2_HUGE_WINDOW_SIZE (15 * H2_STREAM_WINDOW_SIZE_MAX)
  
 -#define H2_SETTINGS_IV_LEN 3
@@ -2485,16 +2485,27 @@ index a820439ef4..6523e0ffd9 100644
  #define H2_BINSETTINGS_LEN 80
  
  struct cf_h2_ctx {
-@@ -215,17 +217,55 @@ static size_t populate_settings(nghttp2_settings_entry *iv,
+@@ -215,17 +219,71 @@ static size_t populate_settings(nghttp2_settings_entry *iv,
                                  struct Curl_easy *data,
                                  struct cf_h2_ctx *ctx)
  {
 -  iv[0].settings_id = NGHTTP2_SETTINGS_MAX_CONCURRENT_STREAMS;
 -  iv[0].value = Curl_multi_max_concurrent_streams(data->multi);
++  /* curl-impersonate: set the HTTP/2 SETTINGS frame as instructed by the
++   * application. Format example: 1:65536;2:0;4:6291456;6:262144
++   * See https://httpwg.org/specs/rfc7540.html#SETTINGS. */
 +  const char *settings = data->set.str[STRING_HTTP2_SETTINGS];
 +  char *copy;
 +  char *setting;
 +  size_t i = 0;
++
++  /* TODO: validate setting IDs and values before submitting them. */
++  /* Use Chrome's settings as the default. */
++  if(!settings)
++    settings = "1:65536;2:0;4:6291456;6:262144";
++  copy = curlx_strdup(settings);
++  if(!copy)
++    return 0;
  
 -  iv[1].settings_id = NGHTTP2_SETTINGS_INITIAL_WINDOW_SIZE;
 -  iv[1].value = cf_h2_initial_win_size(data);
@@ -2502,13 +2513,6 @@ index a820439ef4..6523e0ffd9 100644
 -    ctx->initial_win_size = iv[1].value;
 -  iv[2].settings_id = NGHTTP2_SETTINGS_ENABLE_PUSH;
 -  iv[2].value = !!data->multi->push_cb;
-+  if(!settings)
-+    settings = "1:65536;2:0;4:6291456;6:262144";
-+  copy = curlx_strdup(settings);
-+  if(!copy)
-+    return 0;
- 
--  return 3;
 +  for(setting = strtok(copy, ";"); setting && i < H2_SETTINGS_IV_LEN;
 +      setting = strtok(NULL, ";")) {
 +    unsigned long value = strtoul(setting + 2, NULL, 10);
@@ -2534,9 +2538,11 @@ index a820439ef4..6523e0ffd9 100644
 +      iv[i].settings_id = NGHTTP2_SETTINGS_MAX_HEADER_LIST_SIZE;
 +      break;
 +    case '8':
++      /* RFC 8441 extended CONNECT. */
 +      iv[i].settings_id = NGHTTP2_SETTINGS_ENABLE_CONNECT_PROTOCOL;
 +      break;
 +    case '9':
++      /* RFC 9218 extensible priorities. */
 +      iv[i].settings_id = NGHTTP2_SETTINGS_NO_RFC7540_PRIORITIES;
 +      break;
 +    default:
@@ -2546,15 +2552,133 @@ index a820439ef4..6523e0ffd9 100644
 +    i++;
 +  }
 +  curlx_free(copy);
+ 
+-  return 3;
++  /* Up to Chrome 98, the SETTINGS frame contained a randomly chosen setting
++   * number, possibly as a form of GREASE. It has since been removed.
++   *
++   * Curl_rand(data, (unsigned char *)&iv[4].settings_id,
++   *           sizeof(iv[4].settings_id));
++   * Curl_rand(data, (unsigned char *)&iv[4].value,
++   *           sizeof(iv[4].value));
++   */
 +  return i;
  }
  
  static ssize_t populate_binsettings(uint8_t *binsettings,
-@@ -1748,18 +1788,20 @@ out:
+@@ -252,6 +310,101 @@ static CURLcode cf_h2_update_settings(struct cf_h2_ctx *ctx,
+   return CURLE_OK;
+ }
+ 
++/* HTTP/2 priorities are deprecated, but retain this helper for Firefox
++ * impersonation profiles which use the legacy priority tree. */
++static CURLcode http2_set_stream_priority(struct Curl_cfilter *cf,
++                                          struct Curl_easy *data,
++                                          int32_t stream_id,
++                                          int32_t dep_stream_id,
++                                          int32_t weight,
++                                          int exclusive)
++{
++  int rv;
++  struct cf_h2_ctx *ctx = cf->ctx;
++  nghttp2_priority_spec pri_spec;
++
++  nghttp2_priority_spec_init(&pri_spec, dep_stream_id, weight, exclusive);
++  rv = nghttp2_submit_priority(ctx->h2, NGHTTP2_FLAG_NONE,
++                               stream_id, &pri_spec);
++  if(rv) {
++    failf(data, "nghttp2_submit_priority() failed: %s(%d)",
++          nghttp2_strerror(rv), rv);
++    return CURLE_HTTP2;
++  }
++
++  return CURLE_OK;
++}
++
++/*
++ * curl-impersonate: Firefox used an elaborate scheme of HTTP/2 streams to
++ * split the load for HTML, JavaScript, CSS and images. It built a tree of
++ * streams with different weights and communicated it to the server. Retain
++ * the path even though legacy HTTP/2 priorities are deprecated.
++ */
++static CURLcode http2_set_stream_priorities(struct Curl_cfilter *cf,
++                                            struct Curl_easy *data)
++{
++  CURLcode result;
++  char *copy;
++  char *stream;
++
++  if(!data->set.str[STRING_HTTP2_STREAMS])
++    return CURLE_OK;
++
++  copy = curlx_strdup(data->set.str[STRING_HTTP2_STREAMS]);
++  if(!copy)
++    return CURLE_OUT_OF_MEMORY;
++
++  stream = copy;
++  while(stream) {
++    char *next_stream = strchr(stream, ',');
++    char *value;
++    int32_t stream_id;
++    int exclusive;
++    int32_t dep_stream_id;
++    int32_t weight;
++
++    if(next_stream)
++      *next_stream++ = '\0';
++
++    if(!*stream)
++      break;
++
++    value = strtok(stream, ":");
++    if(!value)
++      goto malformed;
++    stream_id = (int32_t)atoi(value);
++    value = strtok(NULL, ":");
++    if(!value)
++      goto malformed;
++    exclusive = atoi(value);
++    value = strtok(NULL, ":");
++    if(!value)
++      goto malformed;
++    dep_stream_id = (int32_t)atoi(value);
++    value = strtok(NULL, ":");
++    if(!value)
++      goto malformed;
++    weight = (int32_t)atoi(value);
++
++    result = http2_set_stream_priority(cf, data, stream_id, dep_stream_id,
++                                       weight, exclusive);
++    if(result) {
++      curlx_free(copy);
++      return result;
++    }
++
++    stream = next_stream;
++  }
++
++  curlx_free(copy);
++  return CURLE_OK;
++
++malformed:
++  curlx_free(copy);
++  return CURLE_BAD_FUNCTION_ARGUMENT;
++}
++
+ #define H2_STREAM_CTX(ctx, data)                                         \
+   ((struct h2_stream_ctx *)(                                             \
+     (data) ? Curl_uint32_hash_get(&(ctx)->streams, (data)->mid) : NULL))
+@@ -1748,18 +1901,26 @@ out:
    return result;
  }
  
-+#define CHROME_DEFAULT_STREAM_WEIGHT 256
++/*
++ * curl-impersonate: use Chrome's default HTTP/2 stream weight instead of
++ * nghttp2's default stream weight.
++ */
++#define CHROME_DEFAULT_STREAM_WEIGHT  256
++#define SAFARI_DEFAULT_STREAM_WEIGHT  255
++#define FIREFOX_DEFAULT_STREAM_WEIGHT 42
 +
  static int sweight_wanted(const struct Curl_easy *data)
  {
@@ -2573,26 +2697,73 @@ index a820439ef4..6523e0ffd9 100644
  }
  
  /*
-@@ -1773,7 +1815,7 @@ static void h2_pri_spec(struct Curl_easy *data,
+@@ -1768,12 +1929,22 @@ static int sweight_in_effect(const struct Curl_easy *data)
+  * struct.
+  */
+ 
++/*
++ * curl-impersonate: Firefox used stream 13 as the parent of the stream which
++ * fetched the main HTML resource.
++ */
++#define FIREFOX_DEFAULT_STREAM_DEP 13
++
+ static void h2_pri_spec(struct Curl_easy *data,
+                         nghttp2_priority_spec *pri_spec)
  {
    struct Curl_data_priority *prio = &data->set.priority;
++
++  /* curl-impersonate: use the configured exclusive flag from data->set.
++   * The dependency ID can be changed to FIREFOX_DEFAULT_STREAM_DEP for the
++   * legacy Firefox priority path. */
    nghttp2_priority_spec_init(pri_spec, 0,
 -                             sweight_wanted(data), FALSE);
 +                             sweight_wanted(data), prio->exclusive);
    data->state.priority = *prio;
  }
  
-@@ -2114,7 +2156,8 @@ static CURLcode h2_submit(struct h2_stream_ctx **pstream,
+@@ -1790,18 +1961,23 @@ static CURLcode h2_progress_egress(struct Curl_cfilter *cf,
+   struct h2_stream_ctx *stream = H2_STREAM_CTX(ctx, data);
+   int rv = 0;
+ 
++  /* curl-impersonate: also detect a change to the exclusive flag. */
+   if(stream && stream->id > 0 &&
+-     (sweight_wanted(data) != sweight_in_effect(data))) {
++     ((sweight_wanted(data) != sweight_in_effect(data)) ||
++      (data->set.priority.exclusive != data->state.priority.exclusive))) {
+     /* send new weight and/or dependency */
+     nghttp2_priority_spec pri_spec;
+ 
+     h2_pri_spec(data, &pri_spec);
+-    CURL_TRC_CF(data, cf, "[%d] Queuing PRIORITY", stream->id);
+-    DEBUGASSERT(stream->id != -1);
+-    rv = nghttp2_submit_priority(ctx->h2, NGHTTP2_FLAG_NONE,
+-                                 stream->id, &pri_spec);
+-    if(rv)
+-      goto out;
++    /* curl-impersonate: do not send PRIORITY frames for the main stream. */
++    if(stream->id != 1) {
++      CURL_TRC_CF(data, cf, "[%d] Queuing PRIORITY", stream->id);
++      DEBUGASSERT(stream->id != -1);
++      rv = nghttp2_submit_priority(ctx->h2, NGHTTP2_FLAG_NONE,
++                                   stream->id, &pri_spec);
++      if(rv)
++        goto out;
++    }
+   }
+ 
+   ctx->nw_out_blocked = 0;
+@@ -2114,7 +2290,9 @@ static CURLcode h2_submit(struct h2_stream_ctx **pstream,
    /* Check the initial windows size of the transfer (rate-limits?) and
     * send an updated settings on changes from previous value. */
    initial_win_size = cf_h2_initial_win_size(data);
 -  if(initial_win_size != ctx->initial_win_size) {
++  /* curl-impersonate: keep an explicitly configured SETTINGS fingerprint. */
 +  if(!data->set.str[STRING_HTTP2_SETTINGS] &&
 +     (initial_win_size != ctx->initial_win_size)) {
      result = cf_h2_update_settings(ctx, initial_win_size);
      if(result)
        goto out;
-@@ -2127,11 +2170,13 @@ static CURLcode h2_submit(struct h2_stream_ctx **pstream,
+@@ -2127,11 +2305,13 @@ static CURLcode h2_submit(struct h2_stream_ctx **pstream,
    case HTTPREQ_PUT:
      data_prd.read_callback = req_body_read_callback;
      data_prd.source.ptr = NULL;
@@ -2608,13 +2779,15 @@ index a820439ef4..6523e0ffd9 100644
                                         NULL, data);
    }
  
-@@ -2466,8 +2511,13 @@ static CURLcode cf_h2_ctx_open(struct Curl_cfilter *cf,
+@@ -2466,8 +2646,15 @@ static CURLcode cf_h2_ctx_open(struct Curl_cfilter *cf,
      }
    }
  
 -  rc = nghttp2_session_set_local_window_size(ctx->h2, NGHTTP2_FLAG_NONE, 0,
 -                                             HTTP2_HUGE_WINDOW_SIZE);
 +  {
++    /* curl-impersonate: directly change the connection window using the
++     * configured increment, with Chrome's increment as the default. */
 +    int current_window = nghttp2_session_get_local_window_size(ctx->h2);
 +    int window_update = data->set.http2_window_update ?
 +      data->set.http2_window_update : 15663105;
@@ -2624,6 +2797,27 @@ index a820439ef4..6523e0ffd9 100644
    if(rc) {
      failf(data, "nghttp2_session_set_local_window_size() failed: %s(%d)",
            nghttp2_strerror(rc), rc);
+@@ -2475,6 +2662,20 @@ static CURLcode cf_h2_ctx_open(struct Curl_cfilter *cf,
+     goto out;
+   }
+ 
++  /* curl-impersonate: retain the legacy Firefox stream-priority path. No
++   * current browser profile enables it, so it remains disabled by default.
++   *
++   * result = http2_set_stream_priorities(cf, data);
++   * if(result)
++   *   goto out;
++   *
++   * Firefox's first request stream followed its idle priority streams:
++   *
++   * #define FIREFOX_DEFAULT_STREAM_ID 15
++   * nghttp2_session_set_next_stream_id(ctx->h2,
++   *                                    FIREFOX_DEFAULT_STREAM_ID);
++   */
++
+   /* all set, traffic will be send on connect */
+   result = CURLE_OK;
+   CURL_TRC_CF(data, cf, "[0] created h2 session%s",
 diff --git a/lib/http2.h b/lib/http2.h
 index e38dc5745c..95921f5a99 100644
 --- a/lib/http2.h
@@ -5572,7 +5766,7 @@ index eb9ff2e396..a72eaac3c0 100644
      case CURLOPT_POSTQUOTE:
      case CURLOPT_TELNETOPTIONS:
 diff --git a/lib/socks.c b/lib/socks.c
-index 6c458c505d..09945e77da 100644
+index 6c458c505d..760bc3f076 100644
 --- a/lib/socks.c
 +++ b/lib/socks.c
 @@ -40,8 +40,10 @@
@@ -5586,7 +5780,7 @@ index 6c458c505d..09945e77da 100644
  
  /* for the (SOCKS) connect state machine */
  enum socks_state_t {
-@@ -94,19 +96,41 @@ static const char * const cf_socks_statename[] = {
+@@ -94,19 +96,43 @@ static const char * const cf_socks_statename[] = {
  #define SOCKS_CHUNK_SIZE    1024
  #define SOCKS_CHUNKS        1
  
@@ -5603,35 +5797,38 @@ index 6c458c505d..09945e77da 100644
    struct bufq iobuf;
    struct Curl_peer *dest;
    struct Curl_creds *creds;
-+  struct Curl_cfilter *tcp_cf;
-+  struct Curl_cfilter *udp_cf;
-+  struct Curl_sockaddr_ex udp_peer_addr;
++
++  /* curl-impersonate: SOCKS5 UDP ASSOCIATE state. See RFC 1928 section 7. */
++  struct Curl_cfilter *tcp_cf; /* SOCKS proxy TCP control channel */
++  struct Curl_cfilter *udp_cf; /* SOCKS proxy UDP relay data path */
++  struct Curl_sockaddr_ex udp_peer_addr; /* QUIC peer address */
    CURLproxycode presult;
    uint32_t resolv_id;
-+  unsigned char udp_relay_addr[SOCKS5_IPV6_LEN];
-+  unsigned char udp_dest_addr[SOCKS5_IPV6_LEN];
-+  unsigned char udp_dest_domain[256];
++  unsigned char udp_relay_addr[SOCKS5_IPV6_LEN]; /* relay address */
++  unsigned char udp_dest_addr[SOCKS5_IPV6_LEN]; /* QUIC destination */
++  unsigned char udp_dest_domain[256]; /* remotely resolved destination */
 +  size_t udp_dest_domain_len;
 +  int udp_relay_port;
 +  int udp_relay_family;
 +  int udp_dest_port;
-+  int udp_dest_atyp;
++  int udp_dest_atyp; /* SOCKS5 ATYP for UDP destination */
    uint8_t ip_version;
    uint8_t proxy_type;
    unsigned char version;
    BIT(resolve_local);
    BIT(start_resolving);
    BIT(socks4a);
-+  BIT(udp_associate);
-+  BIT(udp_dest_set);
-+  BIT(udp_peer_set);
++  BIT(udp_associate); /* use UDP ASSOCIATE instead of CONNECT */
++  BIT(udp_dest_set); /* destination cached for UDP headers */
++  BIT(udp_peer_set); /* udp_peer_addr is available */
  };
  
  #if defined(HAVE_GSSAPI) || defined(USE_WINDOWS_SSPI)
-@@ -753,6 +777,75 @@ static CURLproxycode socks5_check_auth_resp(struct socks_ctx *sx,
+@@ -753,6 +779,78 @@ static CURLproxycode socks5_check_auth_resp(struct socks_ctx *sx,
    return CURLPX_OK;
  }
  
++/* curl-impersonate: cache the address QUIC uses as its UDP peer. */
 +static void socks5_udp_set_peer(struct socks_ctx *sx,
 +                                int family,
 +                                const unsigned char *address,
@@ -5665,6 +5862,7 @@ index 6c458c505d..09945e77da 100644
 +  sx->udp_peer_set = TRUE;
 +}
 +
++/* curl-impersonate: cache the resolved target for SOCKS5 UDP headers. */
 +static void socks5_udp_set_dest(struct socks_ctx *sx,
 +                                int family,
 +                                const unsigned char *address)
@@ -5685,6 +5883,7 @@ index 6c458c505d..09945e77da 100644
 +  socks5_udp_set_peer(sx, family, address, sx->udp_dest_port);
 +}
 +
++/* curl-impersonate: cache a target which the SOCKS5 proxy resolves. */
 +static CURLproxycode socks5_udp_set_domain(struct socks_ctx *sx,
 +                                           struct Curl_easy *data)
 +{
@@ -5704,21 +5903,24 @@ index 6c458c505d..09945e77da 100644
  static CURLproxycode socks5_req1_init(struct socks_ctx *sx,
                                        struct Curl_cfilter *cf,
                                        struct Curl_easy *data)
-@@ -765,7 +858,7 @@ static CURLproxycode socks5_req1_init(struct socks_ctx *sx,
+@@ -765,7 +863,8 @@ static CURLproxycode socks5_req1_init(struct socks_ctx *sx,
    CURLcode result;
  
    req[0] = 5; /* version (SOCKS5) */
 -  req[1] = 1; /* connect */
++  /* curl-impersonate: use UDP ASSOCIATE for a QUIC data path. */
 +  req[1] = sx->udp_associate ? 3 : 1; /* UDP ASSOCIATE or CONNECT */
    req[2] = 0; /* must be zero */
    if(sx->resolve_local) {
      /* rest of request is added after resolving */
-@@ -802,6 +895,36 @@ static CURLproxycode socks5_req1_init(struct socks_ctx *sx,
+@@ -802,6 +901,38 @@ static CURLproxycode socks5_req1_init(struct socks_ctx *sx,
      destlen = (unsigned char)hostname_len; /* 1-byte length */
    }
  
 +  if(sx->udp_associate) {
 +    CURLproxycode presult;
++
++    /* Preserve the real target for the per-datagram SOCKS5 UDP header. */
 +    if(desttype == SOCKS5_ATYP_IPV4)
 +      socks5_udp_set_dest(sx, AF_INET, destination);
 +#ifdef USE_IPV6
@@ -5750,9 +5952,11 @@ index 6c458c505d..09945e77da 100644
    req[3] = desttype;
    req[4] = destlen;
    hdlen = (desttype == 3) ? 5 : 4; /* no length byte for ip addresses */
-@@ -812,8 +935,10 @@ static CURLproxycode socks5_req1_init(struct socks_ctx *sx,
+@@ -811,9 +942,12 @@ static CURLproxycode socks5_req1_init(struct socks_ctx *sx,
+   result = Curl_bufq_write(&sx->iobuf, destination, destlen, &nwritten);
    if(result || (nwritten != destlen))
      return CURLPX_SEND_REQUEST;
++  /* An unbound UDP endpoint requests port zero per RFC 1928. */
    /* PORT MSB+LSB */
 -  req[0] = (unsigned char)((sx->dest->port >> 8) & 0xff);
 -  req[1] = (unsigned char)(sx->dest->port & 0xff);
@@ -5763,7 +5967,7 @@ index 6c458c505d..09945e77da 100644
    result = Curl_bufq_write(&sx->iobuf, req, 2, &nwritten);
    if(result || (nwritten != 2))
      return CURLPX_SEND_REQUEST;
-@@ -831,6 +956,7 @@ static CURLproxycode socks5_resolving(struct socks_ctx *sx,
+@@ -831,6 +965,7 @@ static CURLproxycode socks5_resolving(struct socks_ctx *sx,
    char dest[MAX_IPADR_LEN];  /* printable address */
    const unsigned char *destination = NULL;
    unsigned char desttype = 1, destlen = 4;
@@ -5771,11 +5975,12 @@ index 6c458c505d..09945e77da 100644
    unsigned char req[2];
    CURLcode result;
    CURLproxycode presult = CURLPX_OK;
-@@ -903,6 +1029,11 @@ static CURLproxycode socks5_resolving(struct socks_ctx *sx,
+@@ -903,6 +1038,12 @@ static CURLproxycode socks5_resolving(struct socks_ctx *sx,
      goto out;
    }
  
 +  if(sx->udp_associate) {
++    /* Preserve the locally resolved target for SOCKS5 UDP headers. */
 +    socks5_udp_set_dest(sx, ai->ai_family, destination);
 +    destination = bind_addr;
 +  }
@@ -5783,9 +5988,11 @@ index 6c458c505d..09945e77da 100644
    req[0] = desttype;
    result = Curl_bufq_write(&sx->iobuf, req, 1, &nwritten);
    if(result || (nwritten != 1)) {
-@@ -915,8 +1046,10 @@ static CURLproxycode socks5_resolving(struct socks_ctx *sx,
+@@ -914,9 +1055,12 @@ static CURLproxycode socks5_resolving(struct socks_ctx *sx,
+     presult = CURLPX_SEND_REQUEST;
      goto out;
    }
++  /* An unbound UDP endpoint requests port zero per RFC 1928. */
    /* PORT MSB+LSB */
 -  req[0] = (unsigned char)((sx->dest->port >> 8) & 0xffU);
 -  req[1] = (unsigned char)(sx->dest->port & 0xffU);
@@ -5796,10 +6003,12 @@ index 6c458c505d..09945e77da 100644
    result = Curl_bufq_write(&sx->iobuf, req, 2, &nwritten);
    if(result || (nwritten != 2)) {
      presult = CURLPX_SEND_REQUEST;
-@@ -1022,6 +1155,52 @@ static CURLproxycode socks5_recv_resp1(struct socks_ctx *sx,
+@@ -1022,6 +1166,54 @@ static CURLproxycode socks5_recv_resp1(struct socks_ctx *sx,
    return CURLPX_OK;
  }
  
++/* curl-impersonate: parse BND.ADDR and BND.PORT from the UDP ASSOCIATE
++ * response and store the proxy's UDP relay endpoint. */
 +static CURLproxycode socks5_udp_set_relay(struct socks_ctx *sx,
 +                                          struct Curl_easy *data)
 +{
@@ -5849,7 +6058,16 @@ index 6c458c505d..09945e77da 100644
  /*
   * This function logs in to a SOCKS5 proxy and sends the specifics to the final
   * destination server.
-@@ -1160,6 +1339,11 @@ process_state:
+@@ -1126,6 +1318,8 @@ process_state:
+       sxstate(sx, cf, data, SOCKS5_ST_REQ1_SEND);
+       goto process_state;
+     }
++    /* curl-impersonate: locally resolve the QUIC target before caching it
++     * for the SOCKS5 UDP header. */
+     sx->start_resolving = TRUE;
+     sxstate(sx, cf, data, SOCKS5_ST_RESOLVING);
+     FALLTHROUGH();
+@@ -1160,6 +1354,11 @@ process_state:
        return socks_failed(sx, cf, data, presult);
      if(!done)
        return CURLPX_OK;
@@ -5861,11 +6079,13 @@ index 6c458c505d..09945e77da 100644
      CURL_TRC_CF(data, cf, "SOCKS5 request granted.");
      sxstate(sx, cf, data, SOCKS_ST_SUCCESS);
      FALLTHROUGH();
-@@ -1177,9 +1361,96 @@ process_state:
+@@ -1177,9 +1376,100 @@ process_state:
    }
  }
  
 -static void socks_proxy_ctx_free(struct socks_ctx *ctx)
++/* curl-impersonate: create the UDP relay data path while retaining the TCP
++ * control channel required for the lifetime of the association. */
 +static CURLcode socks5_udp_create(struct Curl_cfilter *cf,
 +                                  struct socks_ctx *sx,
 +                                  struct Curl_easy *data)
@@ -5890,6 +6110,7 @@ index 6c458c505d..09945e77da 100644
 +      break;
 +    }
 +  }
++  /* If the relay address is 0.0.0.0 or ::, reuse the proxy's TCP peer. */
 +  if(is_zero && cf->next &&
 +     !cf->next->cft->query(cf->next, data, CF_QUERY_REMOTE_ADDR,
 +                           &dummy, &proxy_addr) && proxy_addr) {
@@ -5939,6 +6160,7 @@ index 6c458c505d..09945e77da 100644
 +  relay_addr.socktype = SOCK_DGRAM;
 +  relay_addr.protocol = IPPROTO_UDP;
 +
++  /* QUIC needs a connected UDP socket when using UDP ASSOCIATE. */
 +  origin = Curl_conn_get_origin(cf->conn, cf->sockindex);
 +  result = Curl_cf_udp_create(&sx->udp_cf, data, origin, sx->dest,
 +                              TRNSPRT_QUIC, cf->conn, &relay_addr,
@@ -5959,7 +6181,7 @@ index 6c458c505d..09945e77da 100644
      Curl_peer_unlink(&ctx->dest);
      Curl_creds_unlink(&ctx->creds);
      Curl_bufq_free(&ctx->iobuf);
-@@ -1236,6 +1507,20 @@ static CURLcode socks_proxy_cf_connect(struct Curl_cfilter *cf,
+@@ -1236,6 +1526,22 @@ static CURLcode socks_proxy_cf_connect(struct Curl_cfilter *cf,
    else if(ctx->state != SOCKS_ST_SUCCESS)
      goto out;
  
@@ -5968,6 +6190,8 @@ index 6c458c505d..09945e77da 100644
 +      result = socks5_udp_create(cf, ctx, data);
 +      if(result)
 +        goto out;
++      /* Keep the TCP control channel and switch the data path to the UDP
++       * relay. Closing the control channel terminates the association. */
 +      ctx->tcp_cf = cf->next;
 +      cf->next = ctx->udp_cf;
 +      CURL_TRC_CF(data, cf, "switched from SOCKS TCP control to UDP relay");
@@ -5980,10 +6204,11 @@ index 6c458c505d..09945e77da 100644
  #ifdef CURLVERBOSE
    if(Curl_trc_is_verbose(data)) {
      struct ip_quadruple ipquad;
-@@ -1261,6 +1546,165 @@ out:
+@@ -1261,6 +1567,171 @@ out:
    return result;
  }
  
++/* curl-impersonate: wrap outgoing QUIC datagrams in SOCKS5 UDP headers. */
 +static CURLcode socks_proxy_cf_send(struct Curl_cfilter *cf,
 +                                    struct Curl_easy *data,
 +                                    const uint8_t *buf, size_t len, bool eos,
@@ -6054,6 +6279,8 @@ index 6c458c505d..09945e77da 100644
 +  return CURLE_OK;
 +}
 +
++/* curl-impersonate: strip SOCKS5 UDP headers before passing QUIC payloads
++ * upward. */
 +static CURLcode socks_proxy_cf_recv(struct Curl_cfilter *cf,
 +                                    struct Curl_easy *data,
 +                                    char *buf, size_t len, size_t *pnread)
@@ -6112,6 +6339,9 @@ index 6c458c505d..09945e77da 100644
 +    goto out;
 +  }
 +
++  /* For socks5h with a domain target, leave udp_peer_set false so the socket
++   * filter reports the relay as QUIC's network peer. For locally resolved
++   * targets and IP literals, cache the source address from the UDP header. */
 +  if((packet[3] == SOCKS5_ATYP_IPV4
 +#ifdef USE_IPV6
 +      || packet[3] == SOCKS5_ATYP_IPV6
@@ -6146,7 +6376,7 @@ index 6c458c505d..09945e77da 100644
  static CURLcode socks_cf_adjust_pollset(struct Curl_cfilter *cf,
                                          struct Curl_easy *data,
                                          struct easy_pollset *ps)
-@@ -1292,8 +1736,7 @@ static CURLcode socks_cf_adjust_pollset(struct Curl_cfilter *cf,
+@@ -1292,8 +1763,7 @@ static CURLcode socks_cf_adjust_pollset(struct Curl_cfilter *cf,
  static void socks_proxy_cf_destroy(struct Curl_cfilter *cf,
                                     struct Curl_easy *data)
  {
@@ -6156,11 +6386,13 @@ index 6c458c505d..09945e77da 100644
    cf->ctx = NULL;
  }
  
-@@ -1304,6 +1747,12 @@ static CURLcode socks_cf_query(struct Curl_cfilter *cf,
+@@ -1304,6 +1774,14 @@ static CURLcode socks_cf_query(struct Curl_cfilter *cf,
    struct socks_ctx *sx = cf->ctx;
  
    switch(query) {
 +  case CF_QUERY_REMOTE_ADDR:
++    /* Return the target for local DNS/IP literals. For socks5h domain names,
++     * fall through so the UDP relay address is returned instead. */
 +    if(sx && sx->udp_associate && sx->udp_peer_set) {
 +      *((const struct Curl_sockaddr_ex **)pres2) = &sx->udp_peer_addr;
 +      return CURLE_OK;
@@ -6169,7 +6401,7 @@ index 6c458c505d..09945e77da 100644
    case CF_QUERY_HOST_PORT:
      if(sx) {
        *pres1 = sx->dest->port;
-@@ -1334,14 +1783,25 @@ struct Curl_cftype Curl_cft_socks_proxy = {
+@@ -1334,14 +1812,25 @@ struct Curl_cftype Curl_cft_socks_proxy = {
    Curl_cf_def_shutdown,
    socks_cf_adjust_pollset,
    Curl_cf_def_data_pending,
@@ -6197,7 +6429,7 @@ index 6c458c505d..09945e77da 100644
  CURLcode Curl_cf_socks_proxy_insert_after(struct Curl_cfilter *cf_at,
                                            struct Curl_easy *data,
                                            struct Curl_peer *dest,
-@@ -1366,6 +1826,13 @@ CURLcode Curl_cf_socks_proxy_insert_after(struct Curl_cfilter *cf_at,
+@@ -1366,6 +1855,13 @@ CURLcode Curl_cf_socks_proxy_insert_after(struct Curl_cfilter *cf_at,
      failf(data, "unknown proxytype %d option given", proxy_type);
      return CURLE_COULDNT_CONNECT;
    }
@@ -6211,17 +6443,19 @@ index 6c458c505d..09945e77da 100644
  
    /* NUL byte already part of struct size */
    ctx = curlx_calloc(1, sizeof(*ctx));
-@@ -1376,6 +1843,9 @@ CURLcode Curl_cf_socks_proxy_insert_after(struct Curl_cfilter *cf_at,
+@@ -1376,6 +1872,11 @@ CURLcode Curl_cf_socks_proxy_insert_after(struct Curl_cfilter *cf_at,
    Curl_peer_link(&ctx->dest, dest);
    ctx->ip_version = ip_version;
    ctx->proxy_type = proxy_type;
++  /* curl-impersonate: QUIC through a direct SOCKS proxy uses UDP ASSOCIATE.
++   * A nested HTTP proxy continues through its TCP CONNECT path. */
 +  ctx->udp_associate =
 +    (cf_at->conn->transport_wanted == TRNSPRT_QUIC) &&
 +    !cf_at->conn->http_proxy.peer;
    Curl_creds_link(&ctx->creds, creds);
    Curl_bufq_init2(&ctx->iobuf, SOCKS_CHUNK_SIZE, SOCKS_CHUNKS,
                    BUFQ_OPT_SOFT_LIMIT);
-@@ -1384,7 +1854,7 @@ CURLcode Curl_cf_socks_proxy_insert_after(struct Curl_cfilter *cf_at,
+@@ -1384,7 +1885,7 @@ CURLcode Curl_cf_socks_proxy_insert_after(struct Curl_cfilter *cf_at,
    if(!result)
      Curl_conn_cf_insert_after(cf_at, cf);
    else
@@ -6377,7 +6611,7 @@ index 505e08a7e1..dabf1d637c 100644
      if(waitpipe) {
        /* There is a connection that *might* become usable for multiplexing
 diff --git a/lib/urldata.h b/lib/urldata.h
-index d4d336d8db..d9fb64bfdb 100644
+index d4d336d8db..f5a414ae14 100644
 --- a/lib/urldata.h
 +++ b/lib/urldata.h
 @@ -193,6 +193,7 @@ struct ConnectBits {
@@ -6388,7 +6622,7 @@ index d4d336d8db..d9fb64bfdb 100644
  #endif
    /* always modify bits.close with the connclose() and connkeep() macros! */
    BIT(close); /* if set, we close the connection after this request */
-@@ -220,6 +221,17 @@ struct ConnectBits {
+@@ -220,6 +221,14 @@ struct ConnectBits {
    BIT(multiplex); /* connection is multiplexed */
    BIT(tcp_fastopen); /* use TCP Fast Open */
    BIT(tls_enable_alpn); /* TLS ALPN extension? */
@@ -6400,13 +6634,10 @@ index d4d336d8db..d9fb64bfdb 100644
 +#ifndef CURL_DISABLE_DOH
 +  BIT(doh);
 +#endif
-+#ifdef USE_UNIX_SOCKETS
-+  BIT(abstract_unix_socket);
-+#endif
    BIT(sock_accepted); /* TRUE if the SECONDARYSOCKET was created with
                           accept() */
    BIT(parallel_connect); /* set TRUE when a parallel connect attempt has
-@@ -526,6 +538,7 @@ struct Curl_data_prio_node {
+@@ -526,6 +535,7 @@ struct Curl_data_prio_node {
   */
  struct Curl_data_priority {
    int weight;
@@ -6414,7 +6645,7 @@ index d4d336d8db..d9fb64bfdb 100644
  };
  
  /* Timers */
-@@ -673,6 +686,19 @@ struct UrlState {
+@@ -673,6 +683,19 @@ struct UrlState {
                                      curl_easy_setopt(COOKIEFILE) calls */
  #endif
  
@@ -6434,7 +6665,7 @@ index d4d336d8db..d9fb64bfdb 100644
  #ifdef CURLVERBOSE
    struct curl_trc_feat *feat; /* opt. trace feature transfer is part of */
  #endif
-@@ -769,6 +795,8 @@ enum dupstring {
+@@ -769,6 +792,8 @@ enum dupstring {
    STRING_SSL_CRLFILE,     /* CRL file to check certificate */
    STRING_SSL_ISSUERCERT,  /* issuer cert file to check certificate */
    STRING_SERVICE_NAME,    /* Service name */
@@ -6443,7 +6674,7 @@ index d4d336d8db..d9fb64bfdb 100644
  #ifndef CURL_DISABLE_PROXY
    STRING_CERT_PROXY,      /* client certificate filename */
    STRING_CERT_TYPE_PROXY, /* format for certificate (default: PEM)*/
-@@ -867,6 +895,7 @@ enum dupstring {
+@@ -867,6 +892,7 @@ enum dupstring {
    STRING_DNS_LOCAL_IP6,
  #endif
    STRING_SSL_EC_CURVES,
@@ -6451,7 +6682,7 @@ index d4d336d8db..d9fb64bfdb 100644
  #ifndef CURL_DISABLE_AWS
    STRING_AWS_SIGV4, /* Parameters for V4 signature */
  #endif
-@@ -875,6 +904,21 @@ enum dupstring {
+@@ -875,6 +901,21 @@ enum dupstring {
  #endif
    STRING_ECH_CONFIG,            /* CURLOPT_ECH_CONFIG */
    STRING_ECH_PUBLIC,            /* CURLOPT_ECH_PUBLIC */
@@ -6473,7 +6704,7 @@ index d4d336d8db..d9fb64bfdb 100644
    STRING_SSL_SIGNATURE_ALGORITHMS, /* CURLOPT_SSL_SIGNATURE_ALGORITHMS */
  
    /* -- end of null-terminated strings -- */
-@@ -956,6 +1000,8 @@ struct UserDefined {
+@@ -956,6 +997,8 @@ struct UserDefined {
                                  download */
    curl_off_t set_resume_from;  /* continue [ftp] transfer from here */
    struct curl_slist *headers; /* linked list of extra headers */
@@ -6482,7 +6713,7 @@ index d4d336d8db..d9fb64bfdb 100644
    struct curl_httppost *httppost;  /* linked list of old POST data */
  #if !defined(CURL_DISABLE_MIME) || !defined(CURL_DISABLE_FORM_API)
    curl_mimepart *mimepostp;  /* MIME/POST data. */
-@@ -1117,6 +1163,7 @@ struct UserDefined {
+@@ -1117,6 +1160,7 @@ struct UserDefined {
    BIT(sep_headers);     /* handle host and proxy headers separately */
  #ifndef CURL_DISABLE_COOKIES
    BIT(cookiesession);   /* new cookie session? */
@@ -6490,7 +6721,7 @@ index d4d336d8db..d9fb64bfdb 100644
  #endif
    BIT(crlf);            /* convert crlf on ftp upload(?) */
  #ifdef USE_SSH
-@@ -1133,6 +1180,7 @@ struct UserDefined {
+@@ -1133,6 +1177,7 @@ struct UserDefined {
    BIT(get_filetime);     /* get the time and get of the remote file */
  #ifndef CURL_DISABLE_PROXY
    BIT(tunnel_thru_httpproxy); /* use CONNECT through an HTTP proxy */
@@ -6498,7 +6729,7 @@ index d4d336d8db..d9fb64bfdb 100644
  #endif
    BIT(prefer_ascii);     /* ASCII rather than binary */
    BIT(remote_append);    /* append, not overwrite, on upload */
-@@ -1176,6 +1224,15 @@ struct UserDefined {
+@@ -1176,6 +1221,15 @@ struct UserDefined {
    BIT(tcp_keepalive);  /* use TCP keepalives */
    BIT(tcp_fastopen);   /* use TCP Fast Open */
    BIT(ssl_enable_alpn);/* TLS ALPN extension? */
@@ -6514,7 +6745,7 @@ index d4d336d8db..d9fb64bfdb 100644
    BIT(path_as_is);     /* allow dotdots? */
    BIT(pipewait);       /* wait for multiplex status before starting a new
                            connection */
-@@ -1197,10 +1254,15 @@ struct UserDefined {
+@@ -1197,10 +1251,15 @@ struct UserDefined {
    BIT(doh_verifystatus);   /* DoH certificate status verification */
  #endif
    BIT(http09_allowed); /* allow HTTP/0.9 responses */
