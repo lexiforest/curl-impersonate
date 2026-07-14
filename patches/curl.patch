@@ -972,14 +972,17 @@ index 266ba52af3..54608e8cc2 100644
    llist.c            \
    macos.c            \
 diff --git a/lib/cf-setup.c b/lib/cf-setup.c
-index 119294a89a..4b5b4cd2aa 100644
+index 119294a89a..f603800a1a 100644
 --- a/lib/cf-setup.c
 +++ b/lib/cf-setup.c
-@@ -190,6 +190,12 @@ static CURLcode cf_setup_add_ip_happy(struct Curl_cfilter *cf,
+@@ -190,6 +190,15 @@ static CURLcode cf_setup_add_ip_happy(struct Curl_cfilter *cf,
      if(!first_peer)
        return CURLE_FAILED_INIT;
  
 +#ifndef CURL_DISABLE_PROXY
++    /* curl-impersonate: QUIC over SOCKS first establishes the TCP control
++     * channel. The SOCKS filter later switches the data path to its UDP
++     * relay. */
 +    if((ctx->transport == TRNSPRT_QUIC) &&
 +       cf->conn->socks_proxy.peer && !cf->conn->http_proxy.peer)
 +      first_transport = TRNSPRT_TCP;
@@ -988,7 +991,7 @@ index 119294a89a..4b5b4cd2aa 100644
  #if !defined(CURL_DISABLE_PROXY) && !defined(CURL_DISABLE_HTTP)
      if(cf->conn->http_proxy.peer && !cf->conn->bits.origin_is_proxy) {
        first_transport =
-@@ -258,6 +264,21 @@ static CURLcode cf_setup_add_origin_filters(struct Curl_cfilter *cf,
+@@ -258,6 +267,21 @@ static CURLcode cf_setup_add_origin_filters(struct Curl_cfilter *cf,
        }
        CURL_TRC_CF(data, cf, "added QUIC filter for origin");
      }
@@ -1142,7 +1145,7 @@ index d5337eb353..b2fb669979 100644
  /**
   * Return the n-th header entry or NULL if it does not exist.
 diff --git a/lib/easy.c b/lib/easy.c
-index d60bdaed7b..b82e8e5e90 100644
+index d60bdaed7b..d3b1bbbe75 100644
 --- a/lib/easy.c
 +++ b/lib/easy.c
 @@ -70,10 +70,14 @@
@@ -1576,12 +1579,12 @@ index d60bdaed7b..b82e8e5e90 100644
 +    if(env_headers) {
 +      result = curl_easy_impersonate(data, env_target,
 +                                     !curl_strequal(env_headers, "no"));
-+      free(env_headers);
++      curlx_free(env_headers);
 +    }
 +    else {
 +      result = curl_easy_impersonate(data, env_target, TRUE);
 +    }
-+    free(env_target);
++    curlx_free(env_target);
 +    if(result) {
 +      Curl_close(&data);
 +      return NULL;
@@ -1629,12 +1632,12 @@ index d60bdaed7b..b82e8e5e90 100644
 +    if(env_headers) {
 +      curl_easy_impersonate(data, env_target,
 +                            !curl_strequal(env_headers, "no"));
-+      free(env_headers);
++      curlx_free(env_headers);
 +    }
 +    else {
 +      curl_easy_impersonate(data, env_target, TRUE);
 +    }
-+    free(env_target);
++    curlx_free(env_target);
 +  }
  }
  
@@ -1786,7 +1789,7 @@ index 4c0b4f0ce4..31afae471b 100644
  }
  #endif
 diff --git a/lib/http.c b/lib/http.c
-index 83d0e01152..bb4f4f496a 100644
+index 83d0e01152..fbe165f66a 100644
 --- a/lib/http.c
 +++ b/lib/http.c
 @@ -82,9 +82,10 @@
@@ -1846,7 +1849,7 @@ index 83d0e01152..bb4f4f496a 100644
  #endif
  
    /* loop through one or two lists */
-@@ -1979,6 +1987,109 @@ void Curl_http_method(struct Curl_easy *data,
+@@ -1979,6 +1987,110 @@ void Curl_http_method(struct Curl_easy *data,
    *reqp = httpreq;
  }
  
@@ -1897,7 +1900,7 @@ index 83d0e01152..bb4f4f496a 100644
 +         Curl_headersep(head2->data[prefix_len]) ) {
 +        new_list = curl_slist_append(new_list, head2->data);
 +        /* Free and set to NULL to mark that it's been added. */
-+        Curl_safefree(head2->data);
++        curlx_safefree(head2->data);
 +        found = TRUE;
 +        break;
 +      }
@@ -1909,7 +1912,8 @@ index 83d0e01152..bb4f4f496a 100644
 +       curl_strnequal(head->data, "User-Agent", prefix_len) &&
 +       data->set.str[STRING_USERAGENT] &&
 +       *data->set.str[STRING_USERAGENT]) {
-+      uagent = aprintf("User-Agent: %s", data->set.str[STRING_USERAGENT]);
++      uagent = curl_maprintf("User-Agent: %s",
++                             data->set.str[STRING_USERAGENT]);
 +      if(!uagent) {
 +        ret = CURLE_OUT_OF_MEMORY;
 +        goto fail;
@@ -1947,7 +1951,7 @@ index 83d0e01152..bb4f4f496a 100644
 +  return CURLE_OK;
 +
 +fail:
-+  Curl_safefree(dup);
++  curl_slist_free_all(dup);
 +  curl_slist_free_all(new_list);
 +  return ret;
 +}
@@ -1956,7 +1960,7 @@ index 83d0e01152..bb4f4f496a 100644
  static CURLcode http_useragent(struct Curl_easy *data)
  {
    /* The User-Agent string might have been allocated already, because
-@@ -2005,45 +2116,10 @@ static CURLcode http_set_aptr_host(struct Curl_easy *data)
+@@ -2005,45 +2117,10 @@ static CURLcode http_set_aptr_host(struct Curl_easy *data)
    if(ptr &&
       (!data->state.this_is_a_follow ||
        Curl_peer_equal(data->state.initial_origin, data->state.origin))) {
@@ -2005,7 +2009,7 @@ index 83d0e01152..bb4f4f496a 100644
      }
    }
    else {
-@@ -2448,6 +2524,231 @@ static CURLcode addexpect(struct Curl_easy *data, struct dynbuf *r,
+@@ -2448,6 +2525,231 @@ static CURLcode addexpect(struct Curl_easy *data, struct dynbuf *r,
    return CURLE_OK;
  }
  
@@ -2191,7 +2195,7 @@ index 83d0e01152..bb4f4f496a 100644
 +  if(!nlines)
 +    return CURLE_OK;
 +
-+  lines = calloc(nlines, sizeof(*lines));
++  lines = curlx_calloc(nlines, sizeof(*lines));
 +  if(!lines)
 +    return CURLE_OUT_OF_MEMORY;
 +  http_header_order_parse_lines(lines, nlines, header_start, header_lines_end);
@@ -2219,7 +2223,7 @@ index 83d0e01152..bb4f4f496a 100644
 +    result = curlx_dyn_addn(&out, header_lines_end,
 +                            blen - (size_t)(header_lines_end - buf));
 +
-+  free(lines);
++  curlx_free(lines);
 +
 +  if(result) {
 +    curlx_dyn_free(&out);
@@ -2237,7 +2241,7 @@ index 83d0e01152..bb4f4f496a 100644
  static CURLcode http_add_content_hds(struct Curl_easy *data,
                                       struct dynbuf *r,
                                       int httpversion,
-@@ -2535,6 +2836,8 @@ static CURLcode http_cookies(struct Curl_easy *data,
+@@ -2535,6 +2837,8 @@ static CURLcode http_cookies(struct Curl_easy *data,
    CURLcode result = CURLE_OK;
    char *addcookies = NULL;
    bool linecap = FALSE;
@@ -2246,11 +2250,12 @@ index 83d0e01152..bb4f4f496a 100644
    if(data->set.str[STRING_COOKIE] &&
       !Curl_checkheaders(data, STRCONST("Cookie")) &&
       Curl_auth_allowed_to_host(data))
-@@ -2559,6 +2862,21 @@ static CURLcode http_cookies(struct Curl_easy *data,
+@@ -2559,6 +2863,22 @@ static CURLcode http_cookies(struct Curl_easy *data,
            struct Cookie *co = Curl_node_elem(n);
            if(co->value) {
              size_t add;
 +            if(split) {
++              /* One cookie per header line. */
 +              add = strlen(co->name) + strlen(co->value) + 1;
 +              if(add + 8 >= MAX_COOKIE_HEADER_LEN) {
 +                infof(data, "Restricted outgoing cookies due to header size, "
@@ -2268,7 +2273,7 @@ index 83d0e01152..bb4f4f496a 100644
              if(!count) {
                result = curlx_dyn_addn(r, STRCONST("Cookie: "));
                if(result)
-@@ -2583,7 +2901,32 @@ static CURLcode http_cookies(struct Curl_easy *data,
+@@ -2583,7 +2903,32 @@ static CURLcode http_cookies(struct Curl_easy *data,
        }
        Curl_share_unlock(data, CURL_LOCK_DATA_COOKIE);
      }
@@ -2302,7 +2307,7 @@ index 83d0e01152..bb4f4f496a 100644
        if(!count)
          result = curlx_dyn_addn(r, STRCONST("Cookie: "));
        if(!result) {
-@@ -2591,7 +2934,7 @@ static CURLcode http_cookies(struct Curl_easy *data,
+@@ -2591,7 +2936,7 @@ static CURLcode http_cookies(struct Curl_easy *data,
          count++;
        }
      }
@@ -2311,7 +2316,7 @@ index 83d0e01152..bb4f4f496a 100644
        result = curlx_dyn_addn(r, STRCONST("\r\n"));
  
      if(result)
-@@ -3058,8 +3401,12 @@ CURLcode Curl_http(struct Curl_easy *data, bool *done)
+@@ -3058,8 +3403,12 @@ CURLcode Curl_http(struct Curl_easy *data, bool *done)
    /* what kind of request do we need to send? */
    Curl_http_method(data, &method, &httpreq);
  
@@ -2325,7 +2330,7 @@ index 83d0e01152..bb4f4f496a 100644
    /* setup the authentication headers, how that method and host are known */
    if(!result)
      result = Curl_http_output_auth(data, data->conn, method, httpreq,
-@@ -3086,6 +3433,10 @@ CURLcode Curl_http(struct Curl_easy *data, bool *done)
+@@ -3086,6 +3435,10 @@ CURLcode Curl_http(struct Curl_easy *data, bool *done)
        goto out;
    }
  
@@ -2336,7 +2341,7 @@ index 83d0e01152..bb4f4f496a 100644
    /* setup variables for the upcoming transfer and send */
    Curl_xfer_setup_sendrecv(data, FIRSTSOCKET, -1);
    result = Curl_req_send(data, &req, httpversion);
-@@ -4920,6 +5271,29 @@ static bool http_TE_has_token(const char *fvalue, const char *token)
+@@ -4920,6 +5273,29 @@ static bool http_TE_has_token(const char *fvalue, const char *token)
    return FALSE;
  }
  
@@ -2366,7 +2371,7 @@ index 83d0e01152..bb4f4f496a 100644
  CURLcode Curl_http_req_to_h2(struct dynhds *h2_headers,
                               struct httpreq *req, struct Curl_easy *data)
  {
-@@ -4928,6 +5302,10 @@ CURLcode Curl_http_req_to_h2(struct dynhds *h2_headers,
+@@ -4928,6 +5304,10 @@ CURLcode Curl_http_req_to_h2(struct dynhds *h2_headers,
    size_t i;
    CURLcode result;
  
@@ -2377,7 +2382,7 @@ index 83d0e01152..bb4f4f496a 100644
    DEBUGASSERT(req);
    DEBUGASSERT(h2_headers);
  
-@@ -4957,20 +5335,46 @@ CURLcode Curl_http_req_to_h2(struct dynhds *h2_headers,
+@@ -4957,20 +5337,46 @@ CURLcode Curl_http_req_to_h2(struct dynhds *h2_headers,
  
    Curl_dynhds_reset(h2_headers);
    Curl_dynhds_set_opts(h2_headers, DYNHDS_OPT_LOWERCASE);
@@ -2435,7 +2440,7 @@ index 83d0e01152..bb4f4f496a 100644
    for(i = 0; !result && i < Curl_dynhds_count(&req->headers); ++i) {
      e = Curl_dynhds_getn(&req->headers, i);
      /* "TE" is special in that it is only permissible when it
-@@ -4983,6 +5387,8 @@ CURLcode Curl_http_req_to_h2(struct dynhds *h2_headers,
+@@ -4983,6 +5389,8 @@ CURLcode Curl_http_req_to_h2(struct dynhds *h2_headers,
      else if(h2_permissible_field(e)) {
        result = Curl_dynhds_add(h2_headers, e->name, e->namelen,
                                 e->value, e->valuelen);
@@ -2445,7 +2450,7 @@ index 83d0e01152..bb4f4f496a 100644
    }
  
 diff --git a/lib/http2.c b/lib/http2.c
-index a820439ef4..3213d6856b 100644
+index a820439ef4..f7581b4030 100644
 --- a/lib/http2.c
 +++ b/lib/http2.c
 @@ -46,6 +46,7 @@
@@ -2485,7 +2490,7 @@ index a820439ef4..3213d6856b 100644
  #define H2_BINSETTINGS_LEN 80
  
  struct cf_h2_ctx {
-@@ -215,17 +219,71 @@ static size_t populate_settings(nghttp2_settings_entry *iv,
+@@ -215,17 +219,72 @@ static size_t populate_settings(nghttp2_settings_entry *iv,
                                  struct Curl_easy *data,
                                  struct cf_h2_ctx *ctx)
  {
@@ -2524,6 +2529,7 @@ index a820439ef4..3213d6856b 100644
 +      iv[i].settings_id = NGHTTP2_SETTINGS_ENABLE_PUSH;
 +      break;
 +    case '3':
++      /* FIXME: We also need to notify curl_multi about this setting. */
 +      iv[i].settings_id = NGHTTP2_SETTINGS_MAX_CONCURRENT_STREAMS;
 +      break;
 +    case '4':
@@ -2566,7 +2572,7 @@ index a820439ef4..3213d6856b 100644
  }
  
  static ssize_t populate_binsettings(uint8_t *binsettings,
-@@ -252,6 +310,101 @@ static CURLcode cf_h2_update_settings(struct cf_h2_ctx *ctx,
+@@ -252,6 +311,101 @@ static CURLcode cf_h2_update_settings(struct cf_h2_ctx *ctx,
    return CURLE_OK;
  }
  
@@ -2668,7 +2674,7 @@ index a820439ef4..3213d6856b 100644
  #define H2_STREAM_CTX(ctx, data)                                         \
    ((struct h2_stream_ctx *)(                                             \
      (data) ? Curl_uint32_hash_get(&(ctx)->streams, (data)->mid) : NULL))
-@@ -1748,18 +1901,26 @@ out:
+@@ -1748,18 +1902,26 @@ out:
    return result;
  }
  
@@ -2697,7 +2703,7 @@ index a820439ef4..3213d6856b 100644
  }
  
  /*
-@@ -1768,12 +1929,22 @@ static int sweight_in_effect(const struct Curl_easy *data)
+@@ -1768,12 +1930,22 @@ static int sweight_in_effect(const struct Curl_easy *data)
   * struct.
   */
  
@@ -2721,7 +2727,7 @@ index a820439ef4..3213d6856b 100644
    data->state.priority = *prio;
  }
  
-@@ -1790,18 +1961,23 @@ static CURLcode h2_progress_egress(struct Curl_cfilter *cf,
+@@ -1790,18 +1962,23 @@ static CURLcode h2_progress_egress(struct Curl_cfilter *cf,
    struct h2_stream_ctx *stream = H2_STREAM_CTX(ctx, data);
    int rv = 0;
  
@@ -2752,7 +2758,7 @@ index a820439ef4..3213d6856b 100644
    }
  
    ctx->nw_out_blocked = 0;
-@@ -2114,7 +2290,9 @@ static CURLcode h2_submit(struct h2_stream_ctx **pstream,
+@@ -2114,7 +2291,9 @@ static CURLcode h2_submit(struct h2_stream_ctx **pstream,
    /* Check the initial windows size of the transfer (rate-limits?) and
     * send an updated settings on changes from previous value. */
    initial_win_size = cf_h2_initial_win_size(data);
@@ -2763,7 +2769,7 @@ index a820439ef4..3213d6856b 100644
      result = cf_h2_update_settings(ctx, initial_win_size);
      if(result)
        goto out;
-@@ -2127,11 +2305,13 @@ static CURLcode h2_submit(struct h2_stream_ctx **pstream,
+@@ -2127,11 +2306,13 @@ static CURLcode h2_submit(struct h2_stream_ctx **pstream,
    case HTTPREQ_PUT:
      data_prd.read_callback = req_body_read_callback;
      data_prd.source.ptr = NULL;
@@ -2779,7 +2785,7 @@ index a820439ef4..3213d6856b 100644
                                         NULL, data);
    }
  
-@@ -2466,8 +2646,15 @@ static CURLcode cf_h2_ctx_open(struct Curl_cfilter *cf,
+@@ -2466,8 +2647,15 @@ static CURLcode cf_h2_ctx_open(struct Curl_cfilter *cf,
      }
    }
  
@@ -2797,7 +2803,7 @@ index a820439ef4..3213d6856b 100644
    if(rc) {
      failf(data, "nghttp2_session_set_local_window_size() failed: %s(%d)",
            nghttp2_strerror(rc), rc);
-@@ -2475,6 +2662,20 @@ static CURLcode cf_h2_ctx_open(struct Curl_cfilter *cf,
+@@ -2475,6 +2663,20 @@ static CURLcode cf_h2_ctx_open(struct Curl_cfilter *cf,
      goto out;
    }
  
@@ -5405,7 +5411,7 @@ index 8d57c058c6..6725bbeaea 100644
  };
  
 diff --git a/lib/setopt.c b/lib/setopt.c
-index eb9ff2e396..a72eaac3c0 100644
+index eb9ff2e396..56d4a29b66 100644
 --- a/lib/setopt.c
 +++ b/lib/setopt.c
 @@ -46,8 +46,10 @@
@@ -5419,7 +5425,7 @@ index eb9ff2e396..a72eaac3c0 100644
  #include "bufref.h"
  #include "vauth/vauth.h"
  
-@@ -98,6 +100,89 @@ CURLcode Curl_setstropt(char **charp, const char *s)
+@@ -98,6 +100,95 @@ CURLcode Curl_setstropt(char **charp, const char *s)
    return CURLE_OK;
  }
  
@@ -5429,6 +5435,7 @@ index eb9ff2e396..a72eaac3c0 100644
 +         curl_strequal(value, "firefox");
 +}
 +
++/* Return whether `c` is valid in an HTTP field name. */
 +static bool http_header_order_name_char(char c)
 +{
 +  return ISALNUM(c) || c == '!' || c == '#' || c == '$' ||
@@ -5437,6 +5444,7 @@ index eb9ff2e396..a72eaac3c0 100644
 +         c == '_' || c == '`' || c == '|' || c == '~';
 +}
 +
++/* Parse one comma-separated header name and trim surrounding blanks. */
 +static void http_header_order_token(const char **pp, const char **pname,
 +                                    size_t *pnamelen)
 +{
@@ -5457,6 +5465,7 @@ index eb9ff2e396..a72eaac3c0 100644
 +  *pp = p;
 +}
 +
++/* Return whether `name` already appeared earlier in `order`. */
 +static bool http_header_order_duplicate(const char *order,
 +                                        const char *name, size_t namelen)
 +{
@@ -5477,6 +5486,7 @@ index eb9ff2e396..a72eaac3c0 100644
 +  return FALSE;
 +}
 +
++/* Validate CURLOPT_HTTPHEADER_ORDER before storing it. */
 +static bool setopt_valid_http_header_order(const char *order)
 +{
 +  const char *p = order;
@@ -5485,6 +5495,8 @@ index eb9ff2e396..a72eaac3c0 100644
 +    return TRUE;
 +  if(!*order)
 +    return FALSE;
++
++  /* Validate comma-separated HTTP field names before storing the option. */
 +  while(*p) {
 +    const char *name;
 +    size_t namelen;
@@ -5509,7 +5521,17 @@ index eb9ff2e396..a72eaac3c0 100644
  CURLcode Curl_setblobopt(struct curl_blob **blobp,
                           const struct curl_blob *blob)
  {
-@@ -499,6 +584,9 @@ static CURLcode setopt_long_bool(struct Curl_easy *data, CURLoption option,
+@@ -307,6 +398,9 @@ static CURLcode setopt_HTTP_VERSION(struct Curl_easy *data, long arg)
+     return CURLE_UNSUPPORTED_PROTOCOL;
+   }
+   data->set.httpwant = (unsigned char)arg;
++  /* QUIC inherently uses TLS 1.3, enforced in the QUIC TLS setup. Do not
++   * override the global SSL version here because --http3 may fall back to
++   * HTTP/2 over TLS 1.2. */
+   return CURLE_OK;
+ }
+ #endif /* !CURL_DISABLE_HTTP */
+@@ -499,6 +593,9 @@ static CURLcode setopt_long_bool(struct Curl_easy *data, CURLoption option,
       */
      s->cookiesession = enabled;
      break;
@@ -5519,7 +5541,7 @@ index eb9ff2e396..a72eaac3c0 100644
  #endif
    case CURLOPT_AUTOREFERER:
      /*
-@@ -586,6 +674,9 @@ static CURLcode setopt_long_bool(struct Curl_easy *data, CURLoption option,
+@@ -586,6 +683,9 @@ static CURLcode setopt_long_bool(struct Curl_easy *data, CURLoption option,
       */
      s->proxy_transfer_mode = enabled;
      break;
@@ -5529,7 +5551,7 @@ index eb9ff2e396..a72eaac3c0 100644
  #endif /* !CURL_DISABLE_PROXY */
  #if defined(HAVE_GSSAPI) || defined(USE_WINDOWS_SSPI)
    case CURLOPT_SOCKS5_GSSAPI_NEC:
-@@ -776,6 +867,30 @@ static CURLcode setopt_long_bool(struct Curl_easy *data, CURLoption option,
+@@ -776,6 +876,30 @@ static CURLcode setopt_long_bool(struct Curl_easy *data, CURLoption option,
    case CURLOPT_SSL_ENABLE_ALPN:
      s->ssl_enable_alpn = enabled;
      break;
@@ -5560,7 +5582,7 @@ index eb9ff2e396..a72eaac3c0 100644
    case CURLOPT_PATH_AS_IS:
      s->path_as_is = enabled;
      break;
-@@ -987,6 +1102,15 @@ static CURLcode setopt_long_ssl(struct Curl_easy *data, CURLoption option,
+@@ -987,6 +1111,15 @@ static CURLcode setopt_long_ssl(struct Curl_easy *data, CURLoption option,
  #endif
    case CURLOPT_SSL_ENABLE_NPN:
      break;
@@ -5576,7 +5598,7 @@ index eb9ff2e396..a72eaac3c0 100644
    case CURLOPT_SSLENGINE_DEFAULT:
      curlx_safefree(s->str[STRING_SSL_ENGINE]);
      result = Curl_ssl_set_engine_default(data);
-@@ -1064,7 +1188,7 @@ static CURLcode setopt_long_http(struct Curl_easy *data, CURLoption option,
+@@ -1064,7 +1197,7 @@ static CURLcode setopt_long_http(struct Curl_easy *data, CURLoption option,
  
    switch(option) {
    case CURLOPT_FOLLOWLOCATION:
@@ -5585,7 +5607,7 @@ index eb9ff2e396..a72eaac3c0 100644
        result = CURLE_BAD_FUNCTION_ARGUMENT;
      else
        s->http_follow_mode = (unsigned char)arg;
-@@ -1090,6 +1214,29 @@ static CURLcode setopt_long_http(struct Curl_easy *data, CURLoption option,
+@@ -1090,6 +1223,29 @@ static CURLcode setopt_long_http(struct Curl_easy *data, CURLoption option,
      return httpauth(data, FALSE, (unsigned long)arg);
    case CURLOPT_HTTP_VERSION:
      return setopt_HTTP_VERSION(data, arg);
@@ -5615,17 +5637,22 @@ index eb9ff2e396..a72eaac3c0 100644
    case CURLOPT_EXPECT_100_TIMEOUT_MS:
      result = value_range(&arg, 0, 0, 0xffff);
      if(!result)
-@@ -1393,6 +1540,18 @@ static CURLcode setopt_slist(struct Curl_easy *data, CURLoption option,
+@@ -1393,6 +1549,23 @@ static CURLcode setopt_slist(struct Curl_easy *data, CURLoption option,
       */
      s->headers = slist;
      break;
 +  case CURLOPT_HTTP3_HTTPHEADER:
++    /* Set an HTTP/3-specific list with HTTP headers to use. */
 +    s->http3_headers = slist;
 +    break;
 +  case CURLOPT_WS_HTTPHEADER:
++    /* Set a WebSocket-specific list with HTTP headers to use. */
 +    s->ws_headers = slist;
 +    break;
 +  case CURLOPT_HTTPBASEHEADER:
++    /* curl-impersonate: Set default browser headers to merge with
++     * CURLOPT_HTTPHEADER. Unlike CURLOPT_HTTPHEADER, this list is copied and
++     * may be freed immediately by the caller. */
 +    curl_slist_free_all(data->state.base_headers);
 +    data->state.base_headers = Curl_slist_duplicate(slist);
 +    if(slist && !data->state.base_headers)
@@ -5634,7 +5661,7 @@ index eb9ff2e396..a72eaac3c0 100644
  #endif
  #ifndef CURL_DISABLE_TELNET
    case CURLOPT_TELNETOPTIONS:
-@@ -1484,6 +1643,9 @@ static CURLcode setopt_pointers(struct Curl_easy *data, CURLoption option,
+@@ -1484,6 +1657,9 @@ static CURLcode setopt_pointers(struct Curl_easy *data, CURLoption option,
  #ifndef CURL_DISABLE_MIME
    case CURLOPT_MIMEPOST:
      result = setopt_mimepost(data, va_arg(param, curl_mime *));
@@ -5644,16 +5671,17 @@ index eb9ff2e396..a72eaac3c0 100644
      break;
  #endif /* !CURL_DISABLE_MIME */
  #endif /* !CURL_DISABLE_HTTP || !CURL_DISABLE_SMTP || !CURL_DISABLE_IMAP */
-@@ -1998,6 +2160,8 @@ static CURLcode setopt_cptr_ssl(struct Curl_easy *data, CURLoption option,
+@@ -1998,6 +2174,9 @@ static CURLcode setopt_cptr_ssl(struct Curl_easy *data, CURLoption option,
      if(Curl_ssl_supports(data, SSLSUPP_SSL_EC_CURVES))
        return Curl_setstropt(&s->str[STRING_SSL_EC_CURVES], ptr);
      return CURLE_NOT_BUILT_IN;
 +  case CURLOPT_HTTP3_SSL_EC_CURVES:
++    /* Set HTTP/3-specific accepted curves in SSL connection setup. */
 +    return Curl_setstropt(&s->str[STRING_HTTP3_SSL_EC_CURVES], ptr);
    case CURLOPT_SSL_SIGNATURE_ALGORITHMS:
      /*
       * Set accepted signature algorithms.
-@@ -2494,12 +2658,101 @@ static CURLcode setopt_cptr_misc(struct Curl_easy *data, CURLoption option,
+@@ -2494,12 +2673,106 @@ static CURLcode setopt_cptr_misc(struct Curl_easy *data, CURLoption option,
    return result;
  }
  
@@ -5733,10 +5761,15 @@ index eb9ff2e396..a72eaac3c0 100644
 +  case CURLOPT_HTTP2_STREAMS:
 +    return Curl_setstropt(&s->str[STRING_HTTP2_STREAMS], ptr);
 +  case CURLOPT_SSL_SIG_HASH_ALGS:
++    /* Backwards-compatible alias for
++     * CURLOPT_SSL_SIGNATURE_ALGORITHMS. */
 +    return Curl_setstropt(&s->str[STRING_SSL_SIGNATURE_ALGORITHMS], ptr);
 +  case CURLOPT_SSL_CERT_COMPRESSION:
++    /* Set the comma-delimited list of TLS certificate compression
++     * algorithms. Supported values include "zlib" and "brotli". */
 +    return Curl_setstropt(&s->str[STRING_SSL_CERT_COMPRESSION], ptr);
 +  case CURLOPT_WS_SSL_CERT_COMPRESSION:
++    /* Set the TLS certificate compression algorithms for WebSocket. */
 +    return Curl_setstropt(&s->str[STRING_WS_SSL_CERT_COMPRESSION], ptr);
 +  case CURLOPT_TLS_DELEGATED_CREDENTIALS:
 +    return Curl_setstropt(&s->str[STRING_TLS_DELEGATED_CREDENTIALS], ptr);
@@ -5755,7 +5788,7 @@ index eb9ff2e396..a72eaac3c0 100644
  #ifndef CURL_DISABLE_PROXY
      setopt_cptr_proxy,
  #endif
-@@ -2892,6 +3145,9 @@ CURLcode Curl_vsetopt(struct Curl_easy *data, CURLoption option, va_list param)
+@@ -2892,6 +3165,9 @@ CURLcode Curl_vsetopt(struct Curl_easy *data, CURLoption option, va_list param)
         way than being listed explicitly */
      switch(option) {
      case CURLOPT_HTTPHEADER:
@@ -6465,7 +6498,7 @@ index 6c458c505d..760bc3f076 100644
  }
  
 diff --git a/lib/socks.h b/lib/socks.h
-index d8e77c7f13..384b13a5b7 100644
+index d8e77c7f13..d410a3f18a 100644
 --- a/lib/socks.h
 +++ b/lib/socks.h
 @@ -25,7 +25,11 @@
@@ -6481,10 +6514,11 @@ index d8e77c7f13..384b13a5b7 100644
  
  struct Curl_peer;
  struct Curl_creds;
-@@ -62,8 +66,10 @@ CURLcode Curl_cf_socks_proxy_insert_after(struct Curl_cfilter *cf_at,
+@@ -62,8 +66,11 @@ CURLcode Curl_cf_socks_proxy_insert_after(struct Curl_cfilter *cf_at,
                                            uint8_t proxy_type,
                                            struct Curl_creds *creds);
  
++/* Query whether a SOCKS filter in the chain uses UDP ASSOCIATE. */
 +bool Curl_cf_socks_proxy_is_udp_associate(struct Curl_cfilter *cf);
 +
  extern struct Curl_cftype Curl_cft_socks_proxy;
@@ -6762,7 +6796,7 @@ index d4d336d8db..f5a414ae14 100644
    BIT(post302); /* keep POSTs as POSTs after a 302 request */
    BIT(post303); /* keep POSTs as POSTs after a 303 request */
 diff --git a/lib/vquic/cf-ngtcp2-cmn.c b/lib/vquic/cf-ngtcp2-cmn.c
-index e1ca18cf69..f610211ad9 100644
+index e1ca18cf69..5489553b73 100644
 --- a/lib/vquic/cf-ngtcp2-cmn.c
 +++ b/lib/vquic/cf-ngtcp2-cmn.c
 @@ -63,6 +63,7 @@
@@ -6802,13 +6836,14 @@ index e1ca18cf69..f610211ad9 100644
      Curl_uint32_hash_destroy(&ctx->streams);
      Curl_ssl_peer_cleanup(&ctx->ssl_peer);
      curlx_safefree(ctx->tunnel_inbuf);
-@@ -188,12 +192,726 @@ static void qlog_callback(void *user_data, uint32_t flags,
+@@ -188,12 +192,727 @@ static void qlog_callback(void *user_data, uint32_t flags,
    }
  }
  
 -static void quic_settings(struct cf_ngtcp2_ctx *ctx,
 -                          struct Curl_easy *data,
 -                          struct cf_ngtcp2_io_ctx *pktx)
++/* Walk the filter chain to find the active socket for QUIC logging. */
 +static CURLcode cf_ngtcp2_peek_socket(struct Curl_cfilter *cf,
 +                                      struct Curl_easy *data,
 +                                      curl_socket_t *psock,
@@ -7532,7 +7567,7 @@ index e1ca18cf69..f610211ad9 100644
  
    ngtcp2_settings_default(s);
    ngtcp2_transport_params_default(t);
-@@ -224,6 +942,10 @@ static void quic_settings(struct cf_ngtcp2_ctx *ctx,
+@@ -224,6 +943,10 @@ static void quic_settings(struct cf_ngtcp2_ctx *ctx,
    if(ctx->qlogfd != -1) {
      s->qlog_write = qlog_callback;
    }
@@ -7543,7 +7578,7 @@ index e1ca18cf69..f610211ad9 100644
  }
  
  #if defined(_MSC_VER) && defined(_DLL)
-@@ -900,7 +1622,7 @@ static CURLcode cf_connect_start(struct Curl_cfilter *cf,
+@@ -900,7 +1623,7 @@ static CURLcode cf_connect_start(struct Curl_cfilter *cf,
    CURLcode result;
    const struct Curl_sockaddr_ex *sockaddr = NULL;
    int qfd;
@@ -7552,7 +7587,7 @@ index e1ca18cf69..f610211ad9 100644
  
    DEBUGASSERT(ctx->initialized);
    ctx->dcid.datalen = NGTCP2_MAX_CIDLEN;
-@@ -909,20 +1631,28 @@ static CURLcode cf_connect_start(struct Curl_cfilter *cf,
+@@ -909,20 +1632,28 @@ static CURLcode cf_connect_start(struct Curl_cfilter *cf,
      return result;
  
    ctx->scid.datalen = NGTCP2_MAX_CIDLEN;
@@ -7587,7 +7622,7 @@ index e1ca18cf69..f610211ad9 100644
      /* No direct socket - must be tunneled QUIC (CONNECT-UDP through proxy) */
      ctx->q.sockfd = CURL_SOCKET_BAD;
    }
-@@ -952,6 +1682,7 @@ static CURLcode cf_connect_start(struct Curl_cfilter *cf,
+@@ -952,6 +1683,7 @@ static CURLcode cf_connect_start(struct Curl_cfilter *cf,
      ctx->conn_ref.get_conn = get_conn;
      ctx->conn_ref.user_data = cf;
    }
@@ -7595,7 +7630,7 @@ index e1ca18cf69..f610211ad9 100644
    else {
      /* Tunneled QUIC (e.g. CONNECT-UDP): get remote address
         from the connected filter below */
-@@ -997,6 +1728,19 @@ static CURLcode cf_connect_start(struct Curl_cfilter *cf,
+@@ -997,6 +1729,19 @@ static CURLcode cf_connect_start(struct Curl_cfilter *cf,
      ctx->conn_ref.user_data = cf;
    }
  
@@ -7615,7 +7650,7 @@ index e1ca18cf69..f610211ad9 100644
    result = Curl_vquic_tls_init(&ctx->tls, cf, data,
                                 &ctx->ssl_peer, &ALPN_SPEC_H3,
                                 cf_ngtcp2_tls_ctx_setup, &ctx->tls,
-@@ -1132,7 +1876,7 @@ out:
+@@ -1132,7 +1877,7 @@ out:
        /* Direct UDP socket - get IP info for error reporting */
        struct ip_quadruple ip;
  
@@ -9044,7 +9079,7 @@ index fa5da6e4d5..45aeb422c2 100644
    struct cf_call_data call_data;    /* data handle used in current call */
    struct curltime handshake_done;   /* time when handshake finished */
 diff --git a/lib/vtls/vtls_scache.c b/lib/vtls/vtls_scache.c
-index 98beeac036..bd0ade4f79 100644
+index 98beeac036..187f21dbc6 100644
 --- a/lib/vtls/vtls_scache.c
 +++ b/lib/vtls/vtls_scache.c
 @@ -228,6 +228,7 @@ static CURLcode ssl_peer_key_add_vrfy(struct dynbuf *buf,
@@ -9067,11 +9102,13 @@ index 98beeac036..bd0ade4f79 100644
    if(ssl->cipher_list) {
      result = curlx_dyn_addf(&buf, ":CIPHER-%s", ssl->cipher_list);
      if(result)
-@@ -281,6 +287,41 @@ static CURLcode ssl_peer_key_build(struct ssl_primary_config *ssl,
+@@ -281,6 +287,45 @@ static CURLcode ssl_peer_key_build(struct ssl_primary_config *ssl,
      if(result)
        goto out;
    }
 +#ifndef CURL_DISABLE_PROXY
++  /* Keep sessions started through one proxy from being resumed through a
++   * different proxy when credential reuse is disabled. */
 +  if(conn && conn->bits.proxy_credential_no_reuse) {
 +    const struct proxy_info *proxy = NULL;
 +    const char *proxy_type = NULL;
@@ -9097,6 +9134,8 @@ index 98beeac036..bd0ade4f79 100644
 +          goto out;
 +      }
 +      if(Curl_creds_has_passwd(proxy->creds)) {
++        /* Do not put the password in the key, but distinguish authenticated
++         * proxies from proxies without a password. */
 +        result = curlx_dyn_add(&buf, ":PPW");
 +        if(result)
 +          goto out;
@@ -9109,7 +9148,7 @@ index 98beeac036..bd0ade4f79 100644
    if(ssl->verifypeer) {
      result = cf_ssl_peer_key_add_path(&buf, "CA", ssl->CAfile, &is_local);
      if(result)
-@@ -356,7 +397,16 @@ CURLcode Curl_ssl_peer_key_make(const struct ssl_peer *peer,
+@@ -356,7 +401,16 @@ CURLcode Curl_ssl_peer_key_make(const struct ssl_peer *peer,
                                  const char *tls_id,
                                  char **ppeer_key)
  {
@@ -9145,13 +9184,15 @@ index effb1d8f96..a0a8e2f596 100644
   * An SSL session might not be configured or not available for
   * "connect-only" transfers.
 diff --git a/lib/ws.c b/lib/ws.c
-index 9820c3e4bd..60921d7db3 100644
+index 9820c3e4bd..fd125d35d4 100644
 --- a/lib/ws.c
 +++ b/lib/ws.c
-@@ -27,6 +27,18 @@
+@@ -27,6 +27,20 @@
  
  #ifndef CURL_DISABLE_WEBSOCKETS
  
++/* Include architecture-specific SIMD intrinsics and CPUID headers. MSVC
++ * requires <intrin.h>, while GCC and Clang use <cpuid.h>. */
 +#if defined(__x86_64__) || defined(_M_X64) || \
 +    defined(__i386__) || defined(_M_IX86)
 +#include <immintrin.h>
@@ -9167,7 +9208,7 @@ index 9820c3e4bd..60921d7db3 100644
  #include "url.h"
  #include "bufq.h"
  #include "curlx/dynbuf.h"
-@@ -71,8 +83,212 @@
+@@ -71,8 +85,225 @@
  #define WSBIT_MASK 0x80
  
  /* buffer dimensioning */
@@ -9180,10 +9221,12 @@ index 9820c3e4bd..60921d7db3 100644
 +#define WS_ENC_XBUF_SIZE 8192
 +#endif
 +
++/* Feature bitmask constants. */
 +#define WS_CPU_FEAT_INIT   (1 << 0)
 +#define WS_CPU_FEAT_AVX2   (1 << 1)
 +#define WS_CPU_FEAT_AVX512 (1 << 2)
 +
++/* Determine endianness across supported compilers and operating systems. */
 +#if (defined(__BYTE_ORDER__) && \
 +     (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)) || \
 +    defined(_WIN32) || defined(_WIN64) || defined(__LITTLE_ENDIAN__) || \
@@ -9195,6 +9238,7 @@ index 9820c3e4bd..60921d7db3 100644
 +#define WS_IS_LITTLE_ENDIAN 0
 +#endif
 +
++/* Identify architectures with native 64-bit scalar operations. */
 +#if defined(__x86_64__) || defined(_M_X64) || \
 +    defined(__aarch64__) || defined(_M_ARM64)
 +#define WS_64BIT_NATIVE 1
@@ -9202,6 +9246,7 @@ index 9820c3e4bd..60921d7db3 100644
 +#define WS_64BIT_NATIVE 0
 +#endif
 +
++/* SIMD configuration. */
 +#if WS_IS_LITTLE_ENDIAN
 +
 +#if defined(__x86_64__) || defined(_M_X64) || \
@@ -9246,12 +9291,14 @@ index 9820c3e4bd..60921d7db3 100644
 +#endif
 +#endif
 +
++/* ARM SIMD configuration. */
 +#if defined(__aarch64__) || defined(_M_ARM64) || defined(__ARM_NEON)
 +#define WS_HAVE_ARM_SIMD 1
 +#endif
 +
 +#ifdef WS_HAVE_X86_SIMD
 +
++/* AVX-512 path: 128 bytes per iteration, unrolled twice. */
 +#if defined(WS_SUPPORT_AVX_RUNTIME) || defined(__AVX512F__)
 +WS_TARGET_AVX512
 +static size_t ws_xor_avx512(const uint8_t *src, uint8_t *dst,
@@ -9273,6 +9320,7 @@ index 9820c3e4bd..60921d7db3 100644
 +}
 +#endif
 +
++/* AVX2 path: 64 bytes per iteration, unrolled twice. */
 +#if defined(WS_SUPPORT_AVX_RUNTIME) || defined(__AVX2__)
 +WS_TARGET_AVX2
 +static size_t ws_xor_avx2(const uint8_t *src, uint8_t *dst,
@@ -9294,6 +9342,7 @@ index 9820c3e4bd..60921d7db3 100644
 +}
 +#endif
 +
++/* Check both CPU feature bits and operating-system SIMD support. */
 +static uint32_t ws_get_cpu_features(void)
 +{
 +  uint32_t features = WS_CPU_FEAT_INIT;
@@ -9303,12 +9352,14 @@ index 9820c3e4bd..60921d7db3 100644
 +  int max_leaf;
 +  unsigned __int64 xcr0;
 +
++  /* Check the maximum supported CPUID leaf. */
 +  __cpuid(cpuinfo, 0);
 +  max_leaf = cpuinfo[0];
 +  if(max_leaf < 1)
 +    return features;
 +
 +  __cpuidex(cpuinfo, 1, 0);
++  /* Check XSAVE, OSXSAVE and AVX. */
 +  if((cpuinfo[2] & ((1 << 26) | (1 << 27) | (1 << 28))) !=
 +     ((1 << 26) | (1 << 27) | (1 << 28)))
 +    return features;
@@ -9333,11 +9384,13 @@ index 9820c3e4bd..60921d7db3 100644
 +  uint32_t xcr0_eax;
 +  uint32_t xcr0_edx;
 +
++  /* Check the maximum supported CPUID leaf. */
 +  max_leaf = __get_cpuid_max(0, NULL);
 +  if(max_leaf < 1)
 +    return features;
 +  if(!__get_cpuid(1, &eax, &ebx, &ecx, &edx))
 +    return features;
++  /* Check XSAVE, OSXSAVE and AVX. */
 +  if((ecx & ((1 << 26) | (1 << 27) | (1 << 28))) !=
 +     ((1 << 26) | (1 << 27) | (1 << 28)))
 +    return features;
@@ -9361,6 +9414,7 @@ index 9820c3e4bd..60921d7db3 100644
 +#endif
 +
 +#ifdef WS_HAVE_ARM_SIMD
++/* NEON path: 32 bytes per iteration, unrolled twice. */
 +static size_t ws_xor_neon(const uint8_t *src, uint8_t *dst,
 +                          size_t len, uint32_t m32)
 +{
@@ -9382,7 +9436,7 @@ index 9820c3e4bd..60921d7db3 100644
  
  /* a client-side WS frame decoder, parsing frame headers and
   * payload, keeping track of current position and stats */
-@@ -102,6 +318,7 @@ struct ws_encoder {
+@@ -102,6 +333,7 @@ struct ws_encoder {
    uint8_t mask[4]; /* 32-bit mask for this connection */
    uint8_t firstbyte; /* first byte of frame we encode */
    BIT(contfragment); /* set TRUE if the previous fragment sent was not final */
@@ -9390,7 +9444,7 @@ index 9820c3e4bd..60921d7db3 100644
  };
  
  /* Control frames are allowed up to 125 characters, rfc6455, ch. 5.5 */
-@@ -753,9 +970,10 @@ static CURLcode ws_cw_write(struct Curl_easy *data,
+@@ -753,9 +985,10 @@ static CURLcode ws_cw_write(struct Curl_easy *data,
      }
    }
  
@@ -9404,7 +9458,7 @@ index 9820c3e4bd..60921d7db3 100644
      result = CURLE_RECV_ERROR;
    }
  
-@@ -951,34 +1169,112 @@ static CURLcode ws_enc_write_payload(struct ws_encoder *enc,
+@@ -951,34 +1184,121 @@ static CURLcode ws_enc_write_payload(struct ws_encoder *enc,
                                       const uint8_t *buf, size_t buflen,
                                       struct bufq *out, size_t *pnwritten)
  {
@@ -9424,6 +9478,7 @@ index 9820c3e4bd..60921d7db3 100644
      return CURLE_AGAIN;
  
 -  /* not the most performant way to do this */
++  /* A completed payload has nothing more to buffer. */
 +  if(enc->payload_remain <= 0) {
 +    ws_enc_info(enc, data, "buffered");
 +    return CURLE_OK;
@@ -9442,6 +9497,7 @@ index 9820c3e4bd..60921d7db3 100644
 -        return result;
 -      break;
 +#if defined(WS_HAVE_X86_SIMD) && WS_IS_LITTLE_ENDIAN
++  /* Evaluate the process-global CPU feature cache once. */
 +  features = WS_ATOMIC_LOAD(cpu_feats);
 +  if(!(features & WS_CPU_FEAT_INIT)) {
 +    features = ws_get_cpu_features();
@@ -9459,6 +9515,7 @@ index 9820c3e4bd..60921d7db3 100644
 +    uint32_t mask32;
 +#endif
 +
++    /* Rotate the four-byte mask to the current frame offset. */
 +    mask[0] = enc->mask[enc->xori];
 +    mask[1] = enc->mask[(enc->xori + 1) & 3];
 +    mask[2] = enc->mask[(enc->xori + 2) & 3];
@@ -9467,6 +9524,7 @@ index 9820c3e4bd..60921d7db3 100644
 +#if WS_IS_LITTLE_ENDIAN
 +    memcpy(&mask32, mask, sizeof(mask32));
 +
++    /* SIMD ladder: 128, 64 or 32 bytes per iteration. */
 +#ifdef WS_HAVE_X86_SIMD
 +#if defined(WS_SUPPORT_AVX_RUNTIME) || defined(__AVX512F__)
 +    if(features & WS_CPU_FEAT_AVX512)
@@ -9480,6 +9538,7 @@ index 9820c3e4bd..60921d7db3 100644
 +    j = ws_xor_neon(buf + i, enc->xbuf, chunk, mask32);
 +#endif
 +
++    /* Scalar ladder: eight or four bytes per iteration. */
 +#if WS_64BIT_NATIVE
 +    {
 +      uint64_t mask64 = ((uint64_t)mask32 << 32) | mask32;
@@ -9499,14 +9558,18 @@ index 9820c3e4bd..60921d7db3 100644
 +    }
 +#endif /* WS_IS_LITTLE_ENDIAN */
 +
++    /* Final remainder: one byte per iteration. */
 +    for(; j < chunk; ++j)
 +      enc->xbuf[j] = buf[i + j] ^ mask[j & 3];
 +
++    /* Flush the staging buffer to the connection queue. Short writes and
++     * zero-byte stalls leave the remaining data for a later retry. */
 +    while(xbuf_idx < chunk) {
 +      size_t n = 0;
 +      result = Curl_bufq_write(out, enc->xbuf + xbuf_idx,
 +                               chunk - xbuf_idx, &n);
 +      if(n) {
++        /* Advance for bytes accepted before a later retry or error. */
 +        xbuf_idx += n;
 +        i += n;
 +        enc->xori = (enc->xori + (unsigned int)n) & 3;
@@ -9530,7 +9593,7 @@ index 9820c3e4bd..60921d7db3 100644
  }
  
  static CURLcode ws_enc_add_pending(struct Curl_easy *data,
-@@ -1677,6 +1973,12 @@ static CURLcode ws_flush(struct Curl_easy *data, struct websocket *ws,
+@@ -1677,6 +1997,12 @@ static CURLcode ws_flush(struct Curl_easy *data, struct websocket *ws,
            result = CURLE_AGAIN;
        }
  
@@ -9543,7 +9606,7 @@ index 9820c3e4bd..60921d7db3 100644
        if(result == CURLE_AGAIN) {
          CURL_TRC_WS(data, "flush EAGAIN, %zu bytes remain in buffer",
                      Curl_bufq_len(&ws->sendbuf));
-@@ -1686,10 +1988,6 @@ static CURLcode ws_flush(struct Curl_easy *data, struct websocket *ws,
+@@ -1686,10 +2012,6 @@ static CURLcode ws_flush(struct Curl_easy *data, struct websocket *ws,
          failf(data, "[WS] flush, write error %d", (int)result);
          return result;
        }
