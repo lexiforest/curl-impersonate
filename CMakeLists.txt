@@ -221,6 +221,7 @@ set(_boringssl_cmake_args
   "-DCMAKE_C_FLAGS=${_boringssl_c_flags}"
   "-DCMAKE_CXX_FLAGS=${_boringssl_cxx_flags}"
   -DCMAKE_INSTALL_PREFIX=${DEPS_INSTALL_DIR}
+  -DBUILD_TESTING=OFF
 )
 if(DISABLE_BORINGSSL_ASM)
   list(APPEND _boringssl_cmake_args -DOPENSSL_NO_ASM=ON)

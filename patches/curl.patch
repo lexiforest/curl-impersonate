@@ -8365,7 +8365,7 @@ index 691c0d3fa7..cf29e5952c 100644
      failf(data, "HTTP/3 is not supported over an HTTP proxy");
      return CURLE_URL_MALFORMAT;
 diff --git a/lib/vtls/openssl.c b/lib/vtls/openssl.c
-index b0f91cf400..daaf94c414 100644
+index b0f91cf400..8f64f842eb 100644
 --- a/lib/vtls/openssl.c
 +++ b/lib/vtls/openssl.c
 @@ -82,9 +82,20 @@
@@ -8774,7 +8774,7 @@ index b0f91cf400..daaf94c414 100644
    /* Let's make an SSL structure */
    if(octx->ssl)
      SSL_free(octx->ssl);
-@@ -3882,6 +4213,35 @@ static CURLcode ossl_init_ssl(struct ossl_ctx *octx,
+@@ -3882,6 +4213,34 @@ static CURLcode ossl_init_ssl(struct ossl_ctx *octx,
  
    SSL_set_app_data(octx->ssl, ssl_user_data);
  
@@ -8789,13 +8789,12 @@ index b0f91cf400..daaf94c414 100644
 +    size_t i;
 +    struct alpn_proto_buf proto;
 +
-+    /* curl-impersonate: Set new ALPS codepoint before adding any ALPS settings */
-+    if(data->set.tls_use_new_alps_codepoint) {
-+      SSL_set_alps_use_new_codepoint(octx->ssl, 1);
-+    }
++    /* Select the ALPS codepoint before adding any application settings. */
++    SSL_set_alps_use_new_codepoint(
++      octx->ssl, data->set.tls_use_new_alps_codepoint ? 1 : 0);
 +
 +    for(i = 0; i < alps->count; ++i) {
-+      /* curl-impersonate: Add the ALPS extension (17513) like Chrome does. */
++      /* curl-impersonate: Add the ALPS extension like Chrome does. */
 +      // XXX: Firefox does not enable this.
 +      SSL_add_application_settings(octx->ssl, alps->entries[i],
 +                                   strlen(alps->entries[i]), NULL,
@@ -8810,7 +8809,7 @@ index b0f91cf400..daaf94c414 100644
  #if !defined(OPENSSL_NO_TLSEXT) && !defined(OPENSSL_NO_OCSP)
    if(Curl_ssl_cf_get_primary_config(cf)->verifystatus)
      SSL_set_tlsext_status_type(octx->ssl, TLSEXT_STATUSTYPE_ocsp);
-@@ -3958,8 +4318,8 @@ static CURLcode ossl_init_method(struct Curl_cfilter *cf,
+@@ -3958,8 +4317,8 @@ static CURLcode ossl_init_method(struct Curl_cfilter *cf,
      break;
    case TRNSPRT_QUIC:
      *pssl_version_min = CURL_SSLVERSION_TLSv1_3;
@@ -8821,7 +8820,7 @@ index b0f91cf400..daaf94c414 100644
        failf(data, "QUIC needs at least TLS version 1.3");
        return CURLE_SSL_CONNECT_ERROR;
      }
-@@ -4002,6 +4362,7 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
+@@ -4002,6 +4361,7 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
    const struct curl_blob *ssl_cert_blob = ssl_config->primary.cert_blob;
    const char * const ssl_cert_type = ssl_config->cert_type;
    const bool verifypeer = conn_config->verifypeer;
@@ -8829,7 +8828,7 @@ index b0f91cf400..daaf94c414 100644
    unsigned int ssl_version_min;
    char error_buffer[256];
  
-@@ -4084,7 +4445,12 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
+@@ -4084,7 +4444,12 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
    ctx_options = SSL_OP_ALL;
  
  #ifdef SSL_OP_NO_TICKET
@@ -8843,7 +8842,7 @@ index b0f91cf400..daaf94c414 100644
  #endif
  
  #ifdef SSL_OP_NO_COMPRESSION
-@@ -4156,6 +4522,20 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
+@@ -4156,6 +4521,20 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
    SSL_CTX_set_mode(octx->ssl_ctx, SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
  #endif
  
@@ -8864,7 +8863,7 @@ index b0f91cf400..daaf94c414 100644
    ciphers = conn_config->cipher_list;
    if(!ciphers && (peer->transport != TRNSPRT_QUIC))
      ciphers = DEFAULT_CIPHER_SELECTION;
-@@ -4214,7 +4594,8 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
+@@ -4214,7 +4593,8 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
      }
    }
  
@@ -8874,7 +8873,7 @@ index b0f91cf400..daaf94c414 100644
  #define OSSL_SIGALG_CAST(x) OSSL_CURVE_CAST(x)
    {
      const char *signature_algorithms = conn_config->signature_algorithms;
-@@ -4229,6 +4610,34 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
+@@ -4229,6 +4609,34 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
    }
  #endif
  
@@ -8909,7 +8908,7 @@ index b0f91cf400..daaf94c414 100644
  #ifdef USE_OPENSSL_SRP
    if(ssl_config->primary.username && Curl_auth_allowed_to_host(data)) {
      char * const ssl_username = ssl_config->primary.username;
-@@ -4254,6 +4663,56 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
+@@ -4254,6 +4662,56 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
    }
  #endif
  
