@@ -1,8 +1,19 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index bab3d89dd..756321653 100644
+index bab3d89dd..31be174ce 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -761,8 +761,6 @@ if(FIPS)
+@@ -442,7 +442,9 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CLANG)
+     # clang-cl sets different default warnings than clang. It also treats -Wall
+     # as -Weverything, to match MSVC. Instead -W3 is the alias for -Wall.
+     # See http://llvm.org/viewvc/llvm-project?view=revision&revision=319116
+-    list(APPEND C_CXX_WARNINGS -W3 -Wno-unused-parameter)
++    # curl-impersonate: Consumers of the fork still build deprecated
++    # compatibility APIs with clang-cl.
++    list(APPEND C_CXX_WARNINGS -W3 -Wno-unused-parameter -Wno-deprecated)
+   else()
+     list(APPEND C_CXX_WARNINGS -Wall)
+   endif()
+@@ -761,8 +763,6 @@ if(FIPS)
    target_link_libraries(entropy_modulewrapper crypto)
  endif()
  
@@ -11,7 +22,7 @@ index bab3d89dd..756321653 100644
  
  if(BUILD_TESTING)
    add_executable(generate_mldsa_certs pki/testdata/verify_unittest/generate_mldsa_certs.cc)
-@@ -864,7 +862,6 @@ endif()
+@@ -864,7 +864,6 @@ endif()
  
  if(INSTALL_ENABLED)
    install(TARGETS crypto ssl EXPORT OpenSSLTargets)

@@ -25,9 +25,9 @@ set(SUBJOBS "${_nproc}" CACHE STRING "Parallel build jobs")
 # Versions and URLs
 set(BROTLI_VERSION "1.2.0")
 set(BROTLI_URL_HASH "SHA256=816c96e8e8f193b40151dad7e8ff37b1221d019dbcb9c35cd3fadbfe6477dfec")
-# Chrome 135.0.7049.41
-set(BORINGSSL_COMMIT "673e61fc215b178a90c0e67858bbf162c8158993")
-set(BORINGSSL_URL_HASH "SHA256=edb7d61e8de3f791070172723ee41fbc550fb55080cdb187bb4a05e60e059a22")
+# Chrome 150
+set(BORINGSSL_COMMIT "156c7b75ae9b8c3b3f847acf264f17594c3859fb")
+set(BORINGSSL_URL_HASH "SHA256=450e169b284697c6eafe523cb7679f4221fbe1a0993f773a566c33b188762844")
 # We need to pin to 1.64 or lower, since the priority flag was removed.
 # See: https://nghttp2.org/blog/2025/03/02/nghttp2-v1-65-0/
 set(NGHTTP2_VERSION "1.63.0")
