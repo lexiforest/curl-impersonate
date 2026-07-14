@@ -1218,7 +1218,7 @@ index 5923110e7..f50079930 100644
  
  static_assert(std::size(kNamedGroups) == kNumNamedGroups,
 diff --git a/ssl/ssl_lib.cc b/ssl/ssl_lib.cc
-index e05f91bd9..cebecc637 100644
+index e05f91bd9..56bcfd5b1 100644
 --- a/ssl/ssl_lib.cc
 +++ b/ssl/ssl_lib.cc
 @@ -530,6 +530,11 @@ SSL *SSL_new(SSL_CTX *ctx) {
@@ -1293,7 +1293,7 @@ index e05f91bd9..cebecc637 100644
 +
 +int SSL_CTX_set_key_usage_check_enabled(SSL_CTX *ctx, int enabled) {
 +  FromOpaque(ctx)->key_usage_check_enabled = enabled;
-+  return 0;
++  return 1;
 +}
 +
  void SSL_set_permute_extensions(SSL *ssl, int enabled) {

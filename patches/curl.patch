@@ -2844,7 +2844,7 @@ index 93cc2d44f2..52e80ce9c1 100644
   * Store nghttp2 version info in this buffer.
 diff --git a/lib/impersonate.c b/lib/impersonate.c
 new file mode 100644
-index 0000000000..b99c3e3410
+index 0000000000..928315b46b
 --- /dev/null
 +++ b/lib/impersonate.c
 @@ -0,0 +1,2282 @@
@@ -4381,7 +4381,7 @@ index 0000000000..b99c3e3410
 +      "TLS_RSA_WITH_AES_128_CBC_SHA:"
 +      "TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA:"
 +      "TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA:"
-+      "TLS_RSA_WITH_3DES_EDE_CBC_SHA,",
++      "TLS_RSA_WITH_3DES_EDE_CBC_SHA",
 +    .curves = "X25519:P-256:P-384:P-521",
 +    .sig_hash_algs =
 +      "ecdsa_secp256r1_sha256:"
