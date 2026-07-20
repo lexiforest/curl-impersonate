@@ -195,6 +195,44 @@ async def nghttpd():
     await proc.wait()
 
 
+@pytest.fixture
+def http11_server():
+    """Minimal HTTPS server that speaks HTTP/1.1 and records request headers.
+
+    nghttpd is HTTP/2 only, so this covers the HTTP/1.1 request path. Yields a
+    list that receives one lowercased-header dict per request.
+    """
+    import http.server
+    import ssl
+    import threading
+
+    received: list[dict] = []
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        protocol_version = "HTTP/1.1"
+
+        def do_GET(self):
+            received.append({k.lower(): v for k, v in self.headers.items()})
+            self.send_response(204)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
+        def log_message(self, format, *args):  # noqa: A002
+            pass
+
+    httpd = http.server.HTTPServer(("127.0.0.1", 8444), Handler)
+    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    ctx.load_cert_chain("ssl/server.crt", "ssl/server.key")
+    httpd.socket = ctx.wrap_socket(httpd.socket, server_side=True)
+    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    thread.start()
+
+    yield received
+
+    httpd.shutdown()
+    thread.join(timeout=3)
+
+
 def _set_ld_preload(env_vars, lib):
     if sys.platform.startswith("linux"):
         env_vars["LD_PRELOAD"] = lib + ".so"
@@ -535,6 +573,28 @@ async def test_no_builtin_headers(
             headers_frame = frame
     for i, header in enumerate(headers_frame.headers):
         assert header.lower() == headers[i].lower()
+
+
+@pytest.mark.parametrize("curl_binary", ["curl_chrome146"])
+def test_no_priority_header_on_http11(pytestconfig, http11_server, curl_binary):
+    """Real Chrome only sends the RFC 9218 priority header on HTTP/2 and HTTP/3.
+
+    On an HTTP/1.1 connection it must not be present.
+    """
+    curl_binary = os.path.join(
+        pytestconfig.getoption("install_dir"), "bin", curl_binary
+    )
+    ret = _run_curl(
+        curl_binary,
+        env_vars=None,
+        extra_args=["-k", "--http1.1"],
+        urls=["https://127.0.0.1:8444/"],
+    )
+    assert ret == 0
+    assert http11_server, "server received no request"
+    assert "priority" not in http11_server[-1], (
+        f"priority header sent on HTTP/1.1: {http11_server[-1].get('priority')!r}"
+    )
 
 
 @pytest.mark.parametrize(
