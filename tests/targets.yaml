@@ -59,6 +59,10 @@
   - null
   - null
   - chrome_142.0.7444.176_macOS
+- - curl_chrome150
+  - null
+  - null
+  - chrome_150.0.7871.127_macOS
 - - curl_chrome131_android
   - null
   - null
