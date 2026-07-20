@@ -17,21 +17,33 @@ permissions:
 
 jobs:
   test-linux:
-    name: (x86_64-linux-gnu) Build and run tests
-    runs-on: ubuntu-latest
+    name: (${{ matrix.host }}) Build and run tests
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            arch: x86_64
+            host: x86_64-linux-gnu
+            zig_target: x86_64-linux-gnu.2.17
+          - os: ubuntu-24.04-arm
+            arch: aarch64
+            host: aarch64-linux-gnu
+            zig_target: aarch64-linux-gnu.2.17
     env:
       CC: ${{ github.workspace }}/zigshim/cc
       CXX: ${{ github.workspace }}/zigshim/cxx
       AR: ${{ github.workspace }}/zigshim/ar
-      ZIG_FLAGS: -target x86_64-linux-gnu.2.17
+      ZIG_FLAGS: -target ${{ matrix.zig_target }}
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v7
         with:
           submodules: recursive
 
       - name: Set up zig
-        uses: goto-bus-stop/setup-zig@v2
+        uses: mlugg/setup-zig@v2
         with:
           version: 0.14.0
 
@@ -51,7 +63,7 @@ jobs:
           install_dir="${{ runner.temp }}/install"
           mkdir -p "$install_dir"
           cmake_args="-DCMAKE_INSTALL_PREFIX=$install_dir"
-          cmake_args="$cmake_args -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=x86_64"
+          cmake_args="$cmake_args -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=${{ matrix.arch }}"
           cmake_args="$cmake_args -DCURL_CA_PATH=/etc/ssl/certs -DCURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt"
           make prepare-libidn2 BUILD_DIR=build
           make configure BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$cmake_args"
@@ -59,7 +71,7 @@ jobs:
           make checkbuild BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$cmake_args"
           make install BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$cmake_args"
 
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.10'
 
@@ -77,4 +89,45 @@ jobs:
           cd tests
           # sudo is needed for capturing packets
           python_bin=$(which python3)
-          sudo $python_bin -m pytest . --log-cli-level DEBUG --install-dir ${{ runner.temp }}/install --capture-interface eth0
+          sudo $python_bin -m pytest . --log-cli-level DEBUG --install-dir ${{ runner.temp }}/install
+
+  test-macos:
+    name: (arm64-macos) Build and run tests
+    runs-on: macos-14
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Install macOS dependencies
+        run: |
+          brew install pkg-config make cmake ninja autoconf automake libtool gpatch gperf
+          which go || brew install go
+          brew install tcpdump nghttp2
+
+      - name: Build curl-impersonate
+        run: |
+          set -e
+          install_dir="${{ runner.temp }}/install"
+          mkdir -p "$install_dir"
+          cmake_args="-G Ninja -DCMAKE_INSTALL_PREFIX=$install_dir"
+          gmake configure BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$cmake_args"
+          gmake build BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$cmake_args"
+          gmake checkbuild BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$cmake_args"
+          gmake install BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$cmake_args"
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies for the tests script
+        run: |
+          pip3 install -r tests/requirements.txt
+
+      - name: Run the tests
+        run: |
+          cd tests
+          # sudo is needed for capturing packets
+          python_bin=$(which python3)
+          sudo $python_bin -m pytest . --log-cli-level DEBUG --install-dir ${{ runner.temp }}/install
