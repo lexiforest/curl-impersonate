@@ -2251,7 +2251,7 @@ index 83d0e01152..781b063685 100644
  #endif
  
    /* loop through one or two lists */
-@@ -1979,6 +1999,110 @@ void Curl_http_method(struct Curl_easy *data,
+@@ -1979,6 +1999,117 @@ void Curl_http_method(struct Curl_easy *data,
    *reqp = httpreq;
  }
  
@@ -2294,6 +2294,13 @@ index 83d0e01152..781b063685 100644
 +      continue;
 +
 +    prefix_len = sep - head->data;
++
++    /* curl-impersonate: RFC 9218 "priority" has no HTTP/1.x form; browsers
++       only send it over HTTP/2 and HTTP/3, so drop it on HTTP/1.x. */
++    if(data->conn &&
++       Curl_conn_http_version(data, data->conn) < 20 &&
++       prefix_len == 8 && curl_strnequal(head->data, "priority", 8))
++      continue;
 +
 +    /* Check if this header was added by the application. */
 +    for(head2 = dup; head2; head2 = head2->next) {
@@ -2362,7 +2369,7 @@ index 83d0e01152..781b063685 100644
  static CURLcode http_useragent(struct Curl_easy *data)
  {
    /* The User-Agent string might have been allocated already, because
-@@ -2005,45 +2129,10 @@ static CURLcode http_set_aptr_host(struct Curl_easy *data)
+@@ -2005,45 +2136,10 @@ static CURLcode http_set_aptr_host(struct Curl_easy *data)
    if(ptr &&
       (!data->state.this_is_a_follow ||
        Curl_peer_equal(data->state.initial_origin, data->state.origin))) {
@@ -2411,7 +2418,7 @@ index 83d0e01152..781b063685 100644
      }
    }
    else {
-@@ -2448,6 +2537,231 @@ static CURLcode addexpect(struct Curl_easy *data, struct dynbuf *r,
+@@ -2448,6 +2544,231 @@ static CURLcode addexpect(struct Curl_easy *data, struct dynbuf *r,
    return CURLE_OK;
  }
  
@@ -2643,7 +2650,7 @@ index 83d0e01152..781b063685 100644
  static CURLcode http_add_content_hds(struct Curl_easy *data,
                                       struct dynbuf *r,
                                       int httpversion,
-@@ -2535,6 +2849,8 @@ static CURLcode http_cookies(struct Curl_easy *data,
+@@ -2535,6 +2856,8 @@ static CURLcode http_cookies(struct Curl_easy *data,
    CURLcode result = CURLE_OK;
    char *addcookies = NULL;
    bool linecap = FALSE;
@@ -2652,7 +2659,7 @@ index 83d0e01152..781b063685 100644
    if(data->set.str[STRING_COOKIE] &&
       !Curl_checkheaders(data, STRCONST("Cookie")) &&
       Curl_auth_allowed_to_host(data))
-@@ -2559,6 +2875,22 @@ static CURLcode http_cookies(struct Curl_easy *data,
+@@ -2559,6 +2882,22 @@ static CURLcode http_cookies(struct Curl_easy *data,
            struct Cookie *co = Curl_node_elem(n);
            if(co->value) {
              size_t add;
@@ -2675,7 +2682,7 @@ index 83d0e01152..781b063685 100644
              if(!count) {
                result = curlx_dyn_addn(r, STRCONST("Cookie: "));
                if(result)
-@@ -2583,7 +2915,32 @@ static CURLcode http_cookies(struct Curl_easy *data,
+@@ -2583,7 +2922,32 @@ static CURLcode http_cookies(struct Curl_easy *data,
        }
        Curl_share_unlock(data, CURL_LOCK_DATA_COOKIE);
      }
@@ -2709,7 +2716,7 @@ index 83d0e01152..781b063685 100644
        if(!count)
          result = curlx_dyn_addn(r, STRCONST("Cookie: "));
        if(!result) {
-@@ -2591,7 +2948,7 @@ static CURLcode http_cookies(struct Curl_easy *data,
+@@ -2591,7 +2955,7 @@ static CURLcode http_cookies(struct Curl_easy *data,
          count++;
        }
      }
@@ -2718,7 +2725,7 @@ index 83d0e01152..781b063685 100644
        result = curlx_dyn_addn(r, STRCONST("\r\n"));
  
      if(result)
-@@ -2919,8 +3276,7 @@ static CURLcode http_add_hd(struct Curl_easy *data,
+@@ -2919,8 +3283,7 @@ static CURLcode http_add_hd(struct Curl_easy *data,
      break;
  
    case H1_HD_ACCEPT:
@@ -2728,7 +2735,7 @@ index 83d0e01152..781b063685 100644
      break;
  
    case H1_HD_TE:
-@@ -3058,8 +3414,12 @@ CURLcode Curl_http(struct Curl_easy *data, bool *done)
+@@ -3058,8 +3421,12 @@ CURLcode Curl_http(struct Curl_easy *data, bool *done)
    /* what kind of request do we need to send? */
    Curl_http_method(data, &method, &httpreq);
  
@@ -2742,7 +2749,7 @@ index 83d0e01152..781b063685 100644
    /* setup the authentication headers, how that method and host are known */
    if(!result)
      result = Curl_http_output_auth(data, data->conn, method, httpreq,
-@@ -3086,6 +3446,10 @@ CURLcode Curl_http(struct Curl_easy *data, bool *done)
+@@ -3086,6 +3453,10 @@ CURLcode Curl_http(struct Curl_easy *data, bool *done)
        goto out;
    }
  
@@ -2753,7 +2760,7 @@ index 83d0e01152..781b063685 100644
    /* setup variables for the upcoming transfer and send */
    Curl_xfer_setup_sendrecv(data, FIRSTSOCKET, -1);
    result = Curl_req_send(data, &req, httpversion);
-@@ -3541,7 +3905,7 @@ static CURLcode http_header_s(struct Curl_easy *data,
+@@ -3541,7 +3912,7 @@ static CURLcode http_header_s(struct Curl_easy *data,
      CURLcode result;
      Curl_share_lock(data, CURL_LOCK_DATA_COOKIE, CURL_LOCK_ACCESS_SINGLE);
      result = Curl_cookie_add(data, data->cookies, TRUE, FALSE, v, host,
@@ -2762,7 +2769,7 @@ index 83d0e01152..781b063685 100644
      Curl_share_unlock(data, CURL_LOCK_DATA_COOKIE);
      return result;
    }
-@@ -4920,6 +5284,29 @@ static bool http_TE_has_token(const char *fvalue, const char *token)
+@@ -4920,6 +5291,29 @@ static bool http_TE_has_token(const char *fvalue, const char *token)
    return FALSE;
  }
  
@@ -2792,7 +2799,7 @@ index 83d0e01152..781b063685 100644
  CURLcode Curl_http_req_to_h2(struct dynhds *h2_headers,
                               struct httpreq *req, struct Curl_easy *data)
  {
-@@ -4928,6 +5315,10 @@ CURLcode Curl_http_req_to_h2(struct dynhds *h2_headers,
+@@ -4928,6 +5322,10 @@ CURLcode Curl_http_req_to_h2(struct dynhds *h2_headers,
    size_t i;
    CURLcode result;
  
@@ -2803,7 +2810,7 @@ index 83d0e01152..781b063685 100644
    DEBUGASSERT(req);
    DEBUGASSERT(h2_headers);
  
-@@ -4957,20 +5348,46 @@ CURLcode Curl_http_req_to_h2(struct dynhds *h2_headers,
+@@ -4957,20 +5355,46 @@ CURLcode Curl_http_req_to_h2(struct dynhds *h2_headers,
  
    Curl_dynhds_reset(h2_headers);
    Curl_dynhds_set_opts(h2_headers, DYNHDS_OPT_LOWERCASE);
@@ -2861,7 +2868,7 @@ index 83d0e01152..781b063685 100644
    for(i = 0; !result && i < Curl_dynhds_count(&req->headers); ++i) {
      e = Curl_dynhds_getn(&req->headers, i);
      /* "TE" is special in that it is only permissible when it
-@@ -4983,6 +5400,8 @@ CURLcode Curl_http_req_to_h2(struct dynhds *h2_headers,
+@@ -4983,6 +5407,8 @@ CURLcode Curl_http_req_to_h2(struct dynhds *h2_headers,
      else if(h2_permissible_field(e)) {
        result = Curl_dynhds_add(h2_headers, e->name, e->namelen,
                                 e->value, e->valuelen);
