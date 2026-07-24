@@ -8839,7 +8839,7 @@ index dfb8346c1a..602402e256 100644
    return CURLE_OK;
  }
 diff --git a/lib/vtls/openssl.c b/lib/vtls/openssl.c
-index 010bbb9825..a5bdd880be 100644
+index 010bbb9825..6f713003e2 100644
 --- a/lib/vtls/openssl.c
 +++ b/lib/vtls/openssl.c
 @@ -68,9 +68,24 @@
@@ -9296,7 +9296,17 @@ index 010bbb9825..a5bdd880be 100644
    ciphers = conn_config->cipher_list;
    if(!ciphers && (peer->transport != TRNSPRT_QUIC))
      ciphers = NULL;
-@@ -3873,7 +4252,8 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
+@@ -3859,7 +4238,8 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
+ #endif
+ 
+   {
+-    const char *curves = conn_config->curves;
++    const char *curves =
++      Curl_ssl_config_get_curves(conn_config, peer->transport);
+     if(curves) {
+ #ifdef HAVE_BORINGSSL_LIKE
+ #define OSSL_CURVE_CAST(x) (x)
+@@ -3873,10 +4253,12 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
      }
    }
  
@@ -9305,8 +9315,13 @@ index 010bbb9825..a5bdd880be 100644
 +  !defined(OPENSSL_IS_BORINGSSL)
  #define OSSL_SIGALG_CAST(x) OSSL_CURVE_CAST(x)
    {
-     const char *signature_algorithms = conn_config->signature_algorithms;
-@@ -3888,6 +4268,34 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
+-    const char *signature_algorithms = conn_config->signature_algorithms;
++    const char *signature_algorithms =
++      Curl_ssl_config_get_signature_algorithms(conn_config, peer->transport);
+     if(signature_algorithms) {
+       if(!SSL_CTX_set1_sigalgs_list(octx->ssl_ctx,
+                                     OSSL_SIGALG_CAST(signature_algorithms))) {
+@@ -3888,6 +4270,35 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
    }
  #endif
  
@@ -9315,7 +9330,8 @@ index 010bbb9825..a5bdd880be 100644
 +    uint16_t algs[MAX_SIG_ALGS];
 +    size_t nalgs;
 +    /* curl-impersonate: Set the signature algorithms (TLS extension 13). */
-+    const char *signature_algorithms = conn_config->signature_algorithms;
++    const char *signature_algorithms =
++      Curl_ssl_config_get_signature_algorithms(conn_config, peer->transport);
 +    if(signature_algorithms) {
 +      CURLcode result = parse_sig_algs(data, signature_algorithms, algs,
 +                                       &nalgs);
@@ -9341,7 +9357,7 @@ index 010bbb9825..a5bdd880be 100644
  #if defined(HAVE_OPENSSL_SRP) && defined(USE_TLS_SRP)
    if(ssl_config->primary.username && Curl_auth_allowed_to_host(data)) {
      char * const ssl_username = ssl_config->primary.username;
-@@ -3913,6 +4321,56 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
+@@ -3913,6 +4324,63 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
    }
  #endif /* HAVE_OPENSSL_SRP && USE_TLS_SRP */
  
@@ -9366,9 +9382,16 @@ index 010bbb9825..a5bdd880be 100644
 +    SSL_CTX_set_permute_extensions(octx->ssl_ctx, 1);
 +
 +  /* curl-impersonate: Set TLS extensions order. */
-+  if(conn_config->tls_extension_order)
-+    SSL_CTX_set_extension_order(octx->ssl_ctx,
-+                                conn_config->tls_extension_order);
++  {
++    const char *extension_order = Curl_ssl_config_get_tls_extension_order(
++      conn_config, peer->transport);
++    if(extension_order &&
++       !SSL_CTX_set_extension_order(octx->ssl_ctx,
++                                    (char *)CURL_UNCONST(extension_order))) {
++      failf(data, "Invalid TLS extension order: '%s'", extension_order);
++      return CURLE_SSL_CONNECT_ERROR;
++    }
++  }
 +
 +  if(data->set.str[STRING_TLS_DELEGATED_CREDENTIALS])
 +    SSL_CTX_set_delegated_credentials(
@@ -9398,6 +9421,43 @@ index 010bbb9825..a5bdd880be 100644
    /* OpenSSL always tries to verify the peer. By setting the failure mode
     * to NONE, we allow the connect to complete, regardless of the outcome.
     * We then explicitly check the result and may try alternatives like
+@@ -4253,8 +4721,10 @@ static CURLcode ossl_connect_step2(struct Curl_cfilter *cf,
+ #endif
+       else {
+         result = CURLE_SSL_CONNECT_ERROR;
+-        failf(data, "TLS connect error: %s",
+-              ossl_strerror(errdetail, error_buffer, sizeof(error_buffer)));
++        if(errdetail)
++          failf(data, "TLS connect error: %s",
++                ossl_strerror(errdetail, error_buffer,
++                              sizeof(error_buffer)));
+       }
+ 
+       /* detail is already set to the SSL error above */
+@@ -4267,10 +4737,20 @@ static CURLcode ossl_connect_step2(struct Curl_cfilter *cf,
+         char extramsg[80] = "";
+         int sockerr = SOCKERRNO;
+ 
+-        if(sockerr && detail == SSL_ERROR_SYSCALL)
++        if(octx->io_result && octx->io_result != CURLE_AGAIN)
++          curl_msnprintf(extramsg, sizeof(extramsg), "%s",
++                         curl_easy_strerror(octx->io_result));
++        else if(connssl->peer_closed)
++          curl_msnprintf(extramsg, sizeof(extramsg),
++                         "Connection closed abruptly");
++        else if(sockerr && detail == SSL_ERROR_SYSCALL)
+           curlx_strerror(sockerr, extramsg, sizeof(extramsg));
+-        failf(data, OSSL_PACKAGE " SSL_connect: %s in connection to %s:%d ",
+-              extramsg[0] ? extramsg : SSL_ERROR_to_str(detail),
++        else
++          curl_msnprintf(extramsg, sizeof(extramsg),
++                         "no transport error details available");
++        failf(data, OSSL_PACKAGE " SSL_connect: %s (%s; error queue empty) "
++              "in connection to %s:%d",
++              extramsg, SSL_ERROR_to_str(detail),
+               connssl->peer.origin->hostname, connssl->peer.origin->port);
+       }
+ 
 diff --git a/lib/vtls/vtls.c b/lib/vtls/vtls.c
 index 82ce007b3d..7a7531c187 100644
 --- a/lib/vtls/vtls.c
@@ -9533,19 +9593,62 @@ index 96cb7d15ed..ca72a31d28 100644
   * Free all allocated data and reset peer information.
   */
 diff --git a/lib/vtls/vtls_config.c b/lib/vtls/vtls_config.c
-index 4a9b69654b..d3c73e598a 100644
+index 4a9b69654b..d9f7ca2d9f 100644
 --- a/lib/vtls/vtls_config.c
 +++ b/lib/vtls/vtls_config.c
-@@ -127,6 +127,8 @@ void Curl_ssl_config_cleanup(struct ssl_primary_config *sslc)
+@@ -112,6 +112,38 @@ void Curl_ssl_config_init(struct ssl_primary_config *sslc)
+   sslc->cache_session = TRUE; /* caching by default */
+ }
+ 
++static const char *ssl_config_get_transport_value(const char *value,
++                                                  const char *http3_value,
++                                                  uint8_t transport)
++{
++  if((transport == TRNSPRT_QUIC) && http3_value)
++    return http3_value;
++  return value;
++}
++
++const char *Curl_ssl_config_get_curves(
++  const struct ssl_primary_config *sslc, uint8_t transport)
++{
++  return ssl_config_get_transport_value(sslc->curves, sslc->http3_curves,
++                                        transport);
++}
++
++const char *Curl_ssl_config_get_signature_algorithms(
++  const struct ssl_primary_config *sslc, uint8_t transport)
++{
++  return ssl_config_get_transport_value(sslc->signature_algorithms,
++                                        sslc->http3_signature_algorithms,
++                                        transport);
++}
++
++const char *Curl_ssl_config_get_tls_extension_order(
++  const struct ssl_primary_config *sslc, uint8_t transport)
++{
++  return ssl_config_get_transport_value(sslc->tls_extension_order,
++                                        sslc->http3_tls_extension_order,
++                                        transport);
++}
++
+ void Curl_ssl_config_cleanup(struct ssl_primary_config *sslc)
+ {
+   if(sslc->deep_copy) {
+@@ -127,7 +159,12 @@ void Curl_ssl_config_cleanup(struct ssl_primary_config *sslc)
      curlx_safefree(sslc->issuercert_blob);
      curlx_safefree(sslc->key_blob);
      curlx_safefree(sslc->curves);
 +    curlx_safefree(sslc->tls_extension_order);
 +    curlx_safefree(sslc->cert_compression);
      curlx_safefree(sslc->signature_algorithms);
++    curlx_safefree(sslc->http3_curves);
++    curlx_safefree(sslc->http3_signature_algorithms);
++    curlx_safefree(sslc->http3_tls_extension_order);
      curlx_safefree(sslc->CRLfile);
      curlx_safefree(sslc->cert_type);
-@@ -152,6 +154,7 @@ static bool match_ssl_primary_config(struct Curl_easy *data,
+     curlx_safefree(sslc->key);
+@@ -152,6 +189,7 @@ static bool match_ssl_primary_config(struct Curl_easy *data,
       (c1->verifypeer == c2->verifypeer) &&
       (c1->verifyhost == c2->verifyhost) &&
       (c1->verifystatus == c2->verifystatus) &&
@@ -9553,16 +9656,22 @@ index 4a9b69654b..d3c73e598a 100644
       blobcmp(c1->cert_blob, c2->cert_blob) &&
       blobcmp(c1->ca_info_blob, c2->ca_info_blob) &&
       blobcmp(c1->issuercert_blob, c2->issuercert_blob) &&
-@@ -167,6 +170,8 @@ static bool match_ssl_primary_config(struct Curl_easy *data,
+@@ -167,7 +205,14 @@ static bool match_ssl_primary_config(struct Curl_easy *data,
       curl_strequal(c1->cipher_list, c2->cipher_list) &&
       curl_strequal(c1->cipher_list13, c2->cipher_list13) &&
       curl_strequal(c1->curves, c2->curves) &&
 +     curl_strequal(c1->tls_extension_order, c2->tls_extension_order) &&
 +     curl_strequal(c1->cert_compression, c2->cert_compression) &&
       curl_strequal(c1->signature_algorithms, c2->signature_algorithms) &&
++     curl_strequal(c1->http3_curves, c2->http3_curves) &&
++     curl_strequal(c1->http3_signature_algorithms,
++                   c2->http3_signature_algorithms) &&
++     curl_strequal(c1->http3_tls_extension_order,
++                   c2->http3_tls_extension_order) &&
       Curl_safecmp(c1->CRLfile, c2->CRLfile) &&
       Curl_safecmp(c1->pinned_key, c2->pinned_key) &&
-@@ -205,6 +210,7 @@ static bool clone_ssl_primary_config(struct ssl_primary_config *source,
+      curl_strequal(c1->cert_type, c2->cert_type) &&
+@@ -205,6 +250,7 @@ static bool clone_ssl_primary_config(struct ssl_primary_config *source,
    dest->verifyhost = source->verifyhost;
    dest->verifystatus = source->verifystatus;
    dest->cache_session = source->cache_session;
@@ -9570,16 +9679,20 @@ index 4a9b69654b..d3c73e598a 100644
    dest->ssl_options = source->ssl_options;
  
    CLONE_BLOB(cert_blob);
-@@ -217,6 +223,8 @@ static bool clone_ssl_primary_config(struct ssl_primary_config *source,
+@@ -217,7 +263,12 @@ static bool clone_ssl_primary_config(struct ssl_primary_config *source,
    CLONE_STRING(cipher_list13);
    CLONE_STRING(pinned_key);
    CLONE_STRING(curves);
 +  CLONE_STRING(tls_extension_order);
 +  CLONE_STRING(cert_compression);
    CLONE_STRING(signature_algorithms);
++  CLONE_STRING(http3_curves);
++  CLONE_STRING(http3_signature_algorithms);
++  CLONE_STRING(http3_tls_extension_order);
    CLONE_STRING(CRLfile);
    /* SSL credentials: client certificate, SRP auth */
-@@ -253,10 +261,14 @@ static void ssl_easy_config_compl_options(struct Curl_peer *origin,
+   CLONE_STRING(clientcert);
+@@ -253,10 +304,13 @@ static void ssl_easy_config_compl_options(struct Curl_peer *origin,
                             !!(options & CURLSSLOPT_AUTO_CLIENT_CERT);
  }
  
@@ -9590,13 +9703,12 @@ index 4a9b69654b..d3c73e598a 100644
 +                                         struct connectdata *conn)
  {
    struct ssl_config_data *sslc = &data->set.ssl;
-+  const bool is_h3 = conn && conn->transport_wanted == TRNSPRT_QUIC;
 +  const bool is_wss = conn && conn->scheme &&
 +    (conn->scheme->protocol & CURLPROTO_WSS);
  #if defined(CURL_CA_PATH) || defined(CURL_CA_BUNDLE)
    struct UserDefined *set = &data->set;
    CURLcode result;
-@@ -293,6 +305,29 @@ CURLcode Curl_ssl_easy_config_complete(struct Curl_easy *data,
+@@ -293,6 +347,24 @@ CURLcode Curl_ssl_easy_config_complete(struct Curl_easy *data,
      data->set.str[STRING_SSL_SIGNATURE_ALGORITHMS];
    sslc->primary.ca_info_blob = data->set.blobs[BLOB_CAINFO];
    sslc->primary.curves = data->set.str[STRING_SSL_EC_CURVES];
@@ -9604,6 +9716,11 @@ index 4a9b69654b..d3c73e598a 100644
 +    data->set.str[STRING_TLS_EXTENSION_ORDER];
 +  sslc->primary.cert_compression =
 +    data->set.str[STRING_SSL_CERT_COMPRESSION];
++  sslc->primary.http3_curves = data->set.str[STRING_HTTP3_SSL_EC_CURVES];
++  sslc->primary.http3_signature_algorithms =
++    data->set.str[STRING_HTTP3_SIG_HASH_ALGS];
++  sslc->primary.http3_tls_extension_order =
++    data->set.str[STRING_HTTP3_TLS_EXTENSION_ORDER];
 +  sslc->primary.enable_ticket = data->set.ssl_enable_ticket;
 +
 +  if(is_wss) {
@@ -9613,20 +9730,10 @@ index 4a9b69654b..d3c73e598a 100644
 +      sslc->primary.cert_compression =
 +        data->set.str[STRING_WS_SSL_CERT_COMPRESSION];
 +  }
-+  else if(is_h3) {
-+    if(data->set.str[STRING_HTTP3_SSL_EC_CURVES])
-+      sslc->primary.curves = data->set.str[STRING_HTTP3_SSL_EC_CURVES];
-+    if(data->set.str[STRING_HTTP3_SIG_HASH_ALGS])
-+      sslc->primary.signature_algorithms =
-+        data->set.str[STRING_HTTP3_SIG_HASH_ALGS];
-+    if(data->set.str[STRING_HTTP3_TLS_EXTENSION_ORDER])
-+      sslc->primary.tls_extension_order =
-+        data->set.str[STRING_HTTP3_TLS_EXTENSION_ORDER];
-+  }
    /* Maybe these should not be used for another origin. But for
     * backwards compatibility, keep them in. */
    sslc->primary.issuercert = data->set.str[STRING_SSL_ISSUERCERT];
-@@ -358,6 +393,7 @@ CURLcode Curl_ssl_easy_config_complete(struct Curl_easy *data,
+@@ -358,6 +430,7 @@ CURLcode Curl_ssl_easy_config_complete(struct Curl_easy *data,
    sslc->primary.CApath = data->set.str[STRING_SSL_CAPATH_PROXY];
    sslc->primary.cipher_list = data->set.str[STRING_SSL_CIPHER_LIST_PROXY];
    sslc->primary.cipher_list13 = data->set.str[STRING_SSL_CIPHER13_LIST_PROXY];
@@ -9634,7 +9741,7 @@ index 4a9b69654b..d3c73e598a 100644
    sslc->primary.pinned_key = data->set.str[STRING_SSL_PINNEDPUBLICKEY_PROXY];
    sslc->primary.cert_blob = data->set.blobs[BLOB_CERT_PROXY];
    sslc->primary.ca_info_blob = data->set.blobs[BLOB_CAINFO_PROXY];
-@@ -379,6 +415,18 @@ CURLcode Curl_ssl_easy_config_complete(struct Curl_easy *data,
+@@ -379,6 +452,18 @@ CURLcode Curl_ssl_easy_config_complete(struct Curl_easy *data,
    return CURLE_OK;
  }
  
@@ -9654,19 +9761,22 @@ index 4a9b69654b..d3c73e598a 100644
                                     struct connectdata *conn)
  {
 diff --git a/lib/vtls/vtls_config.h b/lib/vtls/vtls_config.h
-index 44e691dd26..be680be477 100644
+index 44e691dd26..7e0e5d53bc 100644
 --- a/lib/vtls/vtls_config.h
 +++ b/lib/vtls/vtls_config.h
-@@ -52,6 +52,8 @@ struct ssl_primary_config {
+@@ -52,6 +52,11 @@ struct ssl_primary_config {
    char *password; /* TLS password (for, e.g., SRP) */
  #endif
    char *curves;          /* list of curves to use */
 +  char *tls_extension_order; /* TLS extension order to use */
 +  char *cert_compression; /* certificate compression algorithms */
++  char *http3_curves;    /* HTTP/3 list of curves to use */
++  char *http3_signature_algorithms; /* HTTP/3 signature algorithms */
++  char *http3_tls_extension_order; /* HTTP/3 TLS extension order */
    uint32_t version_max; /* max supported version the client wants to use */
    uint8_t ssl_options;  /* the CURLOPT_SSL_OPTIONS bitmask */
    uint8_t version;    /* what version the client wants to use */
-@@ -59,6 +61,7 @@ struct ssl_primary_config {
+@@ -59,6 +64,7 @@ struct ssl_primary_config {
    BIT(verifyhost);       /* set TRUE if CN/SAN must match hostname */
    BIT(verifystatus);     /* set TRUE if certificate status must be checked */
    BIT(cache_session);    /* cache session or not */
@@ -9674,7 +9784,21 @@ index 44e691dd26..be680be477 100644
    BIT(deep_copy);        /* members are deep copies, eg. owned here */
  };
  
-@@ -96,6 +99,12 @@ void Curl_ssl_config_cleanup(struct ssl_primary_config *sslc);
+@@ -89,6 +95,13 @@ struct ssl_general_config {
+ void Curl_ssl_config_init(struct ssl_primary_config *sslc);
+ void Curl_ssl_config_cleanup(struct ssl_primary_config *sslc);
+ 
++const char *Curl_ssl_config_get_curves(
++  const struct ssl_primary_config *sslc, uint8_t transport);
++const char *Curl_ssl_config_get_signature_algorithms(
++  const struct ssl_primary_config *sslc, uint8_t transport);
++const char *Curl_ssl_config_get_tls_extension_order(
++  const struct ssl_primary_config *sslc, uint8_t transport);
++
+ /**
+  * Init the `data->set.ssl` and `data->set.proxy_ssl` for
+  * connection matching use.
+@@ -96,6 +109,12 @@ void Curl_ssl_config_cleanup(struct ssl_primary_config *sslc);
  CURLcode Curl_ssl_easy_config_complete(struct Curl_easy *data,
                                         struct Curl_peer *origin);
  
@@ -9700,10 +9824,10 @@ index fa5da6e4d5..45aeb422c2 100644
    struct cf_call_data call_data;    /* data handle used in current call */
    struct curltime handshake_done;   /* time when handshake finished */
 diff --git a/lib/vtls/vtls_scache.c b/lib/vtls/vtls_scache.c
-index 98beeac036..187f21dbc6 100644
+index 98beeac036..8f9e4762f9 100644
 --- a/lib/vtls/vtls_scache.c
 +++ b/lib/vtls/vtls_scache.c
-@@ -228,6 +228,7 @@ static CURLcode ssl_peer_key_add_vrfy(struct dynbuf *buf,
+@@ -228,10 +228,16 @@ static CURLcode ssl_peer_key_add_vrfy(struct dynbuf *buf,
  
  static CURLcode ssl_peer_key_build(struct ssl_primary_config *ssl,
                                     const struct ssl_peer *peer,
@@ -9711,7 +9835,16 @@ index 98beeac036..187f21dbc6 100644
                                     const char *tls_id,
                                     char **ppeer_key)
  {
-@@ -260,6 +261,11 @@ static CURLcode ssl_peer_key_build(struct ssl_primary_config *ssl,
+   struct dynbuf buf;
++  const char *curves = Curl_ssl_config_get_curves(ssl, peer->transport);
++  const char *signature_algorithms =
++    Curl_ssl_config_get_signature_algorithms(ssl, peer->transport);
++  const char *tls_extension_order =
++    Curl_ssl_config_get_tls_extension_order(ssl, peer->transport);
+   size_t key_len;
+   bool is_local = FALSE;
+   CURLcode result;
+@@ -260,6 +266,11 @@ static CURLcode ssl_peer_key_build(struct ssl_primary_config *ssl,
      if(result)
        goto out;
    }
@@ -9723,7 +9856,32 @@ index 98beeac036..187f21dbc6 100644
    if(ssl->cipher_list) {
      result = curlx_dyn_addf(&buf, ":CIPHER-%s", ssl->cipher_list);
      if(result)
-@@ -281,6 +287,45 @@ static CURLcode ssl_peer_key_build(struct ssl_primary_config *ssl,
+@@ -270,17 +281,65 @@ static CURLcode ssl_peer_key_build(struct ssl_primary_config *ssl,
+     if(result)
+       goto out;
+   }
+-  if(ssl->curves) {
+-    result = curlx_dyn_addf(&buf, ":CURVES-%s", ssl->curves);
++  if(curves) {
++    result = curlx_dyn_addf(&buf, ":CURVES-%s", curves);
++    if(result)
++      goto out;
++  }
++  if(signature_algorithms) {
++    result = curlx_dyn_addf(&buf, ":SIGALGS-%s", signature_algorithms);
++    if(result)
++      goto out;
++  }
++  if(tls_extension_order) {
++    result = curlx_dyn_addf(&buf, ":EXTORDER-%s", tls_extension_order);
+     if(result)
+       goto out;
+   }
+-  if(ssl->signature_algorithms) {
+-    result = curlx_dyn_addf(&buf, ":SIGALGS-%s",
+-                            ssl->signature_algorithms);
++  if(ssl->cert_compression) {
++    result = curlx_dyn_addf(&buf, ":CERTCOMP-%s", ssl->cert_compression);
      if(result)
        goto out;
    }
@@ -9769,7 +9927,7 @@ index 98beeac036..187f21dbc6 100644
    if(ssl->verifypeer) {
      result = cf_ssl_peer_key_add_path(&buf, "CA", ssl->CAfile, &is_local);
      if(result)
-@@ -356,7 +401,16 @@ CURLcode Curl_ssl_peer_key_make(const struct ssl_peer *peer,
+@@ -356,7 +415,16 @@ CURLcode Curl_ssl_peer_key_make(const struct ssl_peer *peer,
                                  const char *tls_id,
                                  char **ppeer_key)
  {
@@ -9804,6 +9962,33 @@ index effb1d8f96..a0a8e2f596 100644
  /* Return if there is a session cache shall be used.
   * An SSL session might not be configured or not available for
   * "connect-only" transfers.
+diff --git a/lib/vtls/wolfssl.c b/lib/vtls/wolfssl.c
+index 92eaa7a751..44618edc29 100644
+--- a/lib/vtls/wolfssl.c
++++ b/lib/vtls/wolfssl.c
+@@ -1129,9 +1129,11 @@ static CURLcode wssl_init_ciphers(struct Curl_easy *data,
+ 
+ static CURLcode wssl_init_curves(struct Curl_easy *data,
+                                  struct wssl_ctx *wctx,
+-                                 struct ssl_primary_config *conn_config)
++                                 struct ssl_primary_config *conn_config,
++                                 uint8_t transport)
+ {
+-  char *curves = conn_config->curves;
++  char *curves = (char *)CURL_UNCONST(
++    Curl_ssl_config_get_curves(conn_config, transport));
+   /* Without an explicit list, leave the key share group selection to
+      wolfSSL's own default. */
+   if(curves && !wssl_CTX_set1_groups_list(wctx->ssl_ctx, curves)) {
+@@ -1338,7 +1340,7 @@ CURLcode Curl_wssl_ctx_init(struct wssl_ctx *wctx,
+   if(result)
+     goto out;
+ 
+-  result = wssl_init_curves(data, wctx, conn_config);
++  result = wssl_init_curves(data, wctx, conn_config, transport);
+   if(result)
+     goto out;
+ 
 diff --git a/lib/ws.c b/lib/ws.c
 index 9820c3e4bd..75d1c38a7b 100644
 --- a/lib/ws.c
@@ -11053,7 +11238,7 @@ index 0f8bc6fe08..d961a8943d 100644
    BIT(tr_encoding);         /* Transfer-Encoding please */
    BIT(use_resume);
 diff --git a/src/tool_getparam.c b/src/tool_getparam.c
-index 35c01b1d92..1cf592678c 100644
+index 35c01b1d92..3bab842757 100644
 --- a/src/tool_getparam.c
 +++ b/src/tool_getparam.c
 @@ -76,6 +76,7 @@ static ParameterError getstrn(char **str, const char *val,
@@ -11172,17 +11357,17 @@ index 35c01b1d92..1cf592678c 100644
    {"tls13-ciphers",              ARG_STRG|ARG_TLS, ' ', C_TLS13_CIPHERS},
    {"tlsauthtype",                ARG_STRG|ARG_TLS, ' ', C_TLSAUTHTYPE},
    {"tlspassword",              ARG_STRG|ARG_TLS|ARG_CLEAR, ' ', C_TLSPASSWORD},
-@@ -367,6 +399,10 @@ static const struct LongShort aliases[]= {
- #ifdef USE_WATT32
+@@ -368,6 +400,10 @@ static const struct LongShort aliases[]= {
    {"wdebug",                     ARG_BOOL, ' ', C_WDEBUG},
  #endif
+   {"write-out",                  ARG_STRG, 'w', C_WRITE_OUT},
 +  {"ws-cert-compression",        ARG_STRG|ARG_TLS, ' ', C_WS_CERT_COMPRESSION},  // curl-impersonate
 +  {"ws-disable-session-ticket",  ARG_BOOL, ' ', C_WS_DISABLE_SESSION_TICKET},  // curl-impersonate
 +  {"ws-httpheader",              ARG_STRG, ' ', C_WS_HTTPHEADER},  // curl-impersonate
 +  {"ws-httpheader-order",        ARG_STRG, ' ', C_WS_HTTPHEADER_ORDER},  // curl-impersonate
-   {"write-out",                  ARG_STRG, 'w', C_WRITE_OUT},
    {"xattr",                      ARG_BOOL, ' ', C_XATTR},
  };
+ 
 @@ -1305,9 +1341,14 @@ static ParameterError parse_header(struct OperationConfig *config,
        curlx_dyn_init(&line, 1024 * 100);
        while(my_get_line(file, &line, &error)) {
