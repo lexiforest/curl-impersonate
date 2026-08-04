@@ -13,6 +13,8 @@ sys.path.insert(0, os.path.abspath("../"))
 project = "curl-impersonate"
 copyright = "2023-2026, lexiforest"
 author = "lexiforest"
+version = "2.0"
+release = "2.0.0"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

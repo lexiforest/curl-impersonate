@@ -57,5 +57,5 @@ These images include the binary and all wrapper scripts. For example:
 
 .. code-block:: bash
 
-    docker pull lexiforest/curl-impersonate:1.1.0
-    docker run --rm lexiforest/curl-impersonate:1.1.0 curl_chrome110 https://www.example.com
+    docker pull lexiforest/curl-impersonate:2.0.0
+    docker run --rm lexiforest/curl-impersonate:2.0.0 curl_chrome145 https://www.example.com
