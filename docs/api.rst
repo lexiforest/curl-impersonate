@@ -161,6 +161,14 @@ HTTP/3 and QUIC
   Sets HTTP/3 settings frame keys and values, in the format ``1:v;6:v;7:v``.
   Command line: ``--http3-settings <settings>``.
 
+``CURLOPT_QUIC_CID_LENGTH`` (string)
+  Sets the browser profile used to choose the initial QUIC destination and source
+  connection ID lengths. Supported values are ``webkit``, which uses an 8-byte
+  destination connection ID and an empty source connection ID, and ``firefox``, which
+  uses a randomized destination connection ID length from 8 to 20 bytes and a 3-byte
+  source connection ID.
+  Command line: ``--quic-cid-length <profile>``.
+
 ``CURLOPT_QUIC_TRANSPORT_PARAMETERS`` (string)
   Sets QUIC transport parameters, in the format ``id:value;id:value``.
   Command line: ``--quic-transport-params <params>``.
