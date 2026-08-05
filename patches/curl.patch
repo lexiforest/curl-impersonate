@@ -1161,6 +1161,30 @@ index 266ba52af3..54608e8cc2 100644
    ldap.c             \
    llist.c            \
    macos.c            \
+diff --git a/lib/cf-ip-happy.c b/lib/cf-ip-happy.c
+index 963ccea94d..2b9691fdcc 100644
+--- a/lib/cf-ip-happy.c
++++ b/lib/cf-ip-happy.c
+@@ -479,14 +479,14 @@ evaluate:
+       CURL_TRC_CF(data, cf, "check for next A address: %s",
+                   ai ? "found" : "none");
+     }
+-    /* We are (re-)starting attempts. We are not interested in
+-     * keeping old failure information. The new attempt will either
+-     * succeed or persist new failure. */
+-    Curl_reset_fail(data);
+-
+     if(ai) {  /* try another address */
+       struct Curl_sockaddr_ex addr;
+ 
++      /* We are (re-)starting attempts. We are not interested in
++       * keeping old failure information. The new attempt will either
++       * succeed or persist new failure. */
++      Curl_reset_fail(data);
++
+       /* Discard oldest to make room for new attempt */
+       if(bs->max_concurrent)
+         cf_ip_ballers_prune(bs, cf, data, bs->max_concurrent - 1);
 diff --git a/lib/cf-setup.c b/lib/cf-setup.c
 index 119294a89a..f603800a1a 100644
 --- a/lib/cf-setup.c
