@@ -1,21 +1,23 @@
-import os
-import sys
-import json
-import random
-import logging
-import pathlib
-import subprocess
-import tempfile
-import itertools
 import asyncio
+import io
+import itertools
+import json
+import logging
+import os
+import pathlib
+import socket
+import subprocess
+import sys
+import tempfile
+import time
 
-import yaml
+import dpkt
 import pytest
-from th1.tls.parser import parse_pcap
-from th1.tls.signature import TLSClientHelloSignature
+import yaml
 from th1.http2.parser import parse_nghttpd_log
 from th1.http2.signature import HTTP2Signature
-import dpkt
+from th1.tls.parser import parse_pcap
+from th1.tls.signature import TLSClientHelloSignature
 
 
 @pytest.fixture
@@ -44,21 +46,7 @@ a real browser, by comparing with known signatures
 # This ensures we will capture the correct traffic in tcpdump.
 LOCAL_PORTS = (50000, 50100)
 
-
-# https://docs.github.com/en/actions/learn-github-actions/variables
-logging.debug("$CI is: %s", os.getenv("CI"))
-TEST_URLS = [
-    "https://www.wikimedia.org",
-    "https://www.wikipedia.org",
-    "https://www.mozilla.org/en-US/",
-    "https://www.apache.org",
-    # "https://www.kernel.org",
-    "https://git-scm.com",
-]
-# TEST_URLS = [
-#     "https://tls.browserleaks.com/json",
-#     "https://httpbin.org/ip",
-# ]
+SERVER_PORT = 8443
 
 # List of binaries and their expected signatures
 CURL_BINARIES_AND_SIGNATURES = yaml.safe_load(open("./targets.yaml"))
@@ -87,14 +75,8 @@ for path in pathlib.Path("signatures").glob("**/*.yaml"):
 
 
 @pytest.fixture
-def test_urls():
-    # Shuffle TEST_URLS randomly
-    return random.sample(TEST_URLS, k=len(TEST_URLS))
-
-
-@pytest.fixture
 def tcpdump(pytestconfig):
-    """Initialize a sniffer to capture curl's traffic."""
+    """Initialize a sniffer to capture curl's traffic to the local server."""
     interface = pytestconfig.getoption("capture_interface")
 
     logging.debug(f"Running tcpdump on interface {interface}")
@@ -111,15 +93,17 @@ def tcpdump(pytestconfig):
             "-",
             "-U",  # Important, makes tcpdump unbuffered
             (
-                f"(tcp src portrange {LOCAL_PORTS[0]}-{LOCAL_PORTS[1]}"
-                f" and tcp dst port 443) or"
-                f"(tcp dst portrange {LOCAL_PORTS[0]}-{LOCAL_PORTS[1]}"
-                f" and tcp src port 443)"
+                f"tcp src portrange {LOCAL_PORTS[0]}-{LOCAL_PORTS[1]}"
+                f" and tcp dst port {SERVER_PORT}"
             ),
         ],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
+
+    # Wait for "listening on ..." so curl doesn't run before the capture is active
+    line = p.stderr.readline()
+    logging.debug("tcpdump: %s", line.decode("utf-8", errors="replace").rstrip())
 
     yield p
 
@@ -195,6 +179,50 @@ async def nghttpd():
     await proc.wait()
 
 
+def _extract_client_hellos(pcap: bytes, port: int = SERVER_PORT) -> list[dict]:
+    """Extract TLS Client Hello records from a loopback capture.
+
+    th1's ``parse_pcap`` assumes Ethernet framing; macOS/BSD loopback
+    captures use DLT_NULL (a 4-byte protocol family header per packet),
+    so parse the IP payload directly in that case.
+    """
+    reader = dpkt.pcap.Reader(io.BytesIO(pcap))
+    if reader.datalink() != dpkt.pcap.DLT_NULL:
+        return parse_pcap(pcap, port=port)
+
+    client_hellos = []
+    for _, buf in reader:
+        # Host byte order, OS-specific AF_* values
+        family = int.from_bytes(buf[:4], sys.byteorder)
+        try:
+            if family == socket.AF_INET:
+                ip = dpkt.ip.IP(buf[4:])
+            elif family == socket.AF_INET6:
+                ip = dpkt.ip6.IP6(buf[4:])
+            else:
+                continue
+        except dpkt.UnpackError:
+            continue
+        if not isinstance(ip.data, dpkt.tcp.TCP):
+            continue
+        tcp = ip.data
+        if tcp.dport != port or not tcp.data:
+            continue
+        tls = dpkt.ssl.TLSRecord(tcp.data)
+        if tls.type != 0x16:  # Handshake
+            continue
+        handshake = dpkt.ssl.TLSHandshake(tls.data)
+        if handshake.type != 0x01:  # Client Hello
+            continue
+        client_hellos.append(
+            {
+                "client_hello": tcp.data,
+                "signature": TLSClientHelloSignature.from_bytes(tcp.data),
+            }
+        )
+    return client_hellos
+
+
 def _set_ld_preload(env_vars, lib):
     if sys.platform.startswith("linux"):
         env_vars["LD_PRELOAD"] = lib + ".so"
@@ -237,23 +265,24 @@ def _run_curl(curl_binary, env_vars, extra_args, urls, output="/dev/null"):
     "curl_binary, env_vars, ld_preload, expected_signature",
     CURL_BINARIES_AND_SIGNATURES,
 )
-def test_tls_client_hello(
+async def test_tls_client_hello(
     pytestconfig,
     tcpdump,
+    nghttpd,
     curl_binary,
     env_vars,
     ld_preload,
     browser_signatures,
     expected_signature,
-    test_urls,
 ):
     """
     Check that curl's TLS signature is identical to that of a
     real browser.
 
-    Launches curl while sniffing its TLS traffic with tcpdump. Then
-    extracts the Client Hello packet from the capture and compares its
-    signature with the expected one defined in the YAML database.
+    Launches curl against the local TLS server while sniffing its traffic
+    with tcpdump on the loopback interface. Then extracts the Client Hello
+    packets from the capture and compares their signature with the expected
+    one defined in the YAML database.
     """
     curl_binary = os.path.join(
         pytestconfig.getoption("install_dir"), "bin", curl_binary
@@ -270,33 +299,32 @@ def test_tls_client_hello(
             os.path.join(pytestconfig.getoption("install_dir"), "lib", ld_preload),
         )
 
-    test_urls = test_urls[0:2]
-    ret = _run_curl(curl_binary, env_vars=env_vars, extra_args=None, urls=test_urls)
-    assert ret == 0
-
-    try:
-        pcap, stderr = tcpdump.communicate(timeout=5)
-
-        # If tcpdump finished running before timeout, it's likely it failed
-        # with an error.
-        assert tcpdump.returncode == 0, (
-            f"tcpdump failed with error code {tcpdump.returncode}, " f"stderr: {stderr}"
+    # Separate processes cannot resume TLS sessions
+    expected_hellos = 2
+    for _ in range(expected_hellos):
+        ret = _run_curl(
+            curl_binary,
+            env_vars=env_vars,
+            extra_args=["-k"],
+            urls=[f"https://localhost:{SERVER_PORT}"],
         )
-    except subprocess.TimeoutExpired:
-        tcpdump.kill()
-        pcap, stderr = tcpdump.communicate(timeout=3)
+        assert ret == 0
 
-    assert len(pcap) > 0
+    # Let tcpdump flush before stopping
+    time.sleep(0.5)
+    tcpdump.terminate()
+    pcap, stderr = tcpdump.communicate(timeout=10)
+
+    assert len(pcap) > 0, f"tcpdump produced no capture, stderr: {stderr}"
     logging.debug(f"Captured pcap of length {len(pcap)} bytes")
 
-    try:
-        client_hellos = parse_pcap(pcap)
-    except dpkt.NeedData:
-        logging.error("DPKT does not support Chrome 124 yet.")
-        return
+    client_hellos = _extract_client_hellos(pcap)
 
-    # A client hello message for each URL
-    assert len(client_hellos) == len(test_urls)
+    # A client hello message for each curl invocation
+    assert len(client_hellos) == expected_hellos, (
+        f"Expected {expected_hellos} Client Hello messages, "
+        f"found {len(client_hellos)}; tcpdump stderr: {stderr}"
+    )
 
     logging.debug(
         f"Found {len(client_hellos)} Client Hello messages, "
@@ -372,6 +400,7 @@ async def test_http2_headers(
     assert equals, msg
 
 
+@pytest.mark.remote
 @pytest.mark.parametrize(
     "curl_binary, env_vars, ld_preload, profile", HTTP3_CLIENTS
 )
