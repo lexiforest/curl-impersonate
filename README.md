@@ -13,7 +13,7 @@
 > 2. ZSTD compression support introduced in Chrome 123.
 > 3. X25519Kyber768/X25519MLKEM curves introduced in Chrome 124 and 130.
 > 4. More options for impersonating Akamai http/2 fingerprints, especially for Safari.
-> 5. Upgrade to more recent version of curl, 8.15.0 as of August, 2025.
+> 5. Based on curl 8.21.0 in curl-impersonate 2.0.0.
 > 6. Ability to change extension orders and enable/disable TLS grease.
 > 7. Single binary to support Chrome, Safari and Firefox.
 > 8. Built with http/3 enabled, http/3 and quic fingerprints are also supported.
@@ -22,8 +22,10 @@
 > 11. More prebuilt binaries, including Windows, Arm, and even RISC-V!
 > 12. Commercial support at [impersonate.pro](https://impersonate.pro).
 
-> [!WARNING]
-> Breaking changes on v1.0, see release page for details.
+> [!IMPORTANT]
+> The current stable release is curl-impersonate 2.0.0, based on curl 8.21.0.
+> See the [release page](https://github.com/lexiforest/curl-impersonate/releases/tag/v2.0.0)
+> for release notes and downloads.
 
 A special build of [curl](https://github.com/curl/curl) that can impersonate the four
 major browsers: Chrome, Edge, Safari and Firefox. `curl-impersonate` is able to perform

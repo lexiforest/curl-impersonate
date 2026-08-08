@@ -1,8 +1,8 @@
 API Reference
 =============
 
-The following ``CURLOPT_*`` options and CLI arguments are added by curl-impersonate and 
-are not part of upstream curl.
+The following ``CURLOPT_*`` options, ``CURLINFO_*`` values, and CLI arguments are
+added by curl-impersonate and are not part of upstream curl.
 
 Many of them are applied automatically by ``curl_easy_impersonate()`` given a preset
 fingerprint. 
@@ -34,7 +34,7 @@ Impersonation and Headers
   Sets the multipart ``form-data`` boundary style. Possible values: ``webkit``, for
   webkit and blink based browsers, e.g. Safari and Chrome. ``firefox``, for Gecko based
   browsers, e.g. Firefox.
-  Command line: no direct equivalent.
+  Command line: ``--form-boundary <style>``.
 
 TLS
 ---
@@ -141,9 +141,33 @@ HTTP/3 and QUIC
   frame. This is the HTTP/3 analogue of ``CURLOPT_HTTP2_PSEUDO_HEADERS_ORDER``.
   Command line: ``--http3-pseudo-headers-order <order>``.
 
+``CURLOPT_HTTP3_HTTPHEADER`` (slist)
+  Sets HTTP/3-specific custom headers. When set, this list is used instead of
+  ``CURLOPT_HTTPHEADER`` for HTTP/3 requests.
+  Command line: ``--http3-httpheader <header/@file>``. Specify the option once for each
+  header, or use ``@file`` to read headers from a file.
+
+``CURLOPT_HTTP3_HTTPHEADER_ORDER`` (string)
+  Sets the comma-separated order for normal HTTP headers in HTTP/3 requests. When set,
+  it overrides ``CURLOPT_HTTPHEADER_ORDER`` for HTTP/3.
+  Command line: ``--http3-httpheader-order <headers>``.
+
+``CURLOPT_HTTP3_SSL_EC_CURVES`` (string)
+  Sets the TLS key exchange groups used for HTTP/3 connections. When set, it overrides
+  ``CURLOPT_SSL_EC_CURVES`` for QUIC TLS.
+  Command line: ``--http3-curves <algorithm list>``.
+
 ``CURLOPT_HTTP3_SETTINGS`` (string)
   Sets HTTP/3 settings frame keys and values, in the format ``1:v;6:v;7:v``.
   Command line: ``--http3-settings <settings>``.
+
+``CURLOPT_QUIC_CID_LENGTH`` (string)
+  Sets the browser profile used to choose the initial QUIC destination and source
+  connection ID lengths. Supported values are ``webkit``, which uses an 8-byte
+  destination connection ID and an empty source connection ID, and ``firefox``, which
+  uses a randomized destination connection ID length from 8 to 20 bytes and a 3-byte
+  source connection ID.
+  Command line: ``--quic-cid-length <profile>``.
 
 ``CURLOPT_QUIC_TRANSPORT_PARAMETERS`` (string)
   Sets QUIC transport parameters, in the format ``id:value;id:value``.
@@ -151,13 +175,38 @@ HTTP/3 and QUIC
 
 ``CURLOPT_HTTP3_SIG_HASH_ALGS`` (string)
   Sets signature hash algorithms for HTTP/3 QUIC TLS. If set, this is used instead of
-  ``CURLOPT_SSL_SIG_HASH_ALGS`` for QUIC connections.
+  ``CURLOPT_SSL_SIGNATURE_ALGORITHMS`` for QUIC connections.
   Command line: ``--http3-sig-hash-algs <algorithm list>``.
 
 ``CURLOPT_HTTP3_TLS_EXTENSION_ORDER`` (string)
   Sets TLS extension order for HTTP/3 QUIC TLS. If set, this is used instead of
   ``CURLOPT_TLS_EXTENSION_ORDER`` for QUIC connections.
   Command line: ``--http3-tls-extension-order <order>``.
+
+WebSockets
+----------
+
+``CURLOPT_WS_HTTPHEADER`` (slist)
+  Sets WebSocket-specific custom headers. When set, this list is used instead of
+  ``CURLOPT_HTTPHEADER`` for ``ws://`` and ``wss://`` requests.
+  Command line: ``--ws-httpheader <header/@file>``. Specify the option once for each
+  header, or use ``@file`` to read headers from a file.
+
+``CURLOPT_WS_HTTPHEADER_ORDER`` (string)
+  Sets the comma-separated order for normal HTTP headers in WebSocket requests. When
+  set, it overrides ``CURLOPT_HTTPHEADER_ORDER`` for WebSockets.
+  Command line: ``--ws-httpheader-order <headers>``.
+
+``CURLOPT_WS_SSL_DISABLE_TICKET`` (long)
+  Disables the TLS session ticket extension for secure WebSocket requests when set to a
+  non-zero value.
+  Command line: ``--ws-disable-session-ticket``.
+
+``CURLOPT_WS_SSL_CERT_COMPRESSION`` (string)
+  Sets the certificate compression algorithms advertised for secure WebSocket requests.
+  Supported values are ``zlib``, ``brotli``, and ``zstd``. When set, this value
+  overrides ``CURLOPT_SSL_CERT_COMPRESSION`` for WebSockets.
+  Command line: ``--ws-cert-compression <algorithm list>``.
 
 Proxy and Cookies
 -----------------
@@ -171,3 +220,30 @@ Proxy and Cookies
   a single header. For http/2 and http/3, Cookies are separated for better compression
   rate.
   Command line: ``--split-cookies`` / ``--no-split-cookies``.
+
+Redirects
+---------
+
+``CURLFOLLOW_SAFE`` (long)
+  A value for ``CURLOPT_FOLLOWLOCATION`` that follows redirects but rejects a redirected
+  connection when its resolved address is IPv4 loopback, RFC 1918 private, or link-local,
+  or IPv6 loopback, unique-local, or link-local. This SSRF protection applies to
+  redirected requests, not to the initial URL.
+  Command line: ``--location-safe`` / ``--no-location-safe``.
+
+Transfer Information
+--------------------
+
+``CURLINFO_COOKIECHANGES`` (slist)
+  Returns the accepted cookie mutations received from servers during the latest
+  transfer. Each entry begins with ``SET`` or ``DELETE``, followed by a tab and the
+  cookie in Netscape cookie-file format. Pass a ``struct curl_slist **`` to
+  ``curl_easy_getinfo()`` and free the returned list with ``curl_slist_free_all()``.
+  Command line: no direct equivalent.
+
+``CURLINFO_REDIRECT_HISTORY`` (slist)
+  Returns the redirects followed during the latest transfer in request order. Each entry
+  contains the response status code, a tab, and the request URL that returned that
+  status. The final response is not included. Pass a ``struct curl_slist **`` to
+  ``curl_easy_getinfo()`` and free the returned list with ``curl_slist_free_all()``.
+  Command line: no direct equivalent.
