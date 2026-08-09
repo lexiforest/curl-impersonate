@@ -627,6 +627,7 @@ if(WIN32)
     DIRECTORY "${DEPS_BUILD_DIR}/curl/lib/"
     DESTINATION ${CMAKE_INSTALL_LIBDIR}
     FILES_MATCHING
+      PATTERN "CMakeFiles" EXCLUDE
       PATTERN "libcurl-impersonate*.lib"
       PATTERN "libcurl-impersonate*.a"
       PATTERN "libcurl-impersonate*.dll"
@@ -636,6 +637,7 @@ else()
     DIRECTORY "${DEPS_BUILD_DIR}/curl/lib/"
     DESTINATION ${CMAKE_INSTALL_LIBDIR}
     FILES_MATCHING
+      PATTERN "CMakeFiles" EXCLUDE
       PATTERN "libcurl-impersonate*.a"
       PATTERN "libcurl-impersonate*.so*"
       PATTERN "libcurl-impersonate*.dylib*"

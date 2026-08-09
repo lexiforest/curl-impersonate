@@ -784,7 +784,7 @@ index 0000000000..bc1a07122f
 +git df curl-8_21_0 -- . ':(exclude)tests/**' > chrome.patch
 +mv chrome.patch ../curl-impersonate/patches/curl.patch
 diff --git a/include/curl/curl.h b/include/curl/curl.h
-index 7e59e43c4d..0310d464e7 100644
+index 7e59e43c4d..7cbafd11f8 100644
 --- a/include/curl/curl.h
 +++ b/include/curl/curl.h
 @@ -185,6 +185,10 @@ typedef enum {
@@ -798,7 +798,7 @@ index 7e59e43c4d..0310d464e7 100644
  struct curl_httppost {
    struct curl_httppost *next;       /* next entry in the list */
    char *name;                       /* pointer to allocated name */
-@@ -2262,6 +2266,153 @@ typedef enum {
+@@ -2262,6 +2266,156 @@ typedef enum {
    /* set TLS supported signature algorithms */
    CURLOPT(CURLOPT_SSL_SIGNATURE_ALGORITHMS, CURLOPTTYPE_STRINGPOINT, 328),
  
@@ -949,10 +949,13 @@ index 7e59e43c4d..0310d464e7 100644
 +  /* curl-impersonate: WebSocket-specific TLS certificate compression. */
 +  CURLOPT(CURLOPT_WS_SSL_CERT_COMPRESSION, CURLOPTTYPE_STRINGPOINT, 1037),
 +
++  /* curl-impersonate: QUIC initial connection ID length profile. */
++  CURLOPT(CURLOPT_QUIC_CID_LENGTH, CURLOPTTYPE_STRINGPOINT, 1038),
++
    CURLOPT_LASTENTRY /* the last unused */
  } CURLoption;
  
-@@ -2996,7 +3147,14 @@ typedef enum {
+@@ -2996,7 +3150,14 @@ typedef enum {
    CURLINFO_HTTPAUTH_USED    = CURLINFO_LONG + 69,
    CURLINFO_PROXYAUTH_USED   = CURLINFO_LONG + 70,
    CURLINFO_SIZE_DELIVERED   = CURLINFO_OFF_T + 71,
@@ -1004,10 +1007,10 @@ index 197e6e7b92..8e0659ca66 100644
   * NAME curl_easy_getinfo()
   *
 diff --git a/include/curl/typecheck-gcc.h b/include/curl/typecheck-gcc.h
-index d600c73cdc..66543d62d6 100644
+index d600c73cdc..86a58c6088 100644
 --- a/include/curl/typecheck-gcc.h
 +++ b/include/curl/typecheck-gcc.h
-@@ -428,8 +428,22 @@ CURLWARNING(Wcurl_easy_getinfo_err_curl_off_t,
+@@ -428,8 +428,23 @@ CURLWARNING(Wcurl_easy_getinfo_err_curl_off_t,
     (option) == CURLOPT_FTP_ACCOUNT ||                                   \
     (option) == CURLOPT_FTP_ALTERNATIVE_TO_USER ||                       \
     (option) == CURLOPT_FTPPORT ||                                       \
@@ -1024,13 +1027,14 @@ index d600c73cdc..66543d62d6 100644
 +   (option) == CURLOPT_HTTP3_SIG_HASH_ALGS ||                           \
 +   (option) == CURLOPT_HTTP3_SSL_EC_CURVES ||                           \
 +   (option) == CURLOPT_HTTP3_TLS_EXTENSION_ORDER ||                     \
++   (option) == CURLOPT_QUIC_CID_LENGTH ||                               \
 +   (option) == CURLOPT_QUIC_TRANSPORT_PARAMETERS ||                     \
 +   (option) == CURLOPT_WS_HTTPHEADER_ORDER ||                           \
 +   (option) == CURLOPT_WS_SSL_CERT_COMPRESSION ||                       \
     (option) == CURLOPT_INTERFACE ||                                     \
     (option) == CURLOPT_ISSUERCERT ||                                    \
     (option) == CURLOPT_KEYPASSWD ||                                     \
-@@ -546,6 +560,8 @@ CURLWARNING(Wcurl_easy_getinfo_err_curl_off_t,
+@@ -546,6 +561,8 @@ CURLWARNING(Wcurl_easy_getinfo_err_curl_off_t,
  #define curlcheck_slist_option(option)                                  \
    ((option) == CURLOPT_HTTP200ALIASES ||                                \
     (option) == CURLOPT_HTTPHEADER ||                                    \
@@ -1039,7 +1043,7 @@ index d600c73cdc..66543d62d6 100644
     (option) == CURLOPT_MAIL_RCPT ||                                     \
     (option) == CURLOPT_POSTQUOTE ||                                     \
     (option) == CURLOPT_PREQUOTE ||                                      \
-@@ -574,7 +590,9 @@ CURLWARNING(Wcurl_easy_getinfo_err_curl_off_t,
+@@ -574,7 +591,9 @@ CURLWARNING(Wcurl_easy_getinfo_err_curl_off_t,
  /* true if info expects a pointer to struct curl_slist * argument */
  #define curlcheck_slist_info(info)                                      \
    (((info) == CURLINFO_SSL_ENGINES) ||                                  \
@@ -1157,6 +1161,30 @@ index 266ba52af3..54608e8cc2 100644
    ldap.c             \
    llist.c            \
    macos.c            \
+diff --git a/lib/cf-ip-happy.c b/lib/cf-ip-happy.c
+index 963ccea94d..2b9691fdcc 100644
+--- a/lib/cf-ip-happy.c
++++ b/lib/cf-ip-happy.c
+@@ -479,14 +479,14 @@ evaluate:
+       CURL_TRC_CF(data, cf, "check for next A address: %s",
+                   ai ? "found" : "none");
+     }
+-    /* We are (re-)starting attempts. We are not interested in
+-     * keeping old failure information. The new attempt will either
+-     * succeed or persist new failure. */
+-    Curl_reset_fail(data);
+-
+     if(ai) {  /* try another address */
+       struct Curl_sockaddr_ex addr;
+ 
++      /* We are (re-)starting attempts. We are not interested in
++       * keeping old failure information. The new attempt will either
++       * succeed or persist new failure. */
++      Curl_reset_fail(data);
++
+       /* Discard oldest to make room for new attempt */
+       if(bs->max_concurrent)
+         cf_ip_ballers_prune(bs, cf, data, bs->max_concurrent - 1);
 diff --git a/lib/cf-setup.c b/lib/cf-setup.c
 index 119294a89a..f603800a1a 100644
 --- a/lib/cf-setup.c
@@ -1431,7 +1459,7 @@ index d5337eb353..b2fb669979 100644
  /**
   * Return the n-th header entry or NULL if it does not exist.
 diff --git a/lib/easy.c b/lib/easy.c
-index d60bdaed7b..fe9d1e7517 100644
+index d60bdaed7b..d7bcbfae0a 100644
 --- a/lib/easy.c
 +++ b/lib/easy.c
 @@ -70,10 +70,14 @@
@@ -1449,7 +1477,7 @@ index d60bdaed7b..fe9d1e7517 100644
  
  #include "easy_lock.h"
  
-@@ -323,6 +327,389 @@ CURLsslset curl_global_sslset(curl_sslbackend id, const char *name,
+@@ -323,6 +327,396 @@ CURLsslset curl_global_sslset(curl_sslbackend id, const char *name,
    return rc;
  }
  
@@ -1650,6 +1678,13 @@ index d60bdaed7b..fe9d1e7517 100644
 +      return ret;
 +  }
 +
++  if(opts->quic_cid_length) {
++    ret = curl_easy_setopt(data, CURLOPT_QUIC_CID_LENGTH,
++                           opts->quic_cid_length);
++    if(ret)
++      return ret;
++  }
++
 +  if(opts->quic_transport_parameters) {
 +    ret = curl_easy_setopt(data, CURLOPT_QUIC_TRANSPORT_PARAMETERS,
 +                           opts->quic_transport_parameters);
@@ -1839,7 +1874,7 @@ index d60bdaed7b..fe9d1e7517 100644
  /*
   * curl_easy_init() is the external interface to alloc, setup and init an
   * easy handle that is returned. If anything goes wrong, NULL is returned.
-@@ -331,6 +718,8 @@ CURL *curl_easy_init(void)
+@@ -331,6 +725,8 @@ CURL *curl_easy_init(void)
  {
    CURLcode result;
    struct Curl_easy *data;
@@ -1848,7 +1883,7 @@ index d60bdaed7b..fe9d1e7517 100644
  
    /* Make sure we inited the global SSL stuff */
    global_init_lock();
-@@ -353,6 +742,30 @@ CURL *curl_easy_init(void)
+@@ -353,6 +749,30 @@ CURL *curl_easy_init(void)
      return NULL;
    }
  
@@ -1879,7 +1914,7 @@ index d60bdaed7b..fe9d1e7517 100644
    return data;
  }
  
-@@ -1027,6 +1440,13 @@ CURL *curl_easy_duphandle(CURL *curl)
+@@ -1027,6 +1447,13 @@ CURL *curl_easy_duphandle(CURL *curl)
        goto fail;
    }
  
@@ -1893,7 +1928,7 @@ index d60bdaed7b..fe9d1e7517 100644
    /* Reinitialize an SSL engine for the new handle
     * note: the engine name has already been copied by dupset */
    if(outcurl->set.str[STRING_SSL_ENGINE]) {
-@@ -1088,6 +1508,9 @@ fail:
+@@ -1088,6 +1515,9 @@ fail:
   */
  void curl_easy_reset(CURL *curl)
  {
@@ -1903,7 +1938,7 @@ index d60bdaed7b..fe9d1e7517 100644
    struct Curl_easy *data = curl;
    if(!GOOD_EASY_HANDLE(data))
      return;
-@@ -1120,6 +1543,23 @@ void curl_easy_reset(CURL *curl)
+@@ -1120,6 +1550,23 @@ void curl_easy_reset(CURL *curl)
    Curl_http_auth_cleanup_digest(data);
  #endif
    data->master_mid = UINT32_MAX;
@@ -1928,7 +1963,7 @@ index d60bdaed7b..fe9d1e7517 100644
  
  /*
 diff --git a/lib/easyoptions.c b/lib/easyoptions.c
-index 4c0b4f0ce4..31afae471b 100644
+index 4c0b4f0ce4..cac1841bd3 100644
 --- a/lib/easyoptions.c
 +++ b/lib/easyoptions.c
 @@ -99,6 +99,7 @@ const struct curl_easyoption Curl_easyopts[] = {
@@ -1984,16 +2019,17 @@ index 4c0b4f0ce4..31afae471b 100644
    { "PROXY_CRLFILE", CURLOPT_PROXY_CRLFILE, CURLOT_STRING, 0 },
    { "PROXY_ISSUERCERT", CURLOPT_PROXY_ISSUERCERT, CURLOT_STRING, 0 },
    { "PROXY_ISSUERCERT_BLOB", CURLOPT_PROXY_ISSUERCERT_BLOB, CURLOT_BLOB, 0 },
-@@ -251,6 +273,8 @@ const struct curl_easyoption Curl_easyopts[] = {
+@@ -251,6 +273,9 @@ const struct curl_easyoption Curl_easyopts[] = {
    { "PROXY_TRANSFER_MODE", CURLOPT_PROXY_TRANSFER_MODE, CURLOT_LONG, 0 },
    { "PUT", CURLOPT_PUT, CURLOT_LONG, 0 },
    { "QUICK_EXIT", CURLOPT_QUICK_EXIT, CURLOT_LONG, 0 },
++  { "QUIC_CID_LENGTH", CURLOPT_QUIC_CID_LENGTH, CURLOT_STRING, 0 },
 +  { "QUIC_TRANSPORT_PARAMETERS", CURLOPT_QUIC_TRANSPORT_PARAMETERS,
 +    CURLOT_STRING, 0 },
    { "QUOTE", CURLOPT_QUOTE, CURLOT_SLIST, 0 },
    { "RANDOM_FILE", CURLOPT_RANDOM_FILE, CURLOT_STRING, 0 },
    { "RANGE", CURLOPT_RANGE, CURLOT_STRING, 0 },
-@@ -289,6 +313,7 @@ const struct curl_easyoption Curl_easyopts[] = {
+@@ -289,6 +314,7 @@ const struct curl_easyoption Curl_easyopts[] = {
    { "SOCKS5_GSSAPI_NEC", CURLOPT_SOCKS5_GSSAPI_NEC, CURLOT_LONG, 0 },
    { "SOCKS5_GSSAPI_SERVICE", CURLOPT_SOCKS5_GSSAPI_SERVICE,
      CURLOT_STRING, 0 },
@@ -2001,7 +2037,7 @@ index 4c0b4f0ce4..31afae471b 100644
    { "SSH_AUTH_TYPES", CURLOPT_SSH_AUTH_TYPES, CURLOT_VALUES, 0 },
    { "SSH_COMPRESSION", CURLOPT_SSH_COMPRESSION, CURLOT_LONG, 0 },
    { "SSH_HOSTKEYDATA", CURLOPT_SSH_HOSTKEYDATA, CURLOT_CBPTR, 0 },
-@@ -313,23 +338,30 @@ const struct curl_easyoption Curl_easyopts[] = {
+@@ -313,23 +339,30 @@ const struct curl_easyoption Curl_easyopts[] = {
    { "SSLKEYTYPE", CURLOPT_SSLKEYTYPE, CURLOT_STRING, 0 },
    { "SSLKEY_BLOB", CURLOPT_SSLKEY_BLOB, CURLOT_BLOB, 0 },
    { "SSLVERSION", CURLOPT_SSLVERSION, CURLOT_VALUES, 0 },
@@ -2032,7 +2068,7 @@ index 4c0b4f0ce4..31afae471b 100644
    { "STREAM_WEIGHT", CURLOPT_STREAM_WEIGHT, CURLOT_LONG, 0 },
    { "SUPPRESS_CONNECT_HEADERS", CURLOPT_SUPPRESS_CONNECT_HEADERS,
      CURLOT_LONG, 0 },
-@@ -351,6 +383,19 @@ const struct curl_easyoption Curl_easyopts[] = {
+@@ -351,6 +384,19 @@ const struct curl_easyoption Curl_easyopts[] = {
    { "TLSAUTH_PASSWORD", CURLOPT_TLSAUTH_PASSWORD, CURLOT_STRING, 0 },
    { "TLSAUTH_TYPE", CURLOPT_TLSAUTH_TYPE, CURLOT_STRING, 0 },
    { "TLSAUTH_USERNAME", CURLOPT_TLSAUTH_USERNAME, CURLOT_STRING, 0 },
@@ -2052,7 +2088,7 @@ index 4c0b4f0ce4..31afae471b 100644
    { "TRAILERDATA", CURLOPT_TRAILERDATA, CURLOT_CBPTR, 0 },
    { "TRAILERFUNCTION", CURLOPT_TRAILERFUNCTION, CURLOT_FUNCTION, 0 },
    { "TRANSFERTEXT", CURLOPT_TRANSFERTEXT, CURLOT_LONG, 0 },
-@@ -371,7 +416,12 @@ const struct curl_easyoption Curl_easyopts[] = {
+@@ -371,7 +417,12 @@ const struct curl_easyoption Curl_easyopts[] = {
    { "WRITEDATA", CURLOPT_WRITEDATA, CURLOT_CBPTR, 0 },
    { "WRITEFUNCTION", CURLOPT_WRITEFUNCTION, CURLOT_FUNCTION, 0 },
    { "WRITEHEADER", CURLOPT_HEADERDATA, CURLOT_CBPTR, CURLOT_FLAG_ALIAS },
@@ -2065,12 +2101,12 @@ index 4c0b4f0ce4..31afae471b 100644
    { "XFERINFODATA", CURLOPT_XFERINFODATA, CURLOT_CBPTR, 0 },
    { "XFERINFOFUNCTION", CURLOPT_XFERINFOFUNCTION, CURLOT_FUNCTION, 0 },
    { "XOAUTH2_BEARER", CURLOPT_XOAUTH2_BEARER, CURLOT_STRING, 0 },
-@@ -385,6 +435,6 @@ const struct curl_easyoption Curl_easyopts[] = {
+@@ -385,6 +436,6 @@ const struct curl_easyoption Curl_easyopts[] = {
   */
  int Curl_easyopts_check(void)
  {
 -  return (CURLOPT_LASTENTRY % 10000) != (328 + 1);
-+  return (CURLOPT_LASTENTRY % 10000) != (1037 + 1);
++  return (CURLOPT_LASTENTRY % 10000) != (1038 + 1);
  }
  #endif
 diff --git a/lib/getinfo.c b/lib/getinfo.c
@@ -3261,10 +3297,10 @@ index e38dc5745c..95921f5a99 100644
   * Store nghttp2 version info in this buffer.
 diff --git a/lib/impersonate.c b/lib/impersonate.c
 new file mode 100644
-index 0000000000..928315b46b
+index 0000000000..0bc9cc1416
 --- /dev/null
 +++ b/lib/impersonate.c
-@@ -0,0 +1,2282 @@
+@@ -0,0 +1,2367 @@
 +#include "curl_setup.h"
 +#include <curl/curl.h>
 +#include "impersonate.h"
@@ -4135,6 +4171,7 @@ index 0000000000..928315b46b
 +    .http2_stream_exclusive = 1,
 +    .http3_settings = "1:65536;6:262144;7:100;51:1;GREASE",
 +    .http3_pseudo_headers_order = "masp",
++    .quic_cid_length = "webkit",
 +    .quic_transport_parameters = "1:30000;3:1472;4:15728640;5:6291456;6:6291456;7:6291456;8:100;9:103;15:;17:1@1,GREASE;32:65536;12583:AUTO;18258:1;GREASE",
 +    .http3_tls_extension_order = "0-10-13-16-27-43-45-51-57-17613-65037",
 +    .ech = "true",
@@ -4213,7 +4250,90 @@ index 0000000000..928315b46b
 +    .http2_stream_exclusive = 1,
 +    .http3_settings = "1:65536;6:262144;7:100;51:1;GREASE",
 +    .http3_pseudo_headers_order = "masp",
++    .quic_cid_length = "webkit",
 +    .quic_transport_parameters = "1:30000;3:1472;4:15728640;5:6291456;6:6291456;7:6291456;8:100;9:103;15:;17:1@1,GREASE;32:65536;12583:AUTO;12584:0x4f524947;GREASE",
++    .http3_tls_extension_order = "0-10-13-16-27-43-45-51-57-17613-65037",
++    .ech = "true",
++    .tls_extension_order = NULL,
++    .tls_use_new_alps_codepoint = true,
++    .tls_signed_cert_timestamps = true,
++    .tls_grease = true,
++    .split_cookies = true,
++    .form_boundary = "webkit",
++  },
++  {
++    .target = "chrome150",
++    .alias = "chrome150",
++    .httpversion = CURL_HTTP_VERSION_2_0,
++    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
++    .ciphers =
++      "TLS_AES_128_GCM_SHA256:"
++      "TLS_AES_256_GCM_SHA384:"
++      "TLS_CHACHA20_POLY1305_SHA256:"
++      "ECDHE-ECDSA-AES128-GCM-SHA256:"
++      "ECDHE-RSA-AES128-GCM-SHA256:"
++      "ECDHE-ECDSA-AES256-GCM-SHA384:"
++      "ECDHE-RSA-AES256-GCM-SHA384:"
++      "ECDHE-ECDSA-CHACHA20-POLY1305:"
++      "ECDHE-RSA-CHACHA20-POLY1305:"
++      "ECDHE-RSA-AES128-SHA:"
++      "ECDHE-RSA-AES256-SHA:"
++      "AES128-GCM-SHA256:"
++      "AES256-GCM-SHA384:"
++      "AES128-SHA:"
++      "AES256-SHA",
++    .curves = "X25519MLKEM768:X25519:P-256:P-384",
++    .sig_hash_algs =
++      "mldsa44:"
++      "mldsa65:"
++      "mldsa87:"
++      "ecdsa_secp256r1_sha256:"
++      "rsa_pss_rsae_sha256:"
++      "rsa_pkcs1_sha256:"
++      "ecdsa_secp384r1_sha384:"
++      "rsa_pss_rsae_sha384:"
++      "rsa_pkcs1_sha384:"
++      "rsa_pss_rsae_sha512:"
++      "rsa_pkcs1_sha512",
++    .http3_sig_hash_algs =
++      "ecdsa_secp256r1_sha256:"
++      "rsa_pss_rsae_sha256:"
++      "rsa_pkcs1_sha256:"
++      "ecdsa_secp384r1_sha384:"
++      "rsa_pss_rsae_sha384:"
++      "rsa_pkcs1_sha384:"
++      "rsa_pss_rsae_sha512:"
++      "rsa_pkcs1_sha512:"
++      "rsa_pkcs1_sha1",
++    .npn = false,
++    .alpn = true,
++    .alps = true,
++    .tls_permute_extensions = true,
++    .tls_session_ticket = true,
++    .cert_compression = "brotli",
++    .http_headers = {
++      "sec-ch-ua: \"Not;A=Brand\";v=\"8\", \"Chromium\";v=\"150\", \"Google Chrome\";v=\"150\"",
++      "sec-ch-ua-mobile: ?0",
++      "sec-ch-ua-platform: \"macOS\"",
++      "Upgrade-Insecure-Requests: 1",
++      "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
++      "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
++      "Sec-Fetch-Site: none",
++      "Sec-Fetch-Mode: navigate",
++      "Sec-Fetch-User: ?1",
++      "Sec-Fetch-Dest: document",
++      "Accept-Encoding: gzip, deflate, br, zstd",
++      "Accept-Language: en-US,en;q=0.9",
++      "Priority: u=0, i"
++    },
++    .http2_settings = "1:65536;2:0;4:6291456;6:262144",
++    .http2_window_update = 15663105,
++    .http2_stream_weight = 256,
++    .http2_stream_exclusive = 1,
++    .http3_settings = "1:65536;6:262144;7:100;51:1;GREASE",
++    .http3_pseudo_headers_order = "masp",
++    .quic_cid_length = "webkit",
++    .quic_transport_parameters = "1:30000;3:1472;4:15728640;5:6291456;6:6291456;7:6291456;8:100;9:103;15:;17:1@1,GREASE;32:65536;12584:0x4f524947;GREASE",
 +    .http3_tls_extension_order = "0-10-13-16-27-43-45-51-57-17613-65037",
 +    .ech = "true",
 +    .tls_extension_order = NULL,
@@ -4688,6 +4808,7 @@ index 0000000000..928315b46b
 +    .http2_stream_weight = 42,
 +    .http3_settings = "1:65536;7:20;727725890:0;16765559:1;51:1;8:1",
 +    .http3_pseudo_headers_order = "msap",
++    .quic_cid_length = "firefox",
 +    .quic_transport_parameters = "1:30000;4:25165824;5:12582912;6:1048576;7:1048576;8:100;9:100;11:20;14:8;15:AUTO;17:1@GREASE,1;GREASE;32:65535",
 +    .http3_tls_extension_order = "28-51-27-13-34-10-45-16-65281-23-5-0-43-57-65037",
 +    .cert_compression = "zlib,brotli,zstd",
@@ -5549,10 +5670,10 @@ index 0000000000..928315b46b
 +const size_t num_impersonations = sizeof(impersonations) / sizeof(impersonations[0]);
 diff --git a/lib/impersonate.h b/lib/impersonate.h
 new file mode 100644
-index 0000000000..d44b1fd0de
+index 0000000000..9d5547a0f6
 --- /dev/null
 +++ b/lib/impersonate.h
-@@ -0,0 +1,82 @@
+@@ -0,0 +1,83 @@
 +#ifndef HEADER_CURL_IMPERSONATE_H
 +#define HEADER_CURL_IMPERSONATE_H
 +
@@ -5605,6 +5726,7 @@ index 0000000000..d44b1fd0de
 +  const char *http2_streams;
 +  const char *http3_pseudo_headers_order;
 +  const char *http3_settings;
++  const char *quic_cid_length;
 +  const char *quic_transport_parameters;
 +  bool tls_permute_extensions;
 +  bool tls_use_new_alps_codepoint;
@@ -5832,7 +5954,7 @@ index 8d57c058c6..6725bbeaea 100644
  };
  
 diff --git a/lib/setopt.c b/lib/setopt.c
-index eb9ff2e396..2b78cb5947 100644
+index eb9ff2e396..0559b7de84 100644
 --- a/lib/setopt.c
 +++ b/lib/setopt.c
 @@ -46,8 +46,10 @@
@@ -6125,7 +6247,7 @@ index eb9ff2e396..2b78cb5947 100644
    case CURLOPT_SSL_SIGNATURE_ALGORITHMS:
      /*
       * Set accepted signature algorithms.
-@@ -2494,12 +2675,106 @@ static CURLcode setopt_cptr_misc(struct Curl_easy *data, CURLoption option,
+@@ -2494,12 +2675,110 @@ static CURLcode setopt_cptr_misc(struct Curl_easy *data, CURLoption option,
    return result;
  }
  
@@ -6196,6 +6318,10 @@ index eb9ff2e396..2b78cb5947 100644
 +    return Curl_setstropt(&s->str[STRING_HTTP3_PSEUDO_HEADERS_ORDER], ptr);
 +  case CURLOPT_HTTP3_SETTINGS:
 +    return Curl_setstropt(&s->str[STRING_HTTP3_SETTINGS], ptr);
++  case CURLOPT_QUIC_CID_LENGTH:
++    if(ptr && strcmp(ptr, "webkit") && strcmp(ptr, "firefox"))
++      return CURLE_BAD_FUNCTION_ARGUMENT;
++    return Curl_setstropt(&s->str[STRING_QUIC_CID_LENGTH], ptr);
 +  case CURLOPT_QUIC_TRANSPORT_PARAMETERS:
 +    return Curl_setstropt(&s->str[STRING_QUIC_TRANSPORT_PARAMETERS], ptr);
 +  case CURLOPT_HTTP3_SIG_HASH_ALGS:
@@ -6232,7 +6358,7 @@ index eb9ff2e396..2b78cb5947 100644
  #ifndef CURL_DISABLE_PROXY
      setopt_cptr_proxy,
  #endif
-@@ -2892,6 +3167,9 @@ CURLcode Curl_vsetopt(struct Curl_easy *data, CURLoption option, va_list param)
+@@ -2892,6 +3171,9 @@ CURLcode Curl_vsetopt(struct Curl_easy *data, CURLoption option, va_list param)
         way than being listed explicitly */
      switch(option) {
      case CURLOPT_HTTPHEADER:
@@ -7114,7 +7240,7 @@ index 505e08a7e1..ad8440dd9c 100644
        /* There is a connection that *might* become usable for multiplexing
           "soon", and we wait for that */
 diff --git a/lib/urldata.h b/lib/urldata.h
-index d4d336d8db..73de71edeb 100644
+index d4d336d8db..2a273f1c49 100644
 --- a/lib/urldata.h
 +++ b/lib/urldata.h
 @@ -193,6 +193,7 @@ struct ConnectBits {
@@ -7196,7 +7322,7 @@ index d4d336d8db..73de71edeb 100644
  #ifndef CURL_DISABLE_AWS
    STRING_AWS_SIGV4, /* Parameters for V4 signature */
  #endif
-@@ -875,6 +905,21 @@ enum dupstring {
+@@ -875,6 +905,22 @@ enum dupstring {
  #endif
    STRING_ECH_CONFIG,            /* CURLOPT_ECH_CONFIG */
    STRING_ECH_PUBLIC,            /* CURLOPT_ECH_PUBLIC */
@@ -7208,6 +7334,7 @@ index d4d336d8db..73de71edeb 100644
 +  STRING_HTTP2_STREAMS,
 +  STRING_HTTP3_PSEUDO_HEADERS_ORDER,
 +  STRING_HTTP3_SETTINGS,
++  STRING_QUIC_CID_LENGTH,
 +  STRING_QUIC_TRANSPORT_PARAMETERS,
 +  STRING_HTTPHEADER_ORDER,
 +  STRING_HTTP3_HTTPHEADER_ORDER,
@@ -7218,7 +7345,7 @@ index d4d336d8db..73de71edeb 100644
    STRING_SSL_SIGNATURE_ALGORITHMS, /* CURLOPT_SSL_SIGNATURE_ALGORITHMS */
  
    /* -- end of null-terminated strings -- */
-@@ -956,6 +1001,8 @@ struct UserDefined {
+@@ -956,6 +1002,8 @@ struct UserDefined {
                                  download */
    curl_off_t set_resume_from;  /* continue [ftp] transfer from here */
    struct curl_slist *headers; /* linked list of extra headers */
@@ -7227,7 +7354,7 @@ index d4d336d8db..73de71edeb 100644
    struct curl_httppost *httppost;  /* linked list of old POST data */
  #if !defined(CURL_DISABLE_MIME) || !defined(CURL_DISABLE_FORM_API)
    curl_mimepart *mimepostp;  /* MIME/POST data. */
-@@ -1117,6 +1164,7 @@ struct UserDefined {
+@@ -1117,6 +1165,7 @@ struct UserDefined {
    BIT(sep_headers);     /* handle host and proxy headers separately */
  #ifndef CURL_DISABLE_COOKIES
    BIT(cookiesession);   /* new cookie session? */
@@ -7235,7 +7362,7 @@ index d4d336d8db..73de71edeb 100644
  #endif
    BIT(crlf);            /* convert crlf on ftp upload(?) */
  #ifdef USE_SSH
-@@ -1133,6 +1181,7 @@ struct UserDefined {
+@@ -1133,6 +1182,7 @@ struct UserDefined {
    BIT(get_filetime);     /* get the time and get of the remote file */
  #ifndef CURL_DISABLE_PROXY
    BIT(tunnel_thru_httpproxy); /* use CONNECT through an HTTP proxy */
@@ -7243,7 +7370,7 @@ index d4d336d8db..73de71edeb 100644
  #endif
    BIT(prefer_ascii);     /* ASCII rather than binary */
    BIT(remote_append);    /* append, not overwrite, on upload */
-@@ -1175,7 +1224,17 @@ struct UserDefined {
+@@ -1175,7 +1225,17 @@ struct UserDefined {
    BIT(sasl_ir);         /* Enable/disable SASL initial response */
    BIT(tcp_keepalive);  /* use TCP keepalives */
    BIT(tcp_fastopen);   /* use TCP Fast Open */
@@ -7261,7 +7388,7 @@ index d4d336d8db..73de71edeb 100644
    BIT(path_as_is);     /* allow dotdots? */
    BIT(pipewait);       /* wait for multiplex status before starting a new
                            connection */
-@@ -1197,10 +1256,15 @@ struct UserDefined {
+@@ -1197,10 +1257,15 @@ struct UserDefined {
    BIT(doh_verifystatus);   /* DoH certificate status verification */
  #endif
    BIT(http09_allowed); /* allow HTTP/0.9 responses */
@@ -7278,7 +7405,7 @@ index d4d336d8db..73de71edeb 100644
    BIT(post302); /* keep POSTs as POSTs after a 302 request */
    BIT(post303); /* keep POSTs as POSTs after a 303 request */
 diff --git a/lib/vquic/cf-ngtcp2-cmn.c b/lib/vquic/cf-ngtcp2-cmn.c
-index e1ca18cf69..c41071390f 100644
+index e1ca18cf69..f60407ef7a 100644
 --- a/lib/vquic/cf-ngtcp2-cmn.c
 +++ b/lib/vquic/cf-ngtcp2-cmn.c
 @@ -63,6 +63,7 @@
@@ -8060,32 +8187,59 @@ index e1ca18cf69..c41071390f 100644
  }
  
  #if defined(_MSC_VER) && defined(_DLL)
-@@ -900,7 +1623,7 @@ static CURLcode cf_connect_start(struct Curl_cfilter *cf,
+@@ -898,31 +1621,60 @@ static CURLcode cf_connect_start(struct Curl_cfilter *cf,
+   int rc;
+   int rv;
    CURLcode result;
++  const char *cid_profile = data->set.str[STRING_QUIC_CID_LENGTH];
++  size_t dcidlen = NGTCP2_MAX_CIDLEN;
++  size_t scidlen = NGTCP2_MAX_CIDLEN;
    const struct Curl_sockaddr_ex *sockaddr = NULL;
    int qfd;
 -  static const struct alpn_spec ALPN_SPEC_H3 = { { "h3", "h3-29" }, 2 };
 +  static const struct alpn_spec ALPN_SPEC_H3 = { { "h3" }, 1 };
  
    DEBUGASSERT(ctx->initialized);
-   ctx->dcid.datalen = NGTCP2_MAX_CIDLEN;
-@@ -909,20 +1632,28 @@ static CURLcode cf_connect_start(struct Curl_cfilter *cf,
-     return result;
- 
-   ctx->scid.datalen = NGTCP2_MAX_CIDLEN;
--  result = Curl_rand(data, ctx->scid.data, NGTCP2_MAX_CIDLEN);
+-  ctx->dcid.datalen = NGTCP2_MAX_CIDLEN;
+-  result = Curl_rand(data, ctx->dcid.data, NGTCP2_MAX_CIDLEN);
 -  if(result)
 -    return result;
-+  if(quic_has_empty_initial_scid(
++  if(cid_profile) {
++    if(!strcmp(cid_profile, "webkit")) {
++      dcidlen = 8;
++      scidlen = 0;
++    }
++    else if(!strcmp(cid_profile, "firefox")) {
++      unsigned char v;
++
++      result = Curl_rand(data, &v, sizeof(v));
++      if(result)
++        return result;
++      dcidlen = 5 + (v & (v >> 4));
++      if(dcidlen < 8)
++        dcidlen = 8;
++      scidlen = 3;
++    }
++  }
+ 
+-  ctx->scid.datalen = NGTCP2_MAX_CIDLEN;
+-  result = Curl_rand(data, ctx->scid.data, NGTCP2_MAX_CIDLEN);
++  ctx->dcid.datalen = dcidlen;
++  result = Curl_rand(data, ctx->dcid.data, ctx->dcid.datalen);
+   if(result)
+     return result;
+ 
+-  (void)Curl_qlogdir(data, ctx->scid.data, NGTCP2_MAX_CIDLEN, &qfd);
++  ctx->scid.datalen = scidlen;
++  if(!cid_profile && quic_has_empty_initial_scid(
 +       data->set.str[STRING_QUIC_TRANSPORT_PARAMETERS]))
 +    ctx->scid.datalen = 0;
-+  else {
++  if(ctx->scid.datalen) {
 +    result = Curl_rand(data, ctx->scid.data, ctx->scid.datalen);
 +    if(result)
 +      return result;
 +  }
- 
--  (void)Curl_qlogdir(data, ctx->scid.data, NGTCP2_MAX_CIDLEN, &qfd);
++
 +  (void)Curl_qlogdir(data, ctx->scid.data, ctx->scid.datalen, &qfd);
    ctx->qlogfd = qfd; /* -1 if failure above */
 -  quic_settings(ctx, data, pktx);
@@ -8104,7 +8258,7 @@ index e1ca18cf69..c41071390f 100644
      /* No direct socket - must be tunneled QUIC (CONNECT-UDP through proxy) */
      ctx->q.sockfd = CURL_SOCKET_BAD;
    }
-@@ -952,6 +1683,7 @@ static CURLcode cf_connect_start(struct Curl_cfilter *cf,
+@@ -952,6 +1704,7 @@ static CURLcode cf_connect_start(struct Curl_cfilter *cf,
      ctx->conn_ref.get_conn = get_conn;
      ctx->conn_ref.user_data = cf;
    }
@@ -8112,7 +8266,7 @@ index e1ca18cf69..c41071390f 100644
    else {
      /* Tunneled QUIC (e.g. CONNECT-UDP): get remote address
         from the connected filter below */
-@@ -997,6 +1729,19 @@ static CURLcode cf_connect_start(struct Curl_cfilter *cf,
+@@ -997,6 +1750,19 @@ static CURLcode cf_connect_start(struct Curl_cfilter *cf,
      ctx->conn_ref.user_data = cf;
    }
  
@@ -8132,7 +8286,7 @@ index e1ca18cf69..c41071390f 100644
    result = Curl_vquic_tls_init(&ctx->tls, cf, data,
                                 &ctx->ssl_peer, &ALPN_SPEC_H3,
                                 cf_ngtcp2_tls_ctx_setup, &ctx->tls,
-@@ -1132,7 +1877,7 @@ out:
+@@ -1132,7 +1898,7 @@ out:
        /* Direct UDP socket - get IP info for error reporting */
        struct ip_quadruple ip;
  
@@ -8141,7 +8295,7 @@ index e1ca18cf69..c41071390f 100644
          infof(data, "QUIC connect to %s port %u failed: %s",
                ip.remote_ip, ip.remote_port, curl_easy_strerror(result));
      }
-@@ -1767,14 +2512,34 @@ CURLcode Curl_cf_ngtcp2_cmn_set_expiry(struct Curl_cfilter *cf,
+@@ -1767,14 +2533,34 @@ CURLcode Curl_cf_ngtcp2_cmn_set_expiry(struct Curl_cfilter *cf,
    return CURLE_OK;
  }
  
@@ -8180,7 +8334,7 @@ index e1ca18cf69..c41071390f 100644
     *
     * Some servers use this as a keep-alive timer at a rather low
     * value. We are doing HTTP/3 here and waiting for the response
-@@ -1784,10 +2549,10 @@ static void cf_ngtcp2_setup_keep_alive(struct Curl_cfilter *cf,
+@@ -1784,10 +2570,10 @@ static void cf_ngtcp2_setup_keep_alive(struct Curl_cfilter *cf,
    if(!ctx->qconn)
      return;
  
@@ -8194,7 +8348,7 @@ index e1ca18cf69..c41071390f 100644
    }
    else if(!Curl_uint32_hash_count(&ctx->streams)) {
      ngtcp2_conn_set_keep_alive_timeout(ctx->qconn, UINT64_MAX);
-@@ -1795,11 +2560,11 @@ static void cf_ngtcp2_setup_keep_alive(struct Curl_cfilter *cf,
+@@ -1795,11 +2581,11 @@ static void cf_ngtcp2_setup_keep_alive(struct Curl_cfilter *cf,
    }
    else {
      ngtcp2_duration keep_ns;
@@ -8209,7 +8363,7 @@ index e1ca18cf69..c41071390f 100644
                  (keep_ns / NGTCP2_MILLISECONDS));
    }
  }
-@@ -1885,7 +2650,10 @@ bool Curl_cf_ngtcp2_cmn_conn_is_alive(struct Curl_cfilter *cf,
+@@ -1885,7 +2671,10 @@ bool Curl_cf_ngtcp2_cmn_conn_is_alive(struct Curl_cfilter *cf,
  {
    struct cf_ngtcp2_ctx *ctx = cf->ctx;
    bool alive = FALSE;
@@ -8221,7 +8375,7 @@ index e1ca18cf69..c41071390f 100644
    struct cf_call_data save;
  
    CF_DATA_SAVE(save, cf, data);
-@@ -1893,18 +2661,19 @@ bool Curl_cf_ngtcp2_cmn_conn_is_alive(struct Curl_cfilter *cf,
+@@ -1893,18 +2682,19 @@ bool Curl_cf_ngtcp2_cmn_conn_is_alive(struct Curl_cfilter *cf,
    if(!ctx->qconn || ctx->shutdown_started)
      goto out;
  
@@ -8252,7 +8406,7 @@ index e1ca18cf69..c41071390f 100644
    }
  
    if(!cf->next || !cf->next->cft->is_alive(cf->next, data, input_pending))
-@@ -1921,6 +2690,11 @@ bool Curl_cf_ngtcp2_cmn_conn_is_alive(struct Curl_cfilter *cf,
+@@ -1921,6 +2711,11 @@ bool Curl_cf_ngtcp2_cmn_conn_is_alive(struct Curl_cfilter *cf,
      CURL_TRC_CF(data, cf, "is_alive, progress ingress -> %d", (int)result);
      alive = result ? FALSE : TRUE;
    }
@@ -10923,7 +11077,7 @@ index 69554ee490..d0052604bd 100644
  # if unit tests are enabled, build a static library to link them with
  if BUILD_UNITTESTS
 diff --git a/src/config2setopts.c b/src/config2setopts.c
-index 8933668a2c..98b8a70847 100644
+index 8933668a2c..2d6591062c 100644
 --- a/src/config2setopts.c
 +++ b/src/config2setopts.c
 @@ -383,6 +383,9 @@ static CURLcode ssl_setopts(struct OperationConfig *config, CURL *curl)
@@ -11015,7 +11169,7 @@ index 8933668a2c..98b8a70847 100644
  
    return result;
  }
-@@ -604,6 +659,79 @@ static CURLcode http_setopts(struct OperationConfig *config, CURL *curl,
+@@ -604,6 +659,84 @@ static CURLcode http_setopts(struct OperationConfig *config, CURL *curl,
    if(config->hsts)
      MY_SETOPT_STR(curl, CURLOPT_HSTS, config->hsts);
  
@@ -11086,6 +11240,11 @@ index 8933668a2c..98b8a70847 100644
 +                  CURLOPT_HTTP3_TLS_EXTENSION_ORDER,
 +                  config->http3_tls_extension_order);
 +
++  if(config->quic_cid_length)
++    my_setopt_str(curl,
++                  CURLOPT_QUIC_CID_LENGTH,
++                  config->quic_cid_length);
++
 +  if(config->quic_transport_parameters)
 +    my_setopt_str(curl,
 +                  CURLOPT_QUIC_TRANSPORT_PARAMETERS,
@@ -11095,7 +11254,7 @@ index 8933668a2c..98b8a70847 100644
    if(config->expect100timeout_ms > 0)
      my_setopt_long(curl, CURLOPT_EXPECT_100_TIMEOUT_MS,
                     config->expect100timeout_ms);
-@@ -773,6 +901,10 @@ static CURLcode proxy_setopts(struct OperationConfig *config, CURL *curl)
+@@ -773,6 +906,10 @@ static CURLcode proxy_setopts(struct OperationConfig *config, CURL *curl)
    if(config->haproxy_clientip)
      MY_SETOPT_STR(curl, CURLOPT_HAPROXY_CLIENT_IP, config->haproxy_clientip);
  
@@ -11106,7 +11265,7 @@ index 8933668a2c..98b8a70847 100644
    return result;
  }
  
-@@ -926,11 +1058,13 @@ CURLcode config2setopts(struct OperationConfig *config,
+@@ -926,11 +1063,13 @@ CURLcode config2setopts(struct OperationConfig *config,
      my_setopt_bitmask(curl, CURLOPT_HTTPAUTH, config->authtype);
  
    my_setopt_slist(curl, CURLOPT_HTTPHEADER, config->headers);
@@ -11122,7 +11281,7 @@ index 8933668a2c..98b8a70847 100644
    }
  
    result = http_setopts(config, curl, use_proto);
-@@ -939,6 +1073,13 @@ CURLcode config2setopts(struct OperationConfig *config,
+@@ -939,6 +1078,13 @@ CURLcode config2setopts(struct OperationConfig *config,
    if(result)
      return result;
  
@@ -11137,10 +11296,10 @@ index 8933668a2c..98b8a70847 100644
    my_setopt_long(curl, CURLOPT_LOW_SPEED_TIME, config->low_speed_time);
    my_setopt_offt(curl, CURLOPT_MAX_SEND_SPEED_LARGE, config->sendpersecond);
 diff --git a/src/tool_cfgable.c b/src/tool_cfgable.c
-index 3feb3e7824..41722dcb4a 100644
+index 3feb3e7824..a58641fc43 100644
 --- a/src/tool_cfgable.c
 +++ b/src/tool_cfgable.c
-@@ -106,6 +106,25 @@ static void free_config_fields(struct OperationConfig *config)
+@@ -106,6 +106,26 @@ static void free_config_fields(struct OperationConfig *config)
    curlx_safefree(config->proto_str);
    curlx_safefree(config->proto_redir_str);
  
@@ -11158,6 +11317,7 @@ index 3feb3e7824..41722dcb4a 100644
 +  curlx_safefree(config->http3_ssl_ec_curves);
 +  curlx_safefree(config->http3_sig_hash_algs);
 +  curlx_safefree(config->http3_tls_extension_order);
++  curlx_safefree(config->quic_cid_length);
 +  curlx_safefree(config->quic_transport_parameters);
 +  curlx_safefree(config->ws_http_header_order);
 +  curlx_safefree(config->tls_extension_order);
@@ -11166,7 +11326,7 @@ index 3feb3e7824..41722dcb4a 100644
    urlnode = config->url_list;
    while(urlnode) {
      struct getout *next = urlnode->next;
-@@ -154,7 +173,7 @@ static void free_config_fields(struct OperationConfig *config)
+@@ -154,7 +174,7 @@ static void free_config_fields(struct OperationConfig *config)
    curlx_safefree(config->etag_save_file);
    curlx_safefree(config->etag_compare_file);
    curlx_safefree(config->ssl_ec_curves);
@@ -11175,7 +11335,7 @@ index 3feb3e7824..41722dcb4a 100644
    curlx_safefree(config->request_target);
    curlx_safefree(config->customrequest);
    curlx_safefree(config->krblevel);
-@@ -169,6 +188,8 @@ static void free_config_fields(struct OperationConfig *config)
+@@ -169,6 +189,8 @@ static void free_config_fields(struct OperationConfig *config)
    curl_slist_free_all(config->prequote);
  
    curl_slist_free_all(config->headers);
@@ -11185,7 +11345,7 @@ index 3feb3e7824..41722dcb4a 100644
  
    curl_mime_free(config->mimepost);
 diff --git a/src/tool_cfgable.h b/src/tool_cfgable.h
-index 0f8bc6fe08..d961a8943d 100644
+index 0f8bc6fe08..124acbe6c5 100644
 --- a/src/tool_cfgable.h
 +++ b/src/tool_cfgable.h
 @@ -124,6 +124,7 @@ struct OperationConfig {
@@ -11196,7 +11356,7 @@ index 0f8bc6fe08..d961a8943d 100644
    char *pubkey;
    char *hostpubmd5;
    char *hostpubsha256;
-@@ -132,15 +133,45 @@ struct OperationConfig {
+@@ -132,15 +133,46 @@ struct OperationConfig {
    char *etag_compare_file;
    char *customrequest;
    char *ssl_ec_curves;
@@ -11219,6 +11379,7 @@ index 0f8bc6fe08..d961a8943d 100644
 +  char *http3_ssl_ec_curves;
 +  char *http3_sig_hash_algs;
 +  char *http3_tls_extension_order;
++  char *quic_cid_length;
 +  char *quic_transport_parameters;
 +  char *ws_http_header_order;
 +  bool ws_disable_session_ticket;
@@ -11242,7 +11403,7 @@ index 0f8bc6fe08..d961a8943d 100644
    struct curl_slist *proxyheaders;
    struct tool_mime *mimeroot;
    struct tool_mime *mimecurrent;
-@@ -194,6 +225,9 @@ struct OperationConfig {
+@@ -194,6 +226,9 @@ struct OperationConfig {
    long alivetime;           /* keepalive-time */
    long alivecnt;            /* keepalive-cnt */
    long gssapi_delegation;
@@ -11252,7 +11413,7 @@ index 0f8bc6fe08..d961a8943d 100644
    long expect100timeout_ms;
    long happy_eyeballs_timeout_ms; /* happy eyeballs timeout in milliseconds.
                                       0 is valid. default: CURL_HET_DEFAULT. */
-@@ -220,6 +254,7 @@ struct OperationConfig {
+@@ -220,6 +255,7 @@ struct OperationConfig {
    BIT(remote_name_all);   /* --remote-name-all */
    BIT(remote_time);
    BIT(cookiesession);       /* new session? */
@@ -11261,7 +11422,7 @@ index 0f8bc6fe08..d961a8943d 100644
    BIT(tr_encoding);         /* Transfer-Encoding please */
    BIT(use_resume);
 diff --git a/src/tool_getparam.c b/src/tool_getparam.c
-index 35c01b1d92..3bab842757 100644
+index 35c01b1d92..ad260daeff 100644
 --- a/src/tool_getparam.c
 +++ b/src/tool_getparam.c
 @@ -76,6 +76,7 @@ static ParameterError getstrn(char **str, const char *val,
@@ -11335,15 +11496,16 @@ index 35c01b1d92..3bab842757 100644
    {"proxy-crlfile",              ARG_FILE|ARG_TLS, ' ', C_PROXY_CRLFILE},
    {"proxy-digest",               ARG_BOOL, ' ', C_PROXY_DIGEST},
    {"proxy-header",               ARG_STRG, ' ', C_PROXY_HEADER},
-@@ -272,6 +293,7 @@ static const struct LongShort aliases[]= {
+@@ -272,6 +293,8 @@ static const struct LongShort aliases[]= {
    {"proxy1.0",                   ARG_STRG, ' ', C_PROXY1_0},
    {"proxytunnel",                ARG_BOOL, 'p', C_PROXYTUNNEL},
    {"pubkey",                     ARG_STRG, ' ', C_PUBKEY},
++  {"quic-cid-length",            ARG_STRG|ARG_TLS, ' ', C_QUIC_CID_LENGTH},  // curl-impersonate
 +  {"quic-transport-params",      ARG_STRG|ARG_TLS, ' ', C_QUIC_TRANSPORT_PARAMETERS},  // curl-impersonate
    {"quote",                      ARG_STRG, 'Q', C_QUOTE},
    {"random-file",                ARG_FILE|ARG_DEPR, ' ', C_RANDOM_FILE},
    {"range",                      ARG_STRG, 'r', C_RANGE},
-@@ -297,8 +319,8 @@ static const struct LongShort aliases[]= {
+@@ -297,8 +320,8 @@ static const struct LongShort aliases[]= {
    {"sessionid",                  ARG_BOOL|ARG_NO, ' ', C_SESSIONID},
    {"show-error",                 ARG_BOOL, 'S', C_SHOW_ERROR},
    {"show-headers",               ARG_BOOL, 'i', C_SHOW_HEADERS},
@@ -11354,7 +11516,7 @@ index 35c01b1d92..3bab842757 100644
    {"silent",                     ARG_BOOL, 's', C_SILENT},
    {"skip-existing",              ARG_BOOL, ' ', C_SKIP_EXISTING},
    {"socks4",                     ARG_STRG, ' ', C_SOCKS4},
-@@ -311,6 +333,7 @@ static const struct LongShort aliases[]= {
+@@ -311,6 +334,7 @@ static const struct LongShort aliases[]= {
    {"socks5-hostname",            ARG_STRG, ' ', C_SOCKS5_HOSTNAME},
    {"speed-limit",                ARG_UNUM, 'Y', C_SPEED_LIMIT},
    {"speed-time",                 ARG_UNUM, 'y', C_SPEED_TIME},
@@ -11362,7 +11524,7 @@ index 35c01b1d92..3bab842757 100644
    {"ssl",                        ARG_BOOL|ARG_TLS, ' ', C_SSL},
    {"ssl-allow-beast",            ARG_BOOL|ARG_TLS, ' ', C_SSL_ALLOW_BEAST},
    {"ssl-auto-client-cert",       ARG_BOOL|ARG_TLS, ' ',
-@@ -335,8 +358,17 @@ static const struct LongShort aliases[]= {
+@@ -335,8 +359,17 @@ static const struct LongShort aliases[]= {
    {"tftp-blksize",               ARG_UNUM, ' ', C_TFTP_BLKSIZE},
    {"tftp-no-options",            ARG_BOOL, ' ', C_TFTP_NO_OPTIONS},
    {"time-cond",                  ARG_STRG, 'z', C_TIME_COND},
@@ -11380,7 +11542,7 @@ index 35c01b1d92..3bab842757 100644
    {"tls13-ciphers",              ARG_STRG|ARG_TLS, ' ', C_TLS13_CIPHERS},
    {"tlsauthtype",                ARG_STRG|ARG_TLS, ' ', C_TLSAUTHTYPE},
    {"tlspassword",              ARG_STRG|ARG_TLS|ARG_CLEAR, ' ', C_TLSPASSWORD},
-@@ -368,6 +400,10 @@ static const struct LongShort aliases[]= {
+@@ -368,6 +401,10 @@ static const struct LongShort aliases[]= {
    {"wdebug",                     ARG_BOOL, ' ', C_WDEBUG},
  #endif
    {"write-out",                  ARG_STRG, 'w', C_WRITE_OUT},
@@ -11391,7 +11553,7 @@ index 35c01b1d92..3bab842757 100644
    {"xattr",                      ARG_BOOL, ' ', C_XATTR},
  };
  
-@@ -1305,9 +1341,14 @@ static ParameterError parse_header(struct OperationConfig *config,
+@@ -1305,9 +1342,14 @@ static ParameterError parse_header(struct OperationConfig *config,
        curlx_dyn_init(&line, 1024 * 100);
        while(my_get_line(file, &line, &error)) {
          const char *ptr = curlx_dyn_ptr(&line);
@@ -11409,7 +11571,7 @@ index 35c01b1d92..3bab842757 100644
          if(err)
            break;
        }
-@@ -1325,6 +1366,10 @@ static ParameterError parse_header(struct OperationConfig *config,
+@@ -1325,6 +1367,10 @@ static ParameterError parse_header(struct OperationConfig *config,
      }
      if(cmd == C_PROXY_HEADER) /* --proxy-header */
        err = add2list(&config->proxyheaders, nextarg);
@@ -11420,7 +11582,7 @@ index 35c01b1d92..3bab842757 100644
      else
        err = add2list(&config->headers, nextarg);
    }
-@@ -1834,6 +1879,9 @@ static ParameterError opt_bool(struct OperationConfig *config,
+@@ -1834,6 +1880,9 @@ static ParameterError opt_bool(struct OperationConfig *config,
    case C_ALPN: /* --alpn */
      config->noalpn = !toggle;
      break;
@@ -11430,7 +11592,7 @@ index 35c01b1d92..3bab842757 100644
    case C_DISABLE_EPSV: /* --disable-epsv */
      config->disable_epsv = toggle;
      break;
-@@ -2009,6 +2057,29 @@ static ParameterError opt_bool(struct OperationConfig *config,
+@@ -2009,6 +2058,29 @@ static ParameterError opt_bool(struct OperationConfig *config,
    case C_TLS_EARLYDATA: /* --tls-earlydata */
      config->ssl_allow_earlydata = toggle;
      break;
@@ -11460,7 +11622,7 @@ index 35c01b1d92..3bab842757 100644
    case C_SUPPRESS_CONNECT_HEADERS: /* --suppress-connect-headers */
      config->suppress_connect_headers = toggle;
      break;
-@@ -2135,6 +2206,9 @@ static ParameterError opt_bool(struct OperationConfig *config,
+@@ -2135,6 +2207,9 @@ static ParameterError opt_bool(struct OperationConfig *config,
    case C_JUNK_SESSION_COOKIES: /* --junk-session-cookies */
      config->cookiesession = toggle;
      break;
@@ -11470,7 +11632,7 @@ index 35c01b1d92..3bab842757 100644
    case C_HEAD: /* --head */
      config->no_body = toggle;
      config->show_headers = toggle;
-@@ -2154,6 +2228,9 @@ static ParameterError opt_bool(struct OperationConfig *config,
+@@ -2154,6 +2229,9 @@ static ParameterError opt_bool(struct OperationConfig *config,
    case C_LIST_ONLY: /* --list-only */
      config->dirlistonly = toggle; /* only list names of the FTP directory */
      break;
@@ -11480,7 +11642,7 @@ index 35c01b1d92..3bab842757 100644
    case C_MANUAL: /* --manual */
      if(toggle)   /* --no-manual shows no manual... */
        return PARAM_MANUAL_REQUESTED;
-@@ -2213,6 +2290,9 @@ static ParameterError opt_bool(struct OperationConfig *config,
+@@ -2213,6 +2291,9 @@ static ParameterError opt_bool(struct OperationConfig *config,
    case C_MPTCP: /* --mptcp */
      config->mptcp = toggle;
      break;
@@ -11490,7 +11652,7 @@ index 35c01b1d92..3bab842757 100644
    case C_LOCATION_TRUSTED: /* --location-trusted */
      config->unrestricted_auth = toggle;
      FALLTHROUGH();
-@@ -2680,6 +2760,104 @@ static ParameterError opt_string(struct OperationConfig *config,
+@@ -2680,6 +2761,109 @@ static ParameterError opt_string(struct OperationConfig *config,
        err = PARAM_BAD_USE;
      }
      break;
@@ -11575,6 +11737,11 @@ index 35c01b1d92..3bab842757 100644
 +  case C_WS_HTTPHEADER_ORDER:  /* --ws-httpheader-order curl-impersonate */
 +    err = getstr(&config->ws_http_header_order, nextarg, ALLOW_BLANK);
 +    break;
++  case C_QUIC_CID_LENGTH:  /* --quic-cid-length curl-impersonate */
++    if(!feature_http3)
++      return PARAM_LIBCURL_DOESNT_SUPPORT;
++    err = getstr(&config->quic_cid_length, nextarg, DENY_BLANK);
++    break;
 +  case C_QUIC_TRANSPORT_PARAMETERS:  /* --quic-transport-params curl-impersonate */
 +    if(!feature_http3)
 +      return PARAM_LIBCURL_DOESNT_SUPPORT;
@@ -11595,7 +11762,7 @@ index 35c01b1d92..3bab842757 100644
    case C_TRACE_CONFIG: /* --trace-config */
      global->trace_set = TRUE;
      if(set_trace_config(nextarg))
-@@ -2709,6 +2887,9 @@ static ParameterError opt_string(struct OperationConfig *config,
+@@ -2709,6 +2893,9 @@ static ParameterError opt_string(struct OperationConfig *config,
      else
        err = getstr(&config->hsts, nextarg, ALLOW_BLANK);
      break;
@@ -11605,7 +11772,7 @@ index 35c01b1d92..3bab842757 100644
    case C_COOKIE: /* --cookie */
      if(strchr(nextarg, '=')) {
        /* A cookie string must have a =-letter */
-@@ -2870,8 +3051,14 @@ static ParameterError opt_string(struct OperationConfig *config,
+@@ -2870,8 +3057,14 @@ static ParameterError opt_string(struct OperationConfig *config,
    case C_REQUEST_TARGET: /* --request-target */
      err = getstr(&config->request_target, nextarg, DENY_BLANK);
      break;
@@ -11621,7 +11788,7 @@ index 35c01b1d92..3bab842757 100644
      break;
    case C_OUTPUT_DIR: /* --output-dir */
 diff --git a/src/tool_getparam.h b/src/tool_getparam.h
-index 32476d3776..01084730d2 100644
+index 32476d3776..a1053e873b 100644
 --- a/src/tool_getparam.h
 +++ b/src/tool_getparam.h
 @@ -31,6 +31,7 @@
@@ -11695,15 +11862,16 @@ index 32476d3776..01084730d2 100644
    C_PROXY_CRLFILE,
    C_PROXY_DIGEST,
    C_PROXY_HEADER,
-@@ -221,6 +242,7 @@ typedef enum {
+@@ -221,6 +242,8 @@ typedef enum {
    C_PROXY1_0,
    C_PROXYTUNNEL,
    C_PUBKEY,
++  C_QUIC_CID_LENGTH,
 +  C_QUIC_TRANSPORT_PARAMETERS,
    C_QUOTE,
    C_RANDOM_FILE,
    C_RANGE,
-@@ -246,6 +268,7 @@ typedef enum {
+@@ -246,6 +269,7 @@ typedef enum {
    C_SESSIONID,
    C_SHOW_ERROR,
    C_SHOW_HEADERS,
@@ -11711,7 +11879,7 @@ index 32476d3776..01084730d2 100644
    C_SILENT,
    C_SIGNATURE_ALGORITHMS,
    C_SKIP_EXISTING,
-@@ -259,6 +282,7 @@ typedef enum {
+@@ -259,6 +283,7 @@ typedef enum {
    C_SOCKS5_HOSTNAME,
    C_SPEED_LIMIT,
    C_SPEED_TIME,
@@ -11719,7 +11887,7 @@ index 32476d3776..01084730d2 100644
    C_SSL,
    C_SSL_ALLOW_BEAST,
    C_SSL_AUTO_CLIENT_CERT,
-@@ -280,7 +304,16 @@ typedef enum {
+@@ -280,7 +305,16 @@ typedef enum {
    C_TFTP_NO_OPTIONS,
    C_TIME_COND,
    C_TLS_EARLYDATA,
@@ -11736,7 +11904,7 @@ index 32476d3776..01084730d2 100644
    C_TLS13_CIPHERS,
    C_TLSAUTHTYPE,
    C_TLSPASSWORD,
-@@ -310,6 +343,10 @@ typedef enum {
+@@ -310,6 +344,10 @@ typedef enum {
    C_VERSION,
    C_VLAN_PRIORITY,
    C_WDEBUG,
@@ -11748,7 +11916,7 @@ index 32476d3776..01084730d2 100644
    C_XATTR
  } cmdline_t;
 diff --git a/src/tool_listhelp.c b/src/tool_listhelp.c
-index c0b0af792f..48940e1b8b 100644
+index c0b0af792f..2322b67567 100644
 --- a/src/tool_listhelp.c
 +++ b/src/tool_listhelp.c
 @@ -67,6 +67,9 @@ const struct helptxt helptext[] = {
@@ -11856,17 +12024,20 @@ index c0b0af792f..48940e1b8b 100644
    { "    --proxy-crlfile <file>",
      "Set a CRL list for proxy",
      CURLHELP_PROXY | CURLHELP_TLS },
-@@ -660,6 +711,9 @@ const struct helptxt helptext[] = {
-   { "    --retry-max-time <seconds>",
-     "Retry only within this period",
-     CURLHELP_CURL | CURLHELP_TIMEOUT },
+@@ -602,6 +653,12 @@ const struct helptxt helptext[] = {
+   { "    --pubkey <key>",
+     "SSH Public key filename",
+     CURLHELP_SFTP | CURLHELP_SCP | CURLHELP_SSH | CURLHELP_AUTH },
++  { "    --quic-cid-length <profile>",
++    "Set QUIC connection ID length profile",
++    CURLHELP_HTTP },
 +  { "    --quic-transport-params <list>",
 +    "Set QUIC transport parameters",
 +    CURLHELP_HTTP },
-   { "    --sasl-authzid <identity>",
-     "Identity for SASL PLAIN authentication",
-     CURLHELP_AUTH },
-@@ -678,12 +732,18 @@ const struct helptxt helptext[] = {
+   { "-Q, --quote <command>",
+     "Send command(s) to server before transfer",
+     CURLHELP_FTP | CURLHELP_SFTP },
+@@ -678,12 +735,18 @@ const struct helptxt helptext[] = {
    { "    --sigalgs <list>",
      "TLS signature algorithms to use",
      CURLHELP_TLS },
@@ -11885,7 +12056,7 @@ index c0b0af792f..48940e1b8b 100644
    { "    --socks4 <host[:port]>",
      "SOCKS4 proxy on given host + port",
      CURLHELP_PROXY },
-@@ -776,6 +836,9 @@ const struct helptxt helptext[] = {
+@@ -776,6 +839,9 @@ const struct helptxt helptext[] = {
    { "    --tls-max <VERSION>",
      "Maximum allowed TLS version",
      CURLHELP_TLS },
@@ -11895,7 +12066,7 @@ index c0b0af792f..48940e1b8b 100644
    { "    --tls13-ciphers <list>",
      "TLS 1.3 cipher suites to use",
      CURLHELP_TLS },
-@@ -860,6 +923,18 @@ const struct helptxt helptext[] = {
+@@ -860,6 +926,18 @@ const struct helptxt helptext[] = {
    { "-w, --write-out <format>",
      "Output FORMAT after completion",
      CURLHELP_VERBOSE },
