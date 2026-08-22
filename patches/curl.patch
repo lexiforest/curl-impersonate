@@ -1302,6 +1302,25 @@ index 0741f2ba41..8fa6cfa667 100644
  #ifdef USE_IPV6
    if(ctx->addr.family == AF_INET6) {
  #ifdef USE_WINSOCK
+diff --git a/lib/cfilters.c b/lib/cfilters.c
+index fb1914d133..a0838b3a2a 100644
+--- a/lib/cfilters.c
++++ b/lib/cfilters.c
+@@ -755,11 +755,13 @@ CURLcode Curl_conn_adjust_pollset(struct Curl_easy *data,
+   /* During connect time, connection filters may add sockets to the pollset
+    * even when the transfer neither wants to send nor receive. And those
+    * sockets, when having events, are served.
+-   * Once connected however, a transfer that neither wants to send nor receive
++   * Once connected however and before a shutdown starts,
++   * a transfer that neither wants to send nor receive
+    * will never call the connection filters. Any sockets added by the filters
+    * will not change state and POLLIN/POLLOUT events will trigger forever,
+    * making us busy loop. See #21671 */
+   if(ps->n || !Curl_conn_is_connected(conn, FIRSTSOCKET) ||
++     Curl_shutdown_started(data, FIRSTSOCKET) ||
+      (conn->cfilter[SECONDARYSOCKET] &&
+       !Curl_conn_is_connected(conn, SECONDARYSOCKET))) {
+     for(i = 0; (i < 2) && !result && conn; ++i) {
 diff --git a/lib/cookie.c b/lib/cookie.c
 index 91dc8d5fd0..7c50dd768b 100644
 --- a/lib/cookie.c
