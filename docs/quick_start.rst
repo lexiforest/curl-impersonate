@@ -99,6 +99,23 @@ Using libcurl-impersonate
 ``libcurl-impersonate.so`` is libcurl compiled with the same changes as the command-line
 ``curl-impersonate`` tool.
 
+The development headers are installed below ``include/curl-impersonate`` so they can
+coexist with the headers from regular curl. Keep the standard include directive and add
+that directory to the compiler's include search path:
+
+.. code-block:: c
+
+    #include <curl/curl.h>
+
+.. code-block:: bash
+
+    cc -I/usr/local/include/curl-impersonate example.c -lcurl-impersonate
+
+Builds configured with ``-DCURL_IMPERSONATE_ORIGINAL_HEADER_LAYOUT=ON`` instead install
+the headers under ``include/curl`` and do not need the additional include search path.
+Use that compatibility layout only when regular curl's development headers are not
+installed under the same prefix.
+
 It has an additional API function:
 
 .. code-block:: c
