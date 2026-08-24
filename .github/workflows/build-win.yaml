@@ -15,6 +15,11 @@ on:
 permissions:
   contents: read
 
+env:
+  ALL_LICENSE: >
+    ${{ github.workspace }}/LICENSE-MIT
+    ${{ github.workspace }}/LICENSE-curl
+
 jobs:
   build-windows:
     name: Build windows binaries
@@ -73,8 +78,8 @@ jobs:
             curl_tar="curl-impersonate-${suffix}.tar.gz"
             lib_tar="libcurl-impersonate-${suffix}.tar.gz"
           fi
-          tar -czf "$curl_tar" -C packages/bin .
-          tar -czf "$lib_tar"  -C packages lib include
+          tar -czf "$curl_tar" -C packages/bin . $ALL_LICENSE
+          tar -czf "$lib_tar"  -C packages lib include $ALL_LICENSE
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
