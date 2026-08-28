@@ -16,9 +16,16 @@ permissions:
   contents: read
 
 env:
-  ALL_LICENSE: >
-    ${{ github.workspace }}/LICENSE-MIT
-    ${{ github.workspace }}/LICENSE-curl
+  LICENSE_FILES: >-
+    LICENSE
+    LICENSE_BORINGSSL
+    LICENSE_BROTLI
+    LICENSE_CURL
+    LICENSE_NGHTTP2
+    LICENSE_NGHTTP3
+    LICENSE_NGTCP2
+    LICENSE_ZLIB
+    LICENSE_ZSTD
 
 jobs:
   build-windows:
@@ -78,8 +85,8 @@ jobs:
             curl_tar="curl-impersonate-${suffix}.tar.gz"
             lib_tar="libcurl-impersonate-${suffix}.tar.gz"
           fi
-          tar -czf "$curl_tar" -C packages/bin . $ALL_LICENSE
-          tar -czf "$lib_tar"  -C packages lib include $ALL_LICENSE
+          tar -czf "$curl_tar" -C packages/bin . -C "$GITHUB_WORKSPACE/packages" $LICENSE_FILES
+          tar -czf "$lib_tar" -C packages lib include $LICENSE_FILES
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
