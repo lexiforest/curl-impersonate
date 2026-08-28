@@ -562,6 +562,7 @@ ExternalProject_Add(curl
       -DCURL_ENABLE_SSL=ON
       ${_curl_openssl_flags}
       # Bypass BoringSSL check
+      -DHAVE_DES_ECB_ENCRYPT=1
       -DHAVE_SSL_SET0_WBIO=1
       -DHAVE_SSL_SET1_ECH_CONFIG_LIST=1
       -DHAVE_SSL_SET_QUIC_USE_LEGACY_CODEPOINT=1
