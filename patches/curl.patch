@@ -1212,9 +1212,18 @@ index 963ccea94d..2b9691fdcc 100644
        if(bs->max_concurrent)
          cf_ip_ballers_prune(bs, cf, data, bs->max_concurrent - 1);
 diff --git a/lib/cf-setup.c b/lib/cf-setup.c
-index 119294a89a..f603800a1a 100644
+index 119294a89a..92a9ec411c 100644
 --- a/lib/cf-setup.c
 +++ b/lib/cf-setup.c
+@@ -98,7 +98,7 @@ static CURLcode cf_setup_add_socks(struct Curl_cfilter *cf,
+       return CURLE_FAILED_INIT;
+ 
+     result = Curl_cf_socks_proxy_insert_after(
+-      cf, data, second_peer, cf->conn->ip_version,
++      cf, data, second_peer, ctx->transport, cf->conn->ip_version,
+       cf->conn->socks_proxy.proxytype,
+       cf->conn->socks_proxy.creds);
+     if(result) {
 @@ -190,6 +190,15 @@ static CURLcode cf_setup_add_ip_happy(struct Curl_cfilter *cf,
      if(!first_peer)
        return CURLE_FAILED_INIT;
@@ -6464,7 +6473,7 @@ index eb9ff2e396..7421f08b2e 100644
      case CURLOPT_POSTQUOTE:
      case CURLOPT_TELNETOPTIONS:
 diff --git a/lib/socks.c b/lib/socks.c
-index 6c458c505d..49a4efeacc 100644
+index 6c458c505d..05797eb28b 100644
 --- a/lib/socks.c
 +++ b/lib/socks.c
 @@ -40,8 +40,11 @@
@@ -7100,7 +7109,7 @@ index 6c458c505d..49a4efeacc 100644
    case CF_QUERY_HOST_PORT:
      if(sx) {
        *pres1 = sx->dest->port;
-@@ -1334,14 +1813,25 @@ struct Curl_cftype Curl_cft_socks_proxy = {
+@@ -1334,17 +1813,29 @@ struct Curl_cftype Curl_cft_socks_proxy = {
    Curl_cf_def_shutdown,
    socks_cf_adjust_pollset,
    Curl_cf_def_data_pending,
@@ -7128,11 +7137,15 @@ index 6c458c505d..49a4efeacc 100644
  CURLcode Curl_cf_socks_proxy_insert_after(struct Curl_cfilter *cf_at,
                                            struct Curl_easy *data,
                                            struct Curl_peer *dest,
-@@ -1366,6 +1856,13 @@ CURLcode Curl_cf_socks_proxy_insert_after(struct Curl_cfilter *cf_at,
++                                          uint8_t transport,
+                                           uint8_t ip_version,
+                                           uint8_t proxy_type,
+                                           struct Curl_creds *creds)
+@@ -1366,6 +1857,13 @@ CURLcode Curl_cf_socks_proxy_insert_after(struct Curl_cfilter *cf_at,
      failf(data, "unknown proxytype %d option given", proxy_type);
      return CURLE_COULDNT_CONNECT;
    }
-+  if((cf_at->conn->transport_wanted == TRNSPRT_QUIC) &&
++  if((transport == TRNSPRT_QUIC) &&
 +     !cf_at->conn->http_proxy.peer &&
 +     (proxy_type != CURLPROXY_SOCKS5) &&
 +     (proxy_type != CURLPROXY_SOCKS5_HOSTNAME)) {
@@ -7142,19 +7155,19 @@ index 6c458c505d..49a4efeacc 100644
  
    /* NUL byte already part of struct size */
    ctx = curlx_calloc(1, sizeof(*ctx));
-@@ -1376,6 +1873,11 @@ CURLcode Curl_cf_socks_proxy_insert_after(struct Curl_cfilter *cf_at,
+@@ -1376,6 +1874,11 @@ CURLcode Curl_cf_socks_proxy_insert_after(struct Curl_cfilter *cf_at,
    Curl_peer_link(&ctx->dest, dest);
    ctx->ip_version = ip_version;
    ctx->proxy_type = proxy_type;
 +  /* curl-impersonate: QUIC through a direct SOCKS proxy uses UDP ASSOCIATE.
 +   * A nested HTTP proxy continues through its TCP CONNECT path. */
 +  ctx->udp_associate =
-+    (cf_at->conn->transport_wanted == TRNSPRT_QUIC) &&
++    (transport == TRNSPRT_QUIC) &&
 +    !cf_at->conn->http_proxy.peer;
    Curl_creds_link(&ctx->creds, creds);
    Curl_bufq_init2(&ctx->iobuf, SOCKS_CHUNK_SIZE, SOCKS_CHUNKS,
                    BUFQ_OPT_SOFT_LIMIT);
-@@ -1384,7 +1886,7 @@ CURLcode Curl_cf_socks_proxy_insert_after(struct Curl_cfilter *cf_at,
+@@ -1384,7 +1887,7 @@ CURLcode Curl_cf_socks_proxy_insert_after(struct Curl_cfilter *cf_at,
    if(!result)
      Curl_conn_cf_insert_after(cf_at, cf);
    else
@@ -7164,7 +7177,7 @@ index 6c458c505d..49a4efeacc 100644
  }
  
 diff --git a/lib/socks.h b/lib/socks.h
-index d8e77c7f13..d410a3f18a 100644
+index d8e77c7f13..4ffeda15f3 100644
 --- a/lib/socks.h
 +++ b/lib/socks.h
 @@ -25,7 +25,11 @@
@@ -7180,7 +7193,12 @@ index d8e77c7f13..d410a3f18a 100644
  
  struct Curl_peer;
  struct Curl_creds;
-@@ -62,8 +66,11 @@ CURLcode Curl_cf_socks_proxy_insert_after(struct Curl_cfilter *cf_at,
+@@ -58,12 +62,16 @@ CURLcode Curl_SOCKS5_gssapi_negotiate(struct Curl_cfilter *cf,
+ CURLcode Curl_cf_socks_proxy_insert_after(struct Curl_cfilter *cf_at,
+                                           struct Curl_easy *data,
+                                           struct Curl_peer *dest,
++                                          uint8_t transport,
+                                           uint8_t ip_version,
                                            uint8_t proxy_type,
                                            struct Curl_creds *creds);
  
