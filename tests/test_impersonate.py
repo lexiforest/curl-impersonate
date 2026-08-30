@@ -480,8 +480,9 @@ def test_http3_fingerprint(
 
 
 @pytest.mark.parametrize("proxy_scheme", ["socks5", "socks5h"])
+@pytest.mark.parametrize("http3_option", ["--http3", "--http3-only"])
 def test_http3_through_socks_udp_proxy(
-    pytestconfig, socks5_udp_proxy, proxy_scheme
+    pytestconfig, socks5_udp_proxy, proxy_scheme, http3_option
 ):
     """HTTP/3 must use SOCKS5 UDP ASSOCIATE for proxied QUIC traffic."""
     curl_binary = os.path.join(
@@ -498,7 +499,7 @@ def test_http3_through_socks_udp_proxy(
                 extra_args=[
                     "--impersonate",
                     "chrome146",
-                    "--http3-only",
+                    http3_option,
                     "--proxy",
                     f"{proxy_scheme}://{socks5_udp_proxy}",
                     "--noproxy",
@@ -512,7 +513,8 @@ def test_http3_through_socks_udp_proxy(
             if ret == 0:
                 break
             logging.warning(
-                "HTTP/3 through %s proxy attempt %d failed",
+                "HTTP/3 (%s) through %s proxy attempt %d failed",
+                http3_option,
                 proxy_scheme,
                 attempt + 1,
             )
