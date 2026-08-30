@@ -71,6 +71,7 @@ jobs:
         run: |
           # Compile 'minicurl' which is used by the tests
           gcc -Wall -Werror -o ${{ runner.temp }}/install/bin/minicurl tests/minicurl.c `curl-config --libs`
+          GOBIN=${{ runner.temp }}/install/bin go install github.com/wzshiming/socks5/cmd/socks5@v0.7.0
 
       - name: Run the tests
         run: |

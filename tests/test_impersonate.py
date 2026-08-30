@@ -4,10 +4,13 @@ import json
 import random
 import logging
 import pathlib
+import shutil
+import socket
 import subprocess
 import tempfile
 import itertools
 import asyncio
+import time
 
 import yaml
 import pytest
@@ -84,6 +87,51 @@ for path in pathlib.Path("signatures").glob("**/*.yaml"):
                 ),
             ]
         )
+
+
+@pytest.fixture
+def socks5_udp_proxy(pytestconfig):
+    """Run a local SOCKS5 server with UDP ASSOCIATE support."""
+    socks5 = os.path.join(
+        pytestconfig.getoption("install_dir"), "bin", "socks5"
+    )
+    if not os.access(socks5, os.X_OK):
+        socks5 = shutil.which("socks5")
+    if not socks5:
+        pytest.skip("socks5 test server is not installed")
+
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+
+    with tempfile.TemporaryFile() as log:
+        proc = subprocess.Popen(
+            [socks5, "-a", f"127.0.0.1:{port}"],
+            stdout=subprocess.DEVNULL,
+            stderr=log,
+        )
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            if proc.poll() is not None:
+                log.seek(0)
+                stderr = log.read().decode("utf-8", errors="replace")
+                raise RuntimeError(f"socks5 test server exited early: {stderr}")
+            try:
+                with socket.create_connection(("127.0.0.1", port), timeout=0.1):
+                    break
+            except OSError:
+                time.sleep(0.05)
+        else:
+            proc.terminate()
+            proc.wait(timeout=5)
+            raise RuntimeError("socks5 test server failed to start")
+
+        try:
+            yield f"127.0.0.1:{port}"
+        finally:
+            if proc.poll() is None:
+                proc.terminate()
+                proc.wait(timeout=5)
 
 
 @pytest.fixture
@@ -429,6 +477,53 @@ def test_http3_fingerprint(
     assert signature_algorithms["data"]["algorithms"] == expected[
         "signature_algorithms"
     ]
+
+
+@pytest.mark.parametrize("proxy_scheme", ["socks5", "socks5h"])
+def test_http3_through_socks_udp_proxy(
+    pytestconfig, socks5_udp_proxy, proxy_scheme
+):
+    """HTTP/3 must use SOCKS5 UDP ASSOCIATE for proxied QUIC traffic."""
+    curl_binary = os.path.join(
+        pytestconfig.getoption("install_dir"), "bin", "curl-impersonate"
+    )
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        output = os.path.join(tmpdir, "fingerprint.json")
+        proxy_used = os.path.join(tmpdir, "proxy-used.txt")
+        for attempt in range(2):
+            ret = _run_curl(
+                curl_binary,
+                env_vars=None,
+                extra_args=[
+                    "--impersonate",
+                    "chrome146",
+                    "--http3-only",
+                    "--proxy",
+                    f"{proxy_scheme}://{socks5_udp_proxy}",
+                    "--noproxy",
+                    "",
+                    "--write-out",
+                    f"%output{{{proxy_used}}}%{{proxy_used}}",
+                ],
+                urls=["https://fp.impersonate.pro/api/http3"],
+                output=output,
+            )
+            if ret == 0:
+                break
+            logging.warning(
+                "HTTP/3 through %s proxy attempt %d failed",
+                proxy_scheme,
+                attempt + 1,
+            )
+        assert ret == 0
+
+        with open(output, "r") as f:
+            response = json.load(f)
+        with open(proxy_used, "r") as f:
+            assert f.read() == "1"
+
+    assert "http3" in response, response.get("info", response)
 
 
 @pytest.mark.parametrize(
