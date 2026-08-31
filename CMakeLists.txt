@@ -562,6 +562,7 @@ ExternalProject_Add(curl
       -DCURL_ENABLE_SSL=ON
       ${_curl_openssl_flags}
       # Bypass BoringSSL check
+      -DHAVE_DES_ECB_ENCRYPT=1
       -DHAVE_SSL_SET0_WBIO=1
       -DHAVE_SSL_SET1_ECH_CONFIG_LIST=1
       -DHAVE_SSL_SET_QUIC_USE_LEGACY_CODEPOINT=1
@@ -656,6 +657,33 @@ else()
 endif()
 if(_curl_wrapper_scripts)
   install(PROGRAMS ${_curl_wrapper_scripts} DESTINATION ${CMAKE_INSTALL_BINDIR})
+endif()
+function(_install_dependency_license project license_file output_name)
+  install(
+    FILES "${DEPS_SRC_DIR}/${project}/${license_file}"
+    DESTINATION "."
+    RENAME "${output_name}"
+  )
+endfunction()
+
+install(FILES "${CMAKE_SOURCE_DIR}/LICENSE" DESTINATION ".")
+_install_dependency_license(boringssl LICENSE LICENSE_BORINGSSL)
+_install_dependency_license(brotli LICENSE LICENSE_BROTLI)
+_install_dependency_license(curl COPYING LICENSE_CURL)
+_install_dependency_license(nghttp2 COPYING LICENSE_NGHTTP2)
+_install_dependency_license(nghttp3 COPYING LICENSE_NGHTTP3)
+_install_dependency_license(ngtcp2 COPYING LICENSE_NGTCP2)
+_install_dependency_license(zlib LICENSE LICENSE_ZLIB)
+_install_dependency_license(zstd LICENSE LICENSE_ZSTD)
+if(USE_LIBIDN2)
+  _install_dependency_license(libidn2 COPYING LICENSE_LIBIDN2_GPL3)
+  _install_dependency_license(libidn2 COPYINGv2 LICENSE_LIBIDN2_GPL2)
+  _install_dependency_license(
+    libidn2 COPYING.LESSERv3 LICENSE_LIBIDN2_LGPL3
+  )
+  _install_dependency_license(
+    libidn2 COPYING.unicode LICENSE_LIBIDN2_UNICODE
+  )
 endif()
 
 configure_file(
