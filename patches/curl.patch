@@ -9113,7 +9113,7 @@ index dfb8346c1a..602402e256 100644
    return CURLE_OK;
  }
 diff --git a/lib/vtls/openssl.c b/lib/vtls/openssl.c
-index 010bbb9825..6b7ad309a8 100644
+index 010bbb9825..4cc9b96fc7 100644
 --- a/lib/vtls/openssl.c
 +++ b/lib/vtls/openssl.c
 @@ -39,6 +39,7 @@
@@ -9678,7 +9678,7 @@ index 010bbb9825..6b7ad309a8 100644
  
    /* mitigate CVE-2010-4180 */
    ctx_options &= ~(ctx_option_t)SSL_OP_NETSCAPE_REUSE_CIPHER_CHANGE_BUG;
-@@ -3815,6 +4295,21 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
+@@ -3815,10 +4295,29 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
    /* We do retry writes sometimes from another buffer address */
    SSL_CTX_set_mode(octx->ssl_ctx, SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
  
@@ -9700,7 +9700,15 @@ index 010bbb9825..6b7ad309a8 100644
    ciphers = conn_config->cipher_list;
    if(!ciphers && (peer->transport != TRNSPRT_QUIC))
      ciphers = NULL;
-@@ -3859,7 +4354,8 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
++#ifdef OPENSSL_IS_BORINGSSL
++  if(ciphers) {
++#else
+   if(ciphers && (ssl_version_min < CURL_SSLVERSION_TLSv1_3)) {
++#endif
+     if(!SSL_CTX_set_cipher_list(octx->ssl_ctx, ciphers)) {
+       failf(data, "failed setting cipher list: %s", ciphers);
+       return CURLE_SSL_CIPHER;
+@@ -3859,7 +4358,8 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
  #endif
  
    {
@@ -9710,7 +9718,7 @@ index 010bbb9825..6b7ad309a8 100644
      if(curves) {
  #ifdef HAVE_BORINGSSL_LIKE
  #define OSSL_CURVE_CAST(x) (x)
-@@ -3873,10 +4369,12 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
+@@ -3873,10 +4373,12 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
      }
    }
  
@@ -9725,7 +9733,7 @@ index 010bbb9825..6b7ad309a8 100644
      if(signature_algorithms) {
        if(!SSL_CTX_set1_sigalgs_list(octx->ssl_ctx,
                                      OSSL_SIGALG_CAST(signature_algorithms))) {
-@@ -3888,6 +4386,35 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
+@@ -3888,6 +4390,35 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
    }
  #endif
  
@@ -9761,7 +9769,7 @@ index 010bbb9825..6b7ad309a8 100644
  #if defined(HAVE_OPENSSL_SRP) && defined(USE_TLS_SRP)
    if(ssl_config->primary.username && Curl_auth_allowed_to_host(data)) {
      char * const ssl_username = ssl_config->primary.username;
-@@ -3913,6 +4440,76 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
+@@ -3913,6 +4444,76 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
    }
  #endif /* HAVE_OPENSSL_SRP && USE_TLS_SRP */
  
@@ -9838,7 +9846,7 @@ index 010bbb9825..6b7ad309a8 100644
    /* OpenSSL always tries to verify the peer. By setting the failure mode
     * to NONE, we allow the connect to complete, regardless of the outcome.
     * We then explicitly check the result and may try alternatives like
-@@ -4253,8 +4850,10 @@ static CURLcode ossl_connect_step2(struct Curl_cfilter *cf,
+@@ -4253,8 +4854,10 @@ static CURLcode ossl_connect_step2(struct Curl_cfilter *cf,
  #endif
        else {
          result = CURLE_SSL_CONNECT_ERROR;
@@ -9851,7 +9859,7 @@ index 010bbb9825..6b7ad309a8 100644
        }
  
        /* detail is already set to the SSL error above */
-@@ -4267,10 +4866,20 @@ static CURLcode ossl_connect_step2(struct Curl_cfilter *cf,
+@@ -4267,10 +4870,20 @@ static CURLcode ossl_connect_step2(struct Curl_cfilter *cf,
          char extramsg[80] = "";
          int sockerr = SOCKERRNO;
  
@@ -9875,7 +9883,7 @@ index 010bbb9825..6b7ad309a8 100644
                connssl->peer.origin->hostname, connssl->peer.origin->port);
        }
  
-@@ -4282,6 +4891,22 @@ static CURLcode ossl_connect_step2(struct Curl_cfilter *cf,
+@@ -4282,6 +4895,22 @@ static CURLcode ossl_connect_step2(struct Curl_cfilter *cf,
      connssl->connecting_state = ssl_connect_3;
      Curl_ossl_report_handshake(data, octx);
  

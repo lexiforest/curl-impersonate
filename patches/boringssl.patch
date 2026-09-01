@@ -396,10 +396,37 @@ index f4b348481..afb56f59b 100644
  #define TLS1_3_RFC_AES_256_GCM_SHA384 "TLS_AES_256_GCM_SHA384"
  #define TLS1_3_RFC_CHACHA20_POLY1305_SHA256 "TLS_CHACHA20_POLY1305_SHA256"
 diff --git a/ssl/extensions.cc b/ssl/extensions.cc
-index 022714a3f..39a45b3e7 100644
+index 022714a3f..b213e0d98 100644
 --- a/ssl/extensions.cc
 +++ b/ssl/extensions.cc
-@@ -2383,6 +2383,10 @@ bool ssl_setup_key_shares(SSL_HANDSHAKE *hs, uint16_t override_group_id) {
+@@ -701,8 +701,10 @@ static bool ext_ri_add_clienthello(const SSL_HANDSHAKE *hs, CBB *out,
+                                    CBB *out_compressible,
+                                    ssl_client_hello_type_t type) {
+   const SSLImpl *const ssl = hs->ssl;
+-  // Renegotiation indication is not necessary in TLS 1.3.
+-  if (hs->min_version >= TLS1_3_VERSION ||  //
++  // Renegotiation indication is not necessary in TLS 1.3, but an explicit
++  // extension order may request it for ClientHello impersonation.
++  if ((hs->min_version >= TLS1_3_VERSION &&
++       hs->config->extension_order.empty()) ||  //
+       type == ssl_client_hello_inner) {
+     return true;
+   }
+@@ -865,8 +867,11 @@ static bool ext_ri_add_serverhello(SSL_HANDSHAKE *hs, CBB *out) {
+ static bool ext_ems_add_clienthello(const SSL_HANDSHAKE *hs, CBB *out,
+                                     CBB *out_compressible,
+                                     ssl_client_hello_type_t type) {
+-  // Extended master secret is not necessary in TLS 1.3.
+-  if (hs->min_version >= TLS1_3_VERSION || type == ssl_client_hello_inner) {
++  // Extended master secret is not necessary in TLS 1.3, but an explicit
++  // extension order may request it for ClientHello impersonation.
++  if ((hs->min_version >= TLS1_3_VERSION &&
++       hs->config->extension_order.empty()) ||
++      type == ssl_client_hello_inner) {
+     return true;
+   }
+ 
+@@ -2383,6 +2388,10 @@ bool ssl_setup_key_shares(SSL_HANDSHAKE *hs, uint16_t override_group_id) {
    SSLImpl *const ssl = hs->ssl;
    hs->key_shares.clear();
    hs->key_share_bytes.Reset();
@@ -410,7 +437,7 @@ index 022714a3f..39a45b3e7 100644
  
    // If offering a PAKE, do not set up key shares. We do not currently support
    // clients offering both PAKE and non-PAKE modes, including resumption.
-@@ -2427,24 +2431,30 @@ bool ssl_setup_key_shares(SSL_HANDSHAKE *hs, uint16_t override_group_id) {
+@@ -2427,24 +2436,30 @@ bool ssl_setup_key_shares(SSL_HANDSHAKE *hs, uint16_t override_group_id) {
    }
  
    // Run the default selection if we don't have anything better.
@@ -449,7 +476,7 @@ index 022714a3f..39a45b3e7 100644
      }
      selected_key_shares.emplace(default_key_shares);
    }
-@@ -2540,6 +2550,7 @@ bool ssl_ext_key_share_parse_serverhello(SSL_HANDSHAKE *hs,
+@@ -2540,6 +2555,7 @@ bool ssl_ext_key_share_parse_serverhello(SSL_HANDSHAKE *hs,
      return false;
    }
  
@@ -457,7 +484,7 @@ index 022714a3f..39a45b3e7 100644
    hs->new_session->group_id = group_id;
    hs->key_shares.clear();
    return true;
-@@ -3272,6 +3283,27 @@ static bool ext_quic_transport_params_add_serverhello_legacy(SSL_HANDSHAKE *hs,
+@@ -3272,6 +3288,27 @@ static bool ext_quic_transport_params_add_serverhello_legacy(SSL_HANDSHAKE *hs,
  static bool ext_delegated_credential_add_clienthello(
      const SSL_HANDSHAKE *hs, CBB *out, CBB *out_compressible,
      ssl_client_hello_type_t type) {
@@ -485,7 +512,7 @@ index 022714a3f..39a45b3e7 100644
    return true;
  }
  
-@@ -4071,6 +4103,42 @@ static bool ext_server_cert_type_add_serverhello(SSL_HANDSHAKE *hs, CBB *out) {
+@@ -4071,6 +4108,42 @@ static bool ext_server_cert_type_add_serverhello(SSL_HANDSHAKE *hs, CBB *out) {
    return true;
  }
  
@@ -528,7 +555,7 @@ index 022714a3f..39a45b3e7 100644
  // kExtensions contains all the supported extensions.
  static const struct tls_extension kExtensions[] = {
      {
-@@ -4244,6 +4312,13 @@ static const struct tls_extension kExtensions[] = {
+@@ -4244,6 +4317,13 @@ static const struct tls_extension kExtensions[] = {
          ignore_parse_clienthello,
          ext_alps_add_serverhello,
      },
@@ -542,7 +569,7 @@ index 022714a3f..39a45b3e7 100644
      {
          TLSEXT_TYPE_application_settings_old,
          ext_alps_add_clienthello_old,
-@@ -4324,6 +4399,7 @@ bool ssl_setup_extension_permutation(SSL_HANDSHAKE *hs) {
+@@ -4324,6 +4404,7 @@ bool ssl_setup_extension_permutation(SSL_HANDSHAKE *hs) {
        !permutation.InitForOverwrite(kNumExtensions)) {
      return false;
    }
@@ -550,7 +577,7 @@ index 022714a3f..39a45b3e7 100644
    for (size_t i = 0; i < kNumExtensions; i++) {
      permutation[i] = i;
    }
-@@ -4348,6 +4424,90 @@ static const struct tls_extension *tls_extension_find(uint32_t *out_index,
+@@ -4348,6 +4429,90 @@ static const struct tls_extension *tls_extension_find(uint32_t *out_index,
    return nullptr;
  }
  
@@ -641,7 +668,7 @@ index 022714a3f..39a45b3e7 100644
  static bool add_padding_extension(CBB *cbb, uint16_t ext, size_t len) {
    CBB child;
    if (!CBB_add_u16(cbb, ext) ||  //
-@@ -4393,6 +4553,7 @@ static bool ssl_add_clienthello_tlsext_inner(SSL_HANDSHAKE *hs, CBB *out,
+@@ -4393,6 +4558,7 @@ static bool ssl_add_clienthello_tlsext_inner(SSL_HANDSHAKE *hs, CBB *out,
      size_t i = hs->extension_permutation.empty()
                     ? unpermuted
                     : hs->extension_permutation[unpermuted];
@@ -649,7 +676,7 @@ index 022714a3f..39a45b3e7 100644
      const size_t len_before = CBB_len(&extensions);
      const size_t len_compressed_before = CBB_len(compressed.get());
      if (!kExtensions[i].add_clienthello(hs, &extensions, compressed.get(),
-@@ -4506,6 +4667,7 @@ bool ssl_add_clienthello_tlsext(SSL_HANDSHAKE *hs, CBB *out, CBB *out_encoded,
+@@ -4506,6 +4672,7 @@ bool ssl_add_clienthello_tlsext(SSL_HANDSHAKE *hs, CBB *out, CBB *out_encoded,
      size_t i = hs->extension_permutation.empty()
                     ? unpermuted
                     : hs->extension_permutation[unpermuted];
@@ -1452,3 +1479,29 @@ index ae7c9bbd5..22c96202b 100644
 +  return set_sigalg_prefs(&FromOpaque(ctx)->delegated_credentials,
 +                          MakeConstSpan(sigalgs.data(), sigalgs.size()));
 +}
+diff --git a/ssl/ssl_test.cc b/ssl/ssl_test.cc
+index f9ba6a9b6..29614c3b7 100644
+--- a/ssl/ssl_test.cc
++++ b/ssl/ssl_test.cc
+@@ -10027,6 +10027,21 @@ static bool GetExtensionOrder(SSL_CTX *client_ctx, std::vector<uint16_t> *out,
+   return app_data.callback_done;
+ }
+ 
++TEST(SSLTest, ExplicitOrderEnablesLegacyTLS13Extensions) {
++  bssl::UniquePtr<SSL_CTX> ctx(SSL_CTX_new(TLS_method()));
++  ASSERT_TRUE(ctx);
++  ASSERT_TRUE(SSL_CTX_set_min_proto_version(ctx.get(), TLS1_3_VERSION));
++  ASSERT_TRUE(SSL_CTX_set_max_proto_version(ctx.get(), TLS1_3_VERSION));
++
++  char extension_order[] = "23-65281-43";
++  ASSERT_TRUE(SSL_CTX_set_extension_order(ctx.get(), extension_order));
++  std::vector<uint16_t> order;
++  ASSERT_TRUE(GetExtensionOrder(ctx.get(), &order, nullptr, false));
++  EXPECT_THAT(order, ElementsAre(TLSEXT_TYPE_extended_master_secret,
++                                 TLSEXT_TYPE_renegotiate,
++                                 TLSEXT_TYPE_supported_versions));
++}
++
+ // Test that, when extension permutation is enabled, the ClientHello extension
+ // order changes, both with and without ECH, and in both ClientHelloInner and
+ // ClientHelloOuter.
