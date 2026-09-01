@@ -122,10 +122,24 @@ index 953c1c6ee6..1174eb4181 100644
      if(${_curl_test})
        set(${_curl_test} 1 CACHE INTERNAL "curl test")
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index e459b3d076..1bc3795713 100644
+index e459b3d076..9dbdf8450d 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -153,8 +153,8 @@ if(CURL_PATCHSTAMP)
+@@ -65,6 +65,13 @@ project(CURL
+   VERSION "${_curl_version_sem}"
+   LANGUAGES C)
+ 
++set(CURL_IMPERSONATE_VERSION "local" CACHE STRING
++  "curl-impersonate version reported by curl_version()")
++string(TIMESTAMP CURL_IMPERSONATE_BUILD_DATE "%Y-%m-%d" UTC)
++add_compile_definitions(
++  "CURL_IMPERSONATE_VERSION=\"${CURL_IMPERSONATE_VERSION}\""
++  "CURL_IMPERSONATE_BUILD_DATE=\"${CURL_IMPERSONATE_BUILD_DATE}\"")
++
+ # CMake does not recognize some targets accurately. Touch up configuration manually as a workaround.
+ if(WINDOWS_STORE AND MINGW)  # MinGW UWP build
+   # CMake (as of v3.31.2) gets confused and applies the MSVC rc.exe command-line
+@@ -153,8 +160,8 @@ if(CURL_PATCHSTAMP)
    set(CURL_PATCHSTAMP "\"${CURL_PATCHSTAMP}\"")
  endif()
  
@@ -136,7 +150,7 @@ index e459b3d076..1bc3795713 100644
  
  set_property(DIRECTORY APPEND PROPERTY INCLUDE_DIRECTORIES "${PROJECT_SOURCE_DIR}/include")
  
-@@ -858,9 +858,15 @@ if(CURL_USE_OPENSSL)
+@@ -858,9 +865,15 @@ if(CURL_USE_OPENSSL)
          message(WARNING "AWS-LC/BoringSSL requires POSIX Threads.")
        endif()
      endif()
@@ -155,7 +169,7 @@ index e459b3d076..1bc3795713 100644
      endif()
    endif()
  
-@@ -2105,7 +2111,7 @@ endif()
+@@ -2105,7 +2118,7 @@ endif()
  
  if(NOT CURL_DISABLE_INSTALL)
  
@@ -164,7 +178,7 @@ index e459b3d076..1bc3795713 100644
    set(CC                      "${CMAKE_C_COMPILER}")
    set(CONFIGURE_OPTIONS       "")
    set(CURLVERSION             "${_curl_version}")
-@@ -2303,7 +2309,7 @@ if(NOT CURL_DISABLE_INSTALL)
+@@ -2303,7 +2316,7 @@ if(NOT CURL_DISABLE_INSTALL)
      set(ENABLE_STATIC       "no")
    endif()
  
@@ -173,7 +187,7 @@ index e459b3d076..1bc3795713 100644
    # Consumed variables:
    #   CC
    #   CONFIGURE_OPTIONS
-@@ -2325,8 +2331,8 @@ if(NOT CURL_DISABLE_INSTALL)
+@@ -2325,8 +2338,8 @@ if(NOT CURL_DISABLE_INSTALL)
    #   VERSIONNUM
    configure_file(
      "${PROJECT_SOURCE_DIR}/curl-config.in"
@@ -184,7 +198,7 @@ index e459b3d076..1bc3795713 100644
      DESTINATION ${CMAKE_INSTALL_BINDIR}
      PERMISSIONS
        OWNER_READ OWNER_WRITE OWNER_EXECUTE
-@@ -2463,7 +2469,7 @@ if(NOT CURL_DISABLE_INSTALL)
+@@ -2463,7 +2476,7 @@ if(NOT CURL_DISABLE_INSTALL)
    endif()
  
    if(BUILD_CURL_EXE)
@@ -7521,6 +7535,31 @@ index d4d336d8db..e5a16ca84d 100644
    BIT(post301); /* keep POSTs as POSTs after a 301 request */
    BIT(post302); /* keep POSTs as POSTs after a 302 request */
    BIT(post303); /* keep POSTs as POSTs after a 303 request */
+diff --git a/lib/version.c b/lib/version.c
+index 299caee9fb..89b1fc45f2 100644
+--- a/lib/version.c
++++ b/lib/version.c
+@@ -135,7 +135,11 @@ static void idn_version(char *buf, size_t bufsz)
+  * zeros in the data.
+  */
+ 
+-#define VERSION_PARTS 16 /* number of substrings we can concatenate */
++#define VERSION_PARTS 17 /* number of substrings we can concatenate */
++
++#ifndef CURL_IMPERSONATE_VERSION
++#define CURL_IMPERSONATE_VERSION "local"
++#endif
+ 
+ char *curl_version(void)
+ {
+@@ -255,6 +259,7 @@ char *curl_version(void)
+   Curl_ldap_version(ldap_buf, sizeof(ldap_buf));
+   src[i++] = ldap_buf;
+ #endif
++  src[i++] = "curl-impersonate/" CURL_IMPERSONATE_VERSION;
+ 
+   DEBUGASSERT(i <= VERSION_PARTS);
+ 
 diff --git a/lib/vquic/cf-ngtcp2-cmn.c b/lib/vquic/cf-ngtcp2-cmn.c
 index e1ca18cf69..ca4f2e94f8 100644
 --- a/lib/vquic/cf-ngtcp2-cmn.c
@@ -9113,7 +9152,7 @@ index dfb8346c1a..602402e256 100644
    return CURLE_OK;
  }
 diff --git a/lib/vtls/openssl.c b/lib/vtls/openssl.c
-index 010bbb9825..6b7ad309a8 100644
+index 010bbb9825..4cc9b96fc7 100644
 --- a/lib/vtls/openssl.c
 +++ b/lib/vtls/openssl.c
 @@ -39,6 +39,7 @@
@@ -9678,7 +9717,7 @@ index 010bbb9825..6b7ad309a8 100644
  
    /* mitigate CVE-2010-4180 */
    ctx_options &= ~(ctx_option_t)SSL_OP_NETSCAPE_REUSE_CIPHER_CHANGE_BUG;
-@@ -3815,6 +4295,21 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
+@@ -3815,10 +4295,29 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
    /* We do retry writes sometimes from another buffer address */
    SSL_CTX_set_mode(octx->ssl_ctx, SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
  
@@ -9700,7 +9739,15 @@ index 010bbb9825..6b7ad309a8 100644
    ciphers = conn_config->cipher_list;
    if(!ciphers && (peer->transport != TRNSPRT_QUIC))
      ciphers = NULL;
-@@ -3859,7 +4354,8 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
++#ifdef OPENSSL_IS_BORINGSSL
++  if(ciphers) {
++#else
+   if(ciphers && (ssl_version_min < CURL_SSLVERSION_TLSv1_3)) {
++#endif
+     if(!SSL_CTX_set_cipher_list(octx->ssl_ctx, ciphers)) {
+       failf(data, "failed setting cipher list: %s", ciphers);
+       return CURLE_SSL_CIPHER;
+@@ -3859,7 +4358,8 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
  #endif
  
    {
@@ -9710,7 +9757,7 @@ index 010bbb9825..6b7ad309a8 100644
      if(curves) {
  #ifdef HAVE_BORINGSSL_LIKE
  #define OSSL_CURVE_CAST(x) (x)
-@@ -3873,10 +4369,12 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
+@@ -3873,10 +4373,12 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
      }
    }
  
@@ -9725,7 +9772,7 @@ index 010bbb9825..6b7ad309a8 100644
      if(signature_algorithms) {
        if(!SSL_CTX_set1_sigalgs_list(octx->ssl_ctx,
                                      OSSL_SIGALG_CAST(signature_algorithms))) {
-@@ -3888,6 +4386,35 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
+@@ -3888,6 +4390,35 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
    }
  #endif
  
@@ -9761,7 +9808,7 @@ index 010bbb9825..6b7ad309a8 100644
  #if defined(HAVE_OPENSSL_SRP) && defined(USE_TLS_SRP)
    if(ssl_config->primary.username && Curl_auth_allowed_to_host(data)) {
      char * const ssl_username = ssl_config->primary.username;
-@@ -3913,6 +4440,76 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
+@@ -3913,6 +4444,76 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
    }
  #endif /* HAVE_OPENSSL_SRP && USE_TLS_SRP */
  
@@ -9838,7 +9885,7 @@ index 010bbb9825..6b7ad309a8 100644
    /* OpenSSL always tries to verify the peer. By setting the failure mode
     * to NONE, we allow the connect to complete, regardless of the outcome.
     * We then explicitly check the result and may try alternatives like
-@@ -4253,8 +4850,10 @@ static CURLcode ossl_connect_step2(struct Curl_cfilter *cf,
+@@ -4253,8 +4854,10 @@ static CURLcode ossl_connect_step2(struct Curl_cfilter *cf,
  #endif
        else {
          result = CURLE_SSL_CONNECT_ERROR;
@@ -9851,7 +9898,7 @@ index 010bbb9825..6b7ad309a8 100644
        }
  
        /* detail is already set to the SSL error above */
-@@ -4267,10 +4866,20 @@ static CURLcode ossl_connect_step2(struct Curl_cfilter *cf,
+@@ -4267,10 +4870,20 @@ static CURLcode ossl_connect_step2(struct Curl_cfilter *cf,
          char extramsg[80] = "";
          int sockerr = SOCKERRNO;
  
@@ -9875,7 +9922,7 @@ index 010bbb9825..6b7ad309a8 100644
                connssl->peer.origin->hostname, connssl->peer.origin->port);
        }
  
-@@ -4282,6 +4891,22 @@ static CURLcode ossl_connect_step2(struct Curl_cfilter *cf,
+@@ -4282,6 +4895,22 @@ static CURLcode ossl_connect_step2(struct Curl_cfilter *cf,
      connssl->connecting_state = ssl_connect_3;
      Curl_ossl_report_handshake(data, octx);
  
@@ -12250,6 +12297,34 @@ index 32476d3776..3fb231549b 100644
    C_WRITE_OUT,
    C_XATTR
  } cmdline_t;
+diff --git a/src/tool_help.c b/src/tool_help.c
+index c9d76d5d20..7f0e0511db 100644
+--- a/src/tool_help.c
++++ b/src/tool_help.c
+@@ -312,6 +312,11 @@ static bool is_debug(void)
+ void tool_version_info(void)
+ {
+   const char * const *builtin;
++#ifdef CURL_IMPERSONATE_BUILD_DATE
++  const char *release_date = CURL_IMPERSONATE_BUILD_DATE;
++#else
++  const char *release_date = LIBCURL_TIMESTAMP;
++#endif
+   if(is_debug())
+     curl_mfprintf(tool_stderr, "WARNING: this libcurl is Debug-enabled, "
+                   "do not use in production\n\n");
+@@ -319,9 +324,9 @@ void tool_version_info(void)
+   curl_mprintf(CURL_ID "%s\n", curl_version());
+ #ifdef CURL_PATCHSTAMP
+   curl_mprintf("Release-Date: %s, security patched: %s\n",
+-               LIBCURL_TIMESTAMP, CURL_PATCHSTAMP);
++               release_date, CURL_PATCHSTAMP);
+ #else
+-  curl_mprintf("Release-Date: %s\n", LIBCURL_TIMESTAMP);
++  curl_mprintf("Release-Date: %s\n", release_date);
+ #endif
+   if(built_in_protos[0]) {
+ #ifndef CURL_DISABLE_IPFS
 diff --git a/src/tool_listhelp.c b/src/tool_listhelp.c
 index c0b0af792f..3ec29e07bc 100644
 --- a/src/tool_listhelp.c
