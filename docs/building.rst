@@ -167,33 +167,27 @@ an ARM64 FreeBSD VM, matching the ``aarch64-freebsd`` artifacts. Use
 it to be much slower because QEMU must emulate the CPU.
 
 OpenBSD
---------
+~~~~~~~
 
-Make sure you have all the required dependencies installed including gcc.
+OpenBSD is built natively, not with the ``zig`` cross toolchain. The
+build currently disables ``libidn2`` because the standalone ``libidn2``
+preparation step is not used on BSD.
 
-.. code-block:: bash
-
-    doas pkg_add -U gcc pkgconf cmake ninja curl autoconf automake libtool gmake gperf go
-
-Then you will want to install the specially prepared patchfile for OpenBSD.
+The OpenBSD dependencies are:
 
 .. code-block:: bash
 
-    patch -p1 < ./patches/OpenBSD.patch
+    pkg_add cmake ninja gmake
 
-Before you get ahead of yourself there are two flags you MUST pass during configuration in order to successfully build
-the software. They are ``-DPREFER_GCC=ON`` and ``-DENABLE_AVX512=ON``.
-
-.. code-block:: bash
-
-    cmake -B build -S . -DPREFER_GCC=ON -DENABLE_AVX512=ON
-    cmake --build build --parallel 4
-
-Then install the software, and you're done.
+Configure and build:
 
 .. code-block:: bash
 
-    doas make install
+    cmake_args="-G Ninja -DCMAKE_INSTALL_PREFIX=$PWD/openbsd-install"
+    cmake_args="$cmake_args -DCURL_IMPERSONATE_CXX_RUNTIME_LIBRARY=c++abi\;pthread"
+    gmake configure BUILD_DIR=build-openbsd CMAKE_CONFIGURE_ARGS="$cmake_args"
+    gmake build BUILD_DIR=build-openbsd CMAKE_CONFIGURE_ARGS="$cmake_args"
+    gmake install-strip BUILD_DIR=build-openbsd CMAKE_CONFIGURE_ARGS="$cmake_args"
 
 Static compilation
 ------------------
