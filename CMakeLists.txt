@@ -43,6 +43,38 @@ set(ZSTD_URL_HASH "SHA256=eb33e51f49a15e023950cd7825ca74a4a2b43db8354825ac24fc1b
 set(CURL_VERSION "curl-8_21_0")
 set(CURL_URL_HASH "SHA256=ec753aa6f408a3ca9f0d6d5f7a77417aecd1544db13c03ae5d443612bf367364")
 
+set(CURL_IMPERSONATE_VERSION "" CACHE STRING
+  "Override the curl-impersonate version (defaults to an exact clean Git tag or local)")
+set(_curl_impersonate_version "local")
+if(CURL_IMPERSONATE_VERSION)
+  set(_curl_impersonate_version "${CURL_IMPERSONATE_VERSION}")
+else()
+  find_package(Git QUIET)
+  if(GIT_FOUND)
+    execute_process(
+      COMMAND "${GIT_EXECUTABLE}" status --porcelain --untracked-files=normal
+      WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+      RESULT_VARIABLE _git_status_result
+      OUTPUT_VARIABLE _git_status
+      OUTPUT_STRIP_TRAILING_WHITESPACE
+      ERROR_QUIET
+    )
+    execute_process(
+      COMMAND "${GIT_EXECUTABLE}" describe --tags --exact-match HEAD
+      WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+      RESULT_VARIABLE _git_tag_result
+      OUTPUT_VARIABLE _git_tag
+      OUTPUT_STRIP_TRAILING_WHITESPACE
+      ERROR_QUIET
+    )
+    if(_git_status_result EQUAL 0 AND _git_status STREQUAL "" AND
+       _git_tag_result EQUAL 0 AND NOT _git_tag STREQUAL "")
+      string(REGEX REPLACE "^v" "" _curl_impersonate_version "${_git_tag}")
+    endif()
+  endif()
+endif()
+message(STATUS "curl-impersonate version: ${_curl_impersonate_version}")
+
 set(ZLIB_URL "https://github.com/madler/zlib/releases/download/v${ZLIB_VERSION}/zlib-${ZLIB_VERSION}.tar.gz")
 set(ZSTD_URL "https://github.com/facebook/zstd/releases/download/v${ZSTD_VERSION}/zstd-${ZSTD_VERSION}.tar.gz")
 set(BROTLI_URL "https://github.com/google/brotli/archive/refs/tags/v${BROTLI_VERSION}.tar.gz")
@@ -563,6 +595,7 @@ ExternalProject_Add(curl
       ${_curl_use_pkgconfig_flag}
       -DCURL_USE_OPENSSL=ON
       -DCURL_ENABLE_SSL=ON
+      -DCURL_IMPERSONATE_VERSION=${_curl_impersonate_version}
       ${_curl_openssl_flags}
       # Bypass BoringSSL check
       -DHAVE_DES_ECB_ENCRYPT=1
