@@ -1,6 +1,6 @@
 diff --git a/AGENTS.md b/AGENTS.md
 new file mode 100644
-index 0000000000..d4fd2f5435
+index 0000000000..d8a40d611a
 --- /dev/null
 +++ b/AGENTS.md
 @@ -0,0 +1,104 @@
@@ -26,7 +26,7 @@ index 0000000000..d4fd2f5435
 +
 +## Fork Delta (vs `curl-8_22_0`)
 +Baseline check: `git diff --stat curl-8_22_0`.
-+Current delta: **86 files changed, +8642/-491**.
++Current delta: **85 files changed, +8640/-487**.
 +
 +- Impersonation core: `lib/impersonate.c` + `lib/impersonate.h` with 39 preset targets (Chrome/Edge/Firefox/Safari/Tor/OkHttp variants).
 +- Public API additions: `curl_easy_impersonate()` and new `CURLOPT_*` for TLS/HTTP2 fingerprints (`CURLOPT_IMPERSONATE`, `CURLOPT_HTTPBASEHEADER`, `CURLOPT_HTTP2_SETTINGS`, `CURLOPT_TLS_EXTENSION_ORDER`, etc.).
@@ -809,7 +809,7 @@ index 0000000000..117cb3c816
 +git df curl-8_22_0 -- . ':(exclude)tests/**' > chrome.patch
 +mv chrome.patch ../curl-impersonate/patches/curl.patch
 diff --git a/include/curl/curl.h b/include/curl/curl.h
-index b904e49530..1cd385dff2 100644
+index b904e49530..fe267f5831 100644
 --- a/include/curl/curl.h
 +++ b/include/curl/curl.h
 @@ -187,6 +187,10 @@ typedef enum {
@@ -835,9 +835,9 @@ index b904e49530..1cd385dff2 100644
  /*
   * All CURLOPT_* values.
   */
-@@ -2276,6 +2285,163 @@ typedef enum {
-   /* set TLS supported signature algorithms */
-   CURLOPT(CURLOPT_SSL_SIGNATURE_ALGORITHMS, CURLOPTTYPE_STRINGPOINT, 328),
+@@ -2288,6 +2297,163 @@ typedef enum {
+   /* Space-separated list of components to sign for HTTP Message Signatures */
+   CURLOPT(CURLOPT_HTTPSIG_HEADERS, CURLOPTTYPE_STRINGPOINT, 332),
  
 +  /* curl-impersonate: The master option for setting an impersonate target.
 +   * Impersonation target format is "name[:yes|no]".
@@ -996,8 +996,8 @@ index b904e49530..1cd385dff2 100644
 +  /* curl-impersonate: Comma-separated TLS trust anchor relative OIDs. */
 +  CURLOPT(CURLOPT_TLS_TRUST_ANCHORS, CURLOPTTYPE_STRINGPOINT, 1040),
 +
-   /* RFC 9421 HTTP Message Signatures algorithm */
-   CURLOPT(CURLOPT_HTTPSIG_ALGORITHM, CURLOPTTYPE_VALUES, 329),
+   CURLOPT_LASTENTRY /* the last unused */
+ } CURLoption;
  
 @@ -3022,7 +3188,14 @@ typedef enum {
    CURLINFO_HTTPAUTH_USED    = CURLINFO_LONG + 69,
@@ -11185,7 +11185,7 @@ index 69554ee490..d0052604bd 100644
  # if unit tests are enabled, build a static library to link them with
  if BUILD_UNITTESTS
 diff --git a/src/config2setopts.c b/src/config2setopts.c
-index b6c242dad6..893a10d7a4 100644
+index b6c242dad6..3326a20d41 100644
 --- a/src/config2setopts.c
 +++ b/src/config2setopts.c
 @@ -392,6 +392,9 @@ static CURLcode ssl_setopts(struct OperationConfig *config, CURL *curl)
@@ -11213,7 +11213,7 @@ index b6c242dad6..893a10d7a4 100644
    if(config->proxy)
      my_setopt_SSLVERSION(curl, CURLOPT_PROXY_SSLVERSION,
                           config->proxy_ssl_version);
-@@ -488,6 +493,63 @@ static CURLcode ssl_setopts(struct OperationConfig *config, CURL *curl)
+@@ -488,6 +493,64 @@ static CURLcode ssl_setopts(struct OperationConfig *config, CURL *curl)
              "--proxy-tls13-ciphers", ssl_backend());
    }
  
@@ -11243,12 +11243,13 @@ index b6c242dad6..893a10d7a4 100644
 +    my_setopt_long(curl, CURLOPT_TLS_USE_NEW_ALPS_CODEPOINT, 1L);
 +
 +  if(config->tls_delegated_credentials)
-+    my_setopt_str(curl, CURLOPT_TLS_DELEGATED_CREDENTIALS, config->tls_delegated_credentials);
-+ 
++    my_setopt_str(curl, CURLOPT_TLS_DELEGATED_CREDENTIALS,
++                  config->tls_delegated_credentials);
++
 +  if(config->tls_record_size_limit)
 +    my_setopt_long(curl, CURLOPT_TLS_RECORD_SIZE_LIMIT,
 +                   config->tls_record_size_limit);
-+ 
++
 +  if(config->tls_key_shares_limit)
 +    my_setopt_long(curl, CURLOPT_TLS_KEY_SHARES_LIMIT,
 +                   config->tls_key_shares_limit);
@@ -11277,7 +11278,7 @@ index b6c242dad6..893a10d7a4 100644
    /* curl 7.16.0 */
    if(config->disable_sessionid)
      /* disable it */
-@@ -561,6 +623,9 @@ static CURLcode cookie_setopts(struct OperationConfig *config, CURL *curl)
+@@ -561,6 +624,9 @@ static CURLcode cookie_setopts(struct OperationConfig *config, CURL *curl)
      MY_SETOPT_STR(curl, CURLOPT_COOKIEJAR, config->cookiejar);
  
    my_setopt_long(curl, CURLOPT_COOKIESESSION, config->cookiesession);
@@ -11287,7 +11288,7 @@ index b6c242dad6..893a10d7a4 100644
  
    return result;
  }
-@@ -699,6 +764,84 @@ static CURLcode http_setopts(struct OperationConfig *config, CURL *curl,
+@@ -699,6 +765,84 @@ static CURLcode http_setopts(struct OperationConfig *config, CURL *curl,
    if(config->hsts)
      MY_SETOPT_STR(curl, CURLOPT_HSTS, config->hsts);
  
@@ -11372,7 +11373,7 @@ index b6c242dad6..893a10d7a4 100644
    if(config->expect100timeout_ms > 0)
      my_setopt_long(curl, CURLOPT_EXPECT_100_TIMEOUT_MS,
                     config->expect100timeout_ms);
-@@ -868,6 +1011,10 @@ static CURLcode proxy_setopts(struct OperationConfig *config, CURL *curl)
+@@ -868,6 +1012,10 @@ static CURLcode proxy_setopts(struct OperationConfig *config, CURL *curl)
    if(config->haproxy_clientip)
      MY_SETOPT_STR(curl, CURLOPT_HAPROXY_CLIENT_IP, config->haproxy_clientip);
  
@@ -11383,7 +11384,7 @@ index b6c242dad6..893a10d7a4 100644
    MY_SETOPT_STR(curl, CURLOPT_PROXY_KEYPASSWD, config->proxy_key_passwd);
  
    return result;
-@@ -949,11 +1096,13 @@ static CURLcode credentials_and_headers_setopts(struct OperationConfig *config,
+@@ -949,11 +1097,13 @@ static CURLcode credentials_and_headers_setopts(struct OperationConfig *config,
      my_setopt_bitmask(curl, CURLOPT_HTTPAUTH, config->authtype);
  
    my_setopt_slist(curl, CURLOPT_HTTPHEADER, config->headers);
@@ -11399,7 +11400,7 @@ index b6c242dad6..893a10d7a4 100644
    }
  
    MY_SETOPT_STR(curl, CURLOPT_KEYPASSWD, config->key_passwd);
-@@ -982,6 +1131,13 @@ static CURLcode transfer_setopts(struct OperationConfig *config,
+@@ -982,6 +1132,13 @@ static CURLcode transfer_setopts(struct OperationConfig *config,
    if(result)
      return result;
  
@@ -11935,7 +11936,7 @@ index ae3958d8c5..b6ece1dcbd 100644
      break;
    case C_OUTPUT_DIR: /* --output-dir */
 diff --git a/src/tool_getparam.h b/src/tool_getparam.h
-index 92495a4de6..9e486c3690 100644
+index 92495a4de6..8bbfa25407 100644
 --- a/src/tool_getparam.h
 +++ b/src/tool_getparam.h
 @@ -31,6 +31,7 @@
@@ -12039,11 +12040,12 @@ index 92495a4de6..9e486c3690 100644
    C_SSL,
    C_SSL_ALLOW_BEAST,
    C_SSL_AUTO_CLIENT_CERT,
-@@ -284,7 +310,17 @@ typedef enum {
+@@ -283,8 +309,18 @@ typedef enum {
+   C_TFTP_BLKSIZE,
    C_TFTP_NO_OPTIONS,
    C_TIME_COND,
-   C_TLS_EARLYDATA,
 +  C_TLS_DELEGATED_CREDENTIALS,
+   C_TLS_EARLYDATA,
 +  C_TLS_EXTENSION_ORDER,
 +  C_TLS_GREASE,
 +  C_TLS_KEY_SHARES_LIMIT,
