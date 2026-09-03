@@ -1,6 +1,6 @@
 diff --git a/AGENTS.md b/AGENTS.md
 new file mode 100644
-index 0000000000..b2b73e37f7
+index 0000000000..d4fd2f5435
 --- /dev/null
 +++ b/AGENTS.md
 @@ -0,0 +1,104 @@
@@ -24,11 +24,11 @@ index 0000000000..b2b73e37f7
 +- nghttp3, ../nghttp3
 +- curl-impersonate, ../curl-impersonate
 +
-+## Fork Delta (vs `curl-8_21_0`)
-+Baseline check: `git diff --stat curl-8_21_0`.
-+Current delta: **72 files changed, +7788/-462**.
++## Fork Delta (vs `curl-8_22_0`)
++Baseline check: `git diff --stat curl-8_22_0`.
++Current delta: **86 files changed, +8642/-491**.
 +
-+- Impersonation core: `lib/impersonate.c` + `lib/impersonate.h` with 38 preset targets (Chrome/Edge/Firefox/Safari/Tor/OkHttp variants).
++- Impersonation core: `lib/impersonate.c` + `lib/impersonate.h` with 39 preset targets (Chrome/Edge/Firefox/Safari/Tor/OkHttp variants).
 +- Public API additions: `curl_easy_impersonate()` and new `CURLOPT_*` for TLS/HTTP2 fingerprints (`CURLOPT_IMPERSONATE`, `CURLOPT_HTTPBASEHEADER`, `CURLOPT_HTTP2_SETTINGS`, `CURLOPT_TLS_EXTENSION_ORDER`, etc.).
 +- Tooling additions: `curl-impersonate` and tuning flags such as `--impersonate`, `--http2-pseudo-headers-order`, `--tls-permute-extensions`, and `--proxy-credential-no-reuse`.
 +- Network behavior changes: HTTP/2 priority/pseudo-header ordering, browser-style header merge, WebSocket impersonation, HTTP/3 fingerprint switching, and QUIC-over-SOCKS5 UDP ASSOCIATE (`socks5h` included).
@@ -1230,7 +1230,7 @@ index baca4682f0..f9ca9a36b4 100644
        if(bs->max_concurrent)
          cf_ip_ballers_prune(bs, cf, data, bs->max_concurrent - 1);
 diff --git a/lib/cf-setup.c b/lib/cf-setup.c
-index 2d77b1cb6d..58411ebe1d 100644
+index 2d77b1cb6d..7d105dcd08 100644
 --- a/lib/cf-setup.c
 +++ b/lib/cf-setup.c
 @@ -98,7 +98,7 @@ static CURLcode cf_setup_add_socks(struct Curl_cfilter *cf,
@@ -1269,7 +1269,7 @@ index 2d77b1cb6d..58411ebe1d 100644
 +      struct Curl_peer *peer =
 +        Curl_conn_get_destination(cf->conn, cf->sockindex);
 +
-+      result = Curl_cf_quic_insert_after(cf, origin, peer);
++      result = Curl_cf_quic_insert_after(cf, data, origin, peer);
 +      if(result) {
 +        CURL_TRC_CF(data, cf, "adding QUIC over SOCKS failed -> %d",
 +                    (int)result);
@@ -1355,25 +1355,6 @@ index 870a98ecbd..201d57504e 100644
  #ifdef USE_IPV6
    if(ctx->addr.family == AF_INET6) {
  #ifdef USE_WINSOCK
-diff --git a/lib/cfilters.c b/lib/cfilters.c
-index 6ffa262eb1..d611d9745c 100644
---- a/lib/cfilters.c
-+++ b/lib/cfilters.c
-@@ -775,11 +775,10 @@ CURLcode Curl_conn_adjust_pollset(struct Curl_easy *data,
-    * against the transfer's own interest, before any chain added sockets
-    * of its own. */
-   for(i = 0; (i < (int)CURL_ARRAYSIZE(conn->cfilter)) && !result; ++i) {
--    if(conn->cfilter[i] &&
--       (want_io || !Curl_conn_is_connected(conn, i) ||
--        Curl_shutdown_started(conn, i)))
-+     if(conn->cfilter[i] &&
-+        (want_io || !Curl_conn_is_connected(conn, i) ||
-+         Curl_shutdown_started(conn, i)))
-       result = Curl_conn_cf_adjust_pollset(conn->cfilter[i], data, ps);
--  }
-   return result;
- }
- 
 diff --git a/lib/cookie.c b/lib/cookie.c
 index 3255668ec7..1a4cc53457 100644
 --- a/lib/cookie.c
