@@ -40,8 +40,8 @@ set(ZLIB_VERSION "1.3.1")
 set(ZLIB_URL_HASH "SHA256=9a93b2b7dfdac77ceba5a558a580e74667dd6fede4585b91eefb60f03b72df23")
 set(ZSTD_VERSION "1.5.7")
 set(ZSTD_URL_HASH "SHA256=eb33e51f49a15e023950cd7825ca74a4a2b43db8354825ac24fc1b7ee09e6fa3")
-set(CURL_VERSION "curl-8_21_0")
-set(CURL_URL_HASH "SHA256=ec753aa6f408a3ca9f0d6d5f7a77417aecd1544db13c03ae5d443612bf367364")
+set(CURL_VERSION "curl-8_22_0")
+set(CURL_URL_HASH "SHA256=222c6b5c1f368ac63aed59bce2774eb5def9e8e67e46e800be182e684d2845a3")
 
 set(CURL_IMPERSONATE_VERSION "" CACHE STRING
   "Override the curl-impersonate version (defaults to an exact clean Git tag or local)")
