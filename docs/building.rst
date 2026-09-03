@@ -57,9 +57,16 @@ Configure and build:
     # Optionally remove all the build files
     cd ../ && rm -Rf build
 
-This installs curl-impersonate, libcurl-impersonate, and the wrapper scripts to
-``/usr/local``. To change the installation path, pass
+This installs curl-impersonate, libcurl-impersonate, its development headers under
+``/usr/local/include/curl-impersonate``, and the wrapper scripts to ``/usr/local``.
+Keeping the headers in a project-specific directory allows the regular curl development
+headers to be installed at the same time. To change the installation path, pass
 ``--prefix=/path/to/install/`` to ``configure``.
+
+To restore the original ``include/curl`` header layout for an isolated installation,
+configure the CMake build with
+``-DCURL_IMPERSONATE_ORIGINAL_HEADER_LAYOUT=ON``. This layout conflicts with regular
+curl's development headers when both are installed under the same prefix.
 
 After installation, you can run the wrapper scripts, for example:
 

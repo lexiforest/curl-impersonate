@@ -107,6 +107,9 @@ option(USE_LIBIDN2 "Build and use libidn2/libunistring for IDN support" ${_use_l
 option(CURL_SUBPROJECT_FORCE_OPENSSL_PATHS
   "Pass explicit OPENSSL_* paths to the curl subproject"
   ON)
+option(CURL_IMPERSONATE_ORIGINAL_HEADER_LAYOUT
+  "Install public headers under include/curl instead of include/curl-impersonate/curl"
+  OFF)
 set(CURL_IMPERSONATE_CXX_RUNTIME_LIBRARY "stdc++" CACHE STRING
   "C++ runtime library used to link static BoringSSL")
 set(CURL_CA_BUNDLE "" CACHE STRING "CA bundle for curl ('auto', 'none', or full path)")
@@ -680,9 +683,15 @@ else()
       PATTERN "libcurl-impersonate*.dylib*"
   )
 endif()
+if(CURL_IMPERSONATE_ORIGINAL_HEADER_LAYOUT)
+  set(_curl_impersonate_header_destination "${CMAKE_INSTALL_INCLUDEDIR}")
+else()
+  set(_curl_impersonate_header_destination
+    "${CMAKE_INSTALL_INCLUDEDIR}/curl-impersonate")
+endif()
 install(
   DIRECTORY "${DEPS_SRC_DIR}/curl/include/curl"
-  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+  DESTINATION "${_curl_impersonate_header_destination}"
   FILES_MATCHING
     PATTERN "*.h"
 )

@@ -272,6 +272,8 @@ jobs:
           else
             ${{ matrix.make }} install-strip BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$cmake_args"
           fi
+          test -f "$install_dir/include/curl-impersonate/curl/curl.h"
+          test ! -e "$install_dir/include/curl/curl.h"
 
       - name: Create tar release files
         run: |
@@ -437,6 +439,9 @@ jobs:
             echo "$v" | grep -q BoringSSL
 
             gmake install-strip BUILD_DIR=build-freebsd CMAKE_CONFIGURE_ARGS="$cmake_args"
+
+            test -f "$install_dir/include/curl-impersonate/curl/curl.h"
+            test ! -e "$install_dir/include/curl/curl.h"
 
             install_lib_dir="$install_dir/lib"
             deps_lib_dir="$PWD/build-freebsd/deps/install/lib"

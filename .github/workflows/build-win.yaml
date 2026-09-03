@@ -76,6 +76,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          test -f packages/include/curl-impersonate/curl/curl.h
+          test ! -e packages/include/curl/curl.h
           suffix="${{ matrix.env }}-win32"
           if [[ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]]; then
             ver="${{ github.head_ref || github.ref_name }}"
