@@ -117,6 +117,7 @@ The following browsers can be impersonated. For a full list of browser profiles,
 | ![Firefox](https://github.com/alrra/browser-logos/blob/main/src/firefox/firefox_24x24.png "Firefox") | 135.0 | macOS Sonoma | `firefox135` | [curl_firefox135](bin/curl_firefox135) |
 | ![Firefox](https://github.com/alrra/browser-logos/blob/main/src/firefox/firefox_24x24.png "Firefox") | 144.0 | macOS Tahoe | `firefox144` | [curl_firefox144](bin/curl_firefox144) |
 | ![Firefox](https://github.com/alrra/browser-logos/blob/main/src/firefox/firefox_24x24.png "Firefox") | 147.0 | macOS Tahoe | `firefox147` | [curl_firefox147](bin/curl_firefox147) | ✅ |
+| ![Firefox](https://github.com/alrra/browser-logos/blob/main/src/firefox/firefox_24x24.png "Firefox") | 154.0 | macOS Tahoe | `firefox154` | [curl_firefox154](bin/curl_firefox154) | ✅ |
 | ![Tor](https://github.com/alrra/browser-logos/blob/main/src/tor/tor_24x24.png "Tor") | 14.5 | macOS Sonoma | `tor145` | [curl_tor145](bin/curl_tor145) |
 
 <small>

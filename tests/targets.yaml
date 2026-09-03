@@ -127,6 +127,10 @@
   - null
   - null
   - firefox_144.0.0_macOS
+- - curl_firefox154
+  - null
+  - null
+  - firefox_154.0_macOS
 - - curl_tor145
   - null
   - null
