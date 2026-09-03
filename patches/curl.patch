@@ -122,24 +122,10 @@ index 953c1c6ee6..1174eb4181 100644
      if(${_curl_test})
        set(${_curl_test} 1 CACHE INTERNAL "curl test")
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index e459b3d076..9dbdf8450d 100644
+index e459b3d076..1bc3795713 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -65,6 +65,13 @@ project(CURL
-   VERSION "${_curl_version_sem}"
-   LANGUAGES C)
- 
-+set(CURL_IMPERSONATE_VERSION "local" CACHE STRING
-+  "curl-impersonate version reported by curl_version()")
-+string(TIMESTAMP CURL_IMPERSONATE_BUILD_DATE "%Y-%m-%d" UTC)
-+add_compile_definitions(
-+  "CURL_IMPERSONATE_VERSION=\"${CURL_IMPERSONATE_VERSION}\""
-+  "CURL_IMPERSONATE_BUILD_DATE=\"${CURL_IMPERSONATE_BUILD_DATE}\"")
-+
- # CMake does not recognize some targets accurately. Touch up configuration manually as a workaround.
- if(WINDOWS_STORE AND MINGW)  # MinGW UWP build
-   # CMake (as of v3.31.2) gets confused and applies the MSVC rc.exe command-line
-@@ -153,8 +160,8 @@ if(CURL_PATCHSTAMP)
+@@ -153,8 +153,8 @@ if(CURL_PATCHSTAMP)
    set(CURL_PATCHSTAMP "\"${CURL_PATCHSTAMP}\"")
  endif()
  
@@ -150,7 +136,7 @@ index e459b3d076..9dbdf8450d 100644
  
  set_property(DIRECTORY APPEND PROPERTY INCLUDE_DIRECTORIES "${PROJECT_SOURCE_DIR}/include")
  
-@@ -858,9 +865,15 @@ if(CURL_USE_OPENSSL)
+@@ -858,9 +858,15 @@ if(CURL_USE_OPENSSL)
          message(WARNING "AWS-LC/BoringSSL requires POSIX Threads.")
        endif()
      endif()
@@ -169,7 +155,7 @@ index e459b3d076..9dbdf8450d 100644
      endif()
    endif()
  
-@@ -2105,7 +2118,7 @@ endif()
+@@ -2105,7 +2111,7 @@ endif()
  
  if(NOT CURL_DISABLE_INSTALL)
  
@@ -178,7 +164,7 @@ index e459b3d076..9dbdf8450d 100644
    set(CC                      "${CMAKE_C_COMPILER}")
    set(CONFIGURE_OPTIONS       "")
    set(CURLVERSION             "${_curl_version}")
-@@ -2303,7 +2316,7 @@ if(NOT CURL_DISABLE_INSTALL)
+@@ -2303,7 +2309,7 @@ if(NOT CURL_DISABLE_INSTALL)
      set(ENABLE_STATIC       "no")
    endif()
  
@@ -187,7 +173,7 @@ index e459b3d076..9dbdf8450d 100644
    # Consumed variables:
    #   CC
    #   CONFIGURE_OPTIONS
-@@ -2325,8 +2338,8 @@ if(NOT CURL_DISABLE_INSTALL)
+@@ -2325,8 +2331,8 @@ if(NOT CURL_DISABLE_INSTALL)
    #   VERSIONNUM
    configure_file(
      "${PROJECT_SOURCE_DIR}/curl-config.in"
@@ -198,7 +184,7 @@ index e459b3d076..9dbdf8450d 100644
      DESTINATION ${CMAKE_INSTALL_BINDIR}
      PERMISSIONS
        OWNER_READ OWNER_WRITE OWNER_EXECUTE
-@@ -2463,7 +2476,7 @@ if(NOT CURL_DISABLE_INSTALL)
+@@ -2463,7 +2469,7 @@ if(NOT CURL_DISABLE_INSTALL)
    endif()
  
    if(BUILD_CURL_EXE)
@@ -7535,31 +7521,6 @@ index d4d336d8db..e5a16ca84d 100644
    BIT(post301); /* keep POSTs as POSTs after a 301 request */
    BIT(post302); /* keep POSTs as POSTs after a 302 request */
    BIT(post303); /* keep POSTs as POSTs after a 303 request */
-diff --git a/lib/version.c b/lib/version.c
-index 299caee9fb..89b1fc45f2 100644
---- a/lib/version.c
-+++ b/lib/version.c
-@@ -135,7 +135,11 @@ static void idn_version(char *buf, size_t bufsz)
-  * zeros in the data.
-  */
- 
--#define VERSION_PARTS 16 /* number of substrings we can concatenate */
-+#define VERSION_PARTS 17 /* number of substrings we can concatenate */
-+
-+#ifndef CURL_IMPERSONATE_VERSION
-+#define CURL_IMPERSONATE_VERSION "local"
-+#endif
- 
- char *curl_version(void)
- {
-@@ -255,6 +259,7 @@ char *curl_version(void)
-   Curl_ldap_version(ldap_buf, sizeof(ldap_buf));
-   src[i++] = ldap_buf;
- #endif
-+  src[i++] = "curl-impersonate/" CURL_IMPERSONATE_VERSION;
- 
-   DEBUGASSERT(i <= VERSION_PARTS);
- 
 diff --git a/lib/vquic/cf-ngtcp2-cmn.c b/lib/vquic/cf-ngtcp2-cmn.c
 index e1ca18cf69..ca4f2e94f8 100644
 --- a/lib/vquic/cf-ngtcp2-cmn.c
@@ -9152,7 +9113,7 @@ index dfb8346c1a..602402e256 100644
    return CURLE_OK;
  }
 diff --git a/lib/vtls/openssl.c b/lib/vtls/openssl.c
-index 010bbb9825..4cc9b96fc7 100644
+index 010bbb9825..6b7ad309a8 100644
 --- a/lib/vtls/openssl.c
 +++ b/lib/vtls/openssl.c
 @@ -39,6 +39,7 @@
@@ -9717,7 +9678,7 @@ index 010bbb9825..4cc9b96fc7 100644
  
    /* mitigate CVE-2010-4180 */
    ctx_options &= ~(ctx_option_t)SSL_OP_NETSCAPE_REUSE_CIPHER_CHANGE_BUG;
-@@ -3815,10 +4295,29 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
+@@ -3815,6 +4295,21 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
    /* We do retry writes sometimes from another buffer address */
    SSL_CTX_set_mode(octx->ssl_ctx, SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
  
@@ -9739,15 +9700,7 @@ index 010bbb9825..4cc9b96fc7 100644
    ciphers = conn_config->cipher_list;
    if(!ciphers && (peer->transport != TRNSPRT_QUIC))
      ciphers = NULL;
-+#ifdef OPENSSL_IS_BORINGSSL
-+  if(ciphers) {
-+#else
-   if(ciphers && (ssl_version_min < CURL_SSLVERSION_TLSv1_3)) {
-+#endif
-     if(!SSL_CTX_set_cipher_list(octx->ssl_ctx, ciphers)) {
-       failf(data, "failed setting cipher list: %s", ciphers);
-       return CURLE_SSL_CIPHER;
-@@ -3859,7 +4358,8 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
+@@ -3859,7 +4354,8 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
  #endif
  
    {
@@ -9757,7 +9710,7 @@ index 010bbb9825..4cc9b96fc7 100644
      if(curves) {
  #ifdef HAVE_BORINGSSL_LIKE
  #define OSSL_CURVE_CAST(x) (x)
-@@ -3873,10 +4373,12 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
+@@ -3873,10 +4369,12 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
      }
    }
  
@@ -9772,7 +9725,7 @@ index 010bbb9825..4cc9b96fc7 100644
      if(signature_algorithms) {
        if(!SSL_CTX_set1_sigalgs_list(octx->ssl_ctx,
                                      OSSL_SIGALG_CAST(signature_algorithms))) {
-@@ -3888,6 +4390,35 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
+@@ -3888,6 +4386,35 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
    }
  #endif
  
@@ -9808,7 +9761,7 @@ index 010bbb9825..4cc9b96fc7 100644
  #if defined(HAVE_OPENSSL_SRP) && defined(USE_TLS_SRP)
    if(ssl_config->primary.username && Curl_auth_allowed_to_host(data)) {
      char * const ssl_username = ssl_config->primary.username;
-@@ -3913,6 +4444,76 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
+@@ -3913,6 +4440,76 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
    }
  #endif /* HAVE_OPENSSL_SRP && USE_TLS_SRP */
  
@@ -9885,7 +9838,7 @@ index 010bbb9825..4cc9b96fc7 100644
    /* OpenSSL always tries to verify the peer. By setting the failure mode
     * to NONE, we allow the connect to complete, regardless of the outcome.
     * We then explicitly check the result and may try alternatives like
-@@ -4253,8 +4854,10 @@ static CURLcode ossl_connect_step2(struct Curl_cfilter *cf,
+@@ -4253,8 +4850,10 @@ static CURLcode ossl_connect_step2(struct Curl_cfilter *cf,
  #endif
        else {
          result = CURLE_SSL_CONNECT_ERROR;
@@ -9898,7 +9851,7 @@ index 010bbb9825..4cc9b96fc7 100644
        }
  
        /* detail is already set to the SSL error above */
-@@ -4267,10 +4870,20 @@ static CURLcode ossl_connect_step2(struct Curl_cfilter *cf,
+@@ -4267,10 +4866,20 @@ static CURLcode ossl_connect_step2(struct Curl_cfilter *cf,
          char extramsg[80] = "";
          int sockerr = SOCKERRNO;
  
@@ -9922,7 +9875,7 @@ index 010bbb9825..4cc9b96fc7 100644
                connssl->peer.origin->hostname, connssl->peer.origin->port);
        }
  
-@@ -4282,6 +4895,22 @@ static CURLcode ossl_connect_step2(struct Curl_cfilter *cf,
+@@ -4282,6 +4891,22 @@ static CURLcode ossl_connect_step2(struct Curl_cfilter *cf,
      connssl->connecting_state = ssl_connect_3;
      Curl_ossl_report_handshake(data, octx);
  
@@ -10514,7 +10467,7 @@ index 92eaa7a751..44618edc29 100644
      goto out;
  
 diff --git a/lib/ws.c b/lib/ws.c
-index 9820c3e4bd..75d1c38a7b 100644
+index 9820c3e4bd..325ba97404 100644
 --- a/lib/ws.c
 +++ b/lib/ws.c
 @@ -27,6 +27,20 @@
@@ -10774,163 +10727,7 @@ index 9820c3e4bd..75d1c38a7b 100644
  };
  
  /* Control frames are allowed up to 125 characters, rfc6455, ch. 5.5 */
-@@ -364,25 +596,28 @@ static CURLcode ws_dec_read_head(struct ws_decoder *dec,
- {
-   const uint8_t *inbuf;
-   size_t inlen;
-+  uint8_t len_byte;
-+  int hlen;
- 
-   while(Curl_bufq_peek(inraw, &inbuf, &inlen)) {
-     if(dec->head_len == 0) {
--      dec->head[0] = *inbuf;
--      Curl_bufq_skip(inraw, 1);
--
--      dec->frame_flags = ws_frame_firstbyte2flags(data, dec->head[0],
--                                                  dec->cont_flags);
--      if(!dec->frame_flags) {
--        ws_dec_reset(dec);
--        return CURLE_RECV_ERROR;
--      }
--
--      /* fragmentation only applies to data frames (text/binary);
--       * control frames (close/ping/pong) do not affect the CONT status */
--      if(dec->frame_flags & (CURLWS_TEXT | CURLWS_BINARY)) {
--        dec->cont_flags = dec->frame_flags;
-+      /* Contiguous header parsing fast path */
-+      if(inlen >= 2) {
-+        len_byte = inbuf[1] & 0x7F;
-+        hlen = (len_byte == 127) ? 10 : ((len_byte == 126) ? 4 : 2);
-+
-+        if(inlen >= (size_t)hlen) {
-+          memcpy(dec->head, inbuf, hlen);
-+          Curl_bufq_skip(inraw, hlen);
-+          dec->head_len = hlen;
-+          dec->head_total = hlen;
-+          goto parse_complete;
-+        }
-       }
- 
-+      /* Slow path, first byte */
-+      dec->head[0] = *inbuf;
-+      Curl_bufq_skip(inraw, 1);
-       dec->head_len = 1;
- #if 0
-       ws_dec_info(dec, data, "seeing opcode");
-@@ -390,41 +625,17 @@ static CURLcode ws_dec_read_head(struct ws_decoder *dec,
-       continue;
-     }
-     else if(dec->head_len == 1) {
-+      /* Slow path, second byte */
-       dec->head[1] = *inbuf;
-       Curl_bufq_skip(inraw, 1);
-       dec->head_len = 2;
- 
--      if(dec->head[1] & WSBIT_MASK) {
--        /* A client MUST close a connection if it detects a masked frame. */
--        failf(data, "[WS] masked input frame");
--        ws_dec_reset(dec);
--        return CURLE_RECV_ERROR;
--      }
--      if(dec->frame_flags & CURLWS_PING && dec->head[1] > WS_MAX_CNTRL_LEN) {
--        /* The maximum valid size of PING frames is 125 bytes.
--           Accepting overlong pings would mean sending equivalent pongs! */
--        failf(data, "[WS] received PING frame is too big");
--        ws_dec_reset(dec);
--        return CURLE_RECV_ERROR;
--      }
--      if(dec->frame_flags & CURLWS_PONG && dec->head[1] > WS_MAX_CNTRL_LEN) {
--        /* The maximum valid size of PONG frames is 125 bytes. */
--        failf(data, "[WS] received PONG frame is too big");
--        ws_dec_reset(dec);
--        return CURLE_RECV_ERROR;
--      }
--      if(dec->frame_flags & CURLWS_CLOSE && dec->head[1] > WS_MAX_CNTRL_LEN) {
--        failf(data, "[WS] received CLOSE frame is too big");
--        ws_dec_reset(dec);
--        return CURLE_RECV_ERROR;
--      }
--
-       /* How long is the frame head? */
--      if(dec->head[1] == 126) {
-+      if((dec->head[1] & 0x7F) == 126) {
-         dec->head_total = 4;
-         continue;
-       }
--      else if(dec->head[1] == 127) {
-+      else if((dec->head[1] & 0x7F) == 127) {
-         dec->head_total = 10;
-         continue;
-       }
-@@ -434,6 +645,7 @@ static CURLcode ws_dec_read_head(struct ws_decoder *dec,
-     }
- 
-     if(dec->head_len < dec->head_total) {
-+      /* Slow path, bytes 2-9 */
-       dec->head[dec->head_len] = *inbuf;
-       Curl_bufq_skip(inraw, 1);
-       ++dec->head_len;
-@@ -444,11 +656,57 @@ static CURLcode ws_dec_read_head(struct ws_decoder *dec,
-         continue;
-       }
-     }
--    /* got the complete frame head */
-+
-+parse_complete:
-+    /* COMMON HEADER VALIDATION & DECODING */
-+    /* The complete frame header was received */
-     DEBUGASSERT(dec->head_len == dec->head_total);
-+
-+    dec->frame_flags = ws_frame_firstbyte2flags(data, dec->head[0],
-+                                                dec->cont_flags);
-+    if(!dec->frame_flags) {
-+      ws_dec_reset(dec);
-+      return CURLE_RECV_ERROR;
-+    }
-+
-+    /* fragmentation only applies to data frames (text/binary);
-+     * control frames (close/ping/pong) do not affect the CONT status */
-+    if(dec->frame_flags & (CURLWS_TEXT | CURLWS_BINARY)) {
-+      dec->cont_flags = dec->frame_flags;
-+    }
-+
-+    if(dec->head[1] & WSBIT_MASK) {
-+      /* A client MUST close a connection if it detects a masked frame. */
-+      failf(data, "[WS] masked input frame");
-+      ws_dec_reset(dec);
-+      return CURLE_RECV_ERROR;
-+    }
-+
-+    if((dec->head[1] & 0x7F) > WS_MAX_CNTRL_LEN) {
-+      if(dec->frame_flags & CURLWS_PING) {
-+        /* The maximum valid size of PING frames is 125 bytes.
-+           Accepting overlong pings would mean sending equivalent pongs! */
-+        failf(data, "[WS] received PING frame is too big");
-+        ws_dec_reset(dec);
-+        return CURLE_RECV_ERROR;
-+      }
-+      if(dec->frame_flags & CURLWS_PONG) {
-+        /* The maximum valid size of PONG frames is 125 bytes. */
-+        failf(data, "[WS] received PONG frame is too big");
-+        ws_dec_reset(dec);
-+        return CURLE_RECV_ERROR;
-+      }
-+      if(dec->frame_flags & CURLWS_CLOSE) {
-+        /* The maximum valid size of CLOSE frames is 125 bytes. */
-+        failf(data, "[WS] received CLOSE frame is too big");
-+        ws_dec_reset(dec);
-+        return CURLE_RECV_ERROR;
-+      }
-+    }
-+
-     switch(dec->head_total) {
-     case 2:
--      dec->payload_len = dec->head[1];
-+      dec->payload_len = dec->head[1] & 0x7F;
-       break;
-     case 4:
-       dec->payload_len = (dec->head[2] << 8) | dec->head[3];
-@@ -753,9 +1011,10 @@ static CURLcode ws_cw_write(struct Curl_easy *data,
+@@ -753,9 +985,10 @@ static CURLcode ws_cw_write(struct Curl_easy *data,
      }
    }
  
@@ -10944,7 +10741,7 @@ index 9820c3e4bd..75d1c38a7b 100644
      result = CURLE_RECV_ERROR;
    }
  
-@@ -951,34 +1210,127 @@ static CURLcode ws_enc_write_payload(struct ws_encoder *enc,
+@@ -951,34 +1184,122 @@ static CURLcode ws_enc_write_payload(struct ws_encoder *enc,
                                       const uint8_t *buf, size_t buflen,
                                       struct bufq *out, size_t *pnwritten)
  {
@@ -10954,21 +10751,9 @@ index 9820c3e4bd..75d1c38a7b 100644
 +  size_t i = 0;
 +  size_t len;
 +  size_t remain;
-+  uint8_t mask[4];
-+  size_t chunk;
-+  size_t j;
-+  size_t xbuf_idx;
 +#if defined(WS_HAVE_X86_SIMD) && WS_IS_LITTLE_ENDIAN
-+  static uint32_t cpu_feats = 0;
++  static uint32_t cpu_feats;
 +  uint32_t features;
-+#endif
-+#if WS_IS_LITTLE_ENDIAN
-+  uint32_t mask32;
-+  uint32_t data32;
-+#endif
-+#if WS_IS_LITTLE_ENDIAN && WS_64BIT_NATIVE
-+  uint64_t mask64;
-+  uint64_t data64;
 +#endif
  
    *pnwritten = 0;
@@ -11005,9 +10790,13 @@ index 9820c3e4bd..75d1c38a7b 100644
 +#endif
 +
 +  while(i < len) {
-+    chunk = CURLMIN(len - i, (size_t)WS_ENC_XBUF_SIZE);
-+    j = 0;
-+    xbuf_idx = 0;
++    uint8_t mask[4];
++    size_t chunk = CURLMIN(len - i, (size_t)WS_ENC_XBUF_SIZE);
++    size_t j = 0;
++    size_t xbuf_idx = 0;
++#if WS_IS_LITTLE_ENDIAN
++    uint32_t mask32;
++#endif
 +
 +    /* Rotate the four-byte mask to the current frame offset. */
 +    mask[0] = enc->mask[enc->xori];
@@ -11018,8 +10807,7 @@ index 9820c3e4bd..75d1c38a7b 100644
 +#if WS_IS_LITTLE_ENDIAN
 +    memcpy(&mask32, mask, sizeof(mask32));
 +
-+    /* SIMD ladder: 128, 64 or 32 bytes per iteration.
-+     * Only invoke SIMD functions if we have enough payload to execute */
++    /* SIMD ladder: 128, 64 or 32 bytes per iteration. */
 +#ifdef WS_HAVE_X86_SIMD
 +#if defined(WS_SUPPORT_AVX_RUNTIME) || defined(__AVX512F__)
 +    if((features & WS_CPU_FEAT_AVX512) && chunk >= 128)
@@ -11036,14 +10824,18 @@ index 9820c3e4bd..75d1c38a7b 100644
 +
 +    /* Scalar ladder: eight or four bytes per iteration. */
 +#if WS_64BIT_NATIVE
-+    mask64 = ((uint64_t)mask32 << 32) | mask32;
-+    for(; j + 8 <= chunk; j += 8) {
-+      memcpy(&data64, buf + i + j, sizeof(data64));
-+      data64 ^= mask64;
-+      memcpy(enc->xbuf + j, &data64, sizeof(data64));
++    {
++      uint64_t mask64 = ((uint64_t)mask32 << 32) | mask32;
++      for(; j + 8 <= chunk; j += 8) {
++        uint64_t data64;
++        memcpy(&data64, buf + i + j, sizeof(data64));
++        data64 ^= mask64;
++        memcpy(enc->xbuf + j, &data64, sizeof(data64));
++      }
 +    }
 +#endif
 +    for(; j + 4 <= chunk; j += 4) {
++      uint32_t data32;
 +      memcpy(&data32, buf + i + j, sizeof(data32));
 +      data32 ^= mask32;
 +      memcpy(enc->xbuf + j, &data32, sizeof(data32));
@@ -11085,7 +10877,7 @@ index 9820c3e4bd..75d1c38a7b 100644
  }
  
  static CURLcode ws_enc_add_pending(struct Curl_easy *data,
-@@ -1677,6 +2029,12 @@ static CURLcode ws_flush(struct Curl_easy *data, struct websocket *ws,
+@@ -1677,6 +1998,12 @@ static CURLcode ws_flush(struct Curl_easy *data, struct websocket *ws,
            result = CURLE_AGAIN;
        }
  
@@ -11098,7 +10890,7 @@ index 9820c3e4bd..75d1c38a7b 100644
        if(result == CURLE_AGAIN) {
          CURL_TRC_WS(data, "flush EAGAIN, %zu bytes remain in buffer",
                      Curl_bufq_len(&ws->sendbuf));
-@@ -1686,10 +2044,6 @@ static CURLcode ws_flush(struct Curl_easy *data, struct websocket *ws,
+@@ -1686,10 +2013,6 @@ static CURLcode ws_flush(struct Curl_easy *data, struct websocket *ws,
          failf(data, "[WS] flush, write error %d", (int)result);
          return result;
        }
@@ -12297,34 +12089,6 @@ index 32476d3776..3fb231549b 100644
    C_WRITE_OUT,
    C_XATTR
  } cmdline_t;
-diff --git a/src/tool_help.c b/src/tool_help.c
-index c9d76d5d20..7f0e0511db 100644
---- a/src/tool_help.c
-+++ b/src/tool_help.c
-@@ -312,6 +312,11 @@ static bool is_debug(void)
- void tool_version_info(void)
- {
-   const char * const *builtin;
-+#ifdef CURL_IMPERSONATE_BUILD_DATE
-+  const char *release_date = CURL_IMPERSONATE_BUILD_DATE;
-+#else
-+  const char *release_date = LIBCURL_TIMESTAMP;
-+#endif
-   if(is_debug())
-     curl_mfprintf(tool_stderr, "WARNING: this libcurl is Debug-enabled, "
-                   "do not use in production\n\n");
-@@ -319,9 +324,9 @@ void tool_version_info(void)
-   curl_mprintf(CURL_ID "%s\n", curl_version());
- #ifdef CURL_PATCHSTAMP
-   curl_mprintf("Release-Date: %s, security patched: %s\n",
--               LIBCURL_TIMESTAMP, CURL_PATCHSTAMP);
-+               release_date, CURL_PATCHSTAMP);
- #else
--  curl_mprintf("Release-Date: %s\n", LIBCURL_TIMESTAMP);
-+  curl_mprintf("Release-Date: %s\n", release_date);
- #endif
-   if(built_in_protos[0]) {
- #ifndef CURL_DISABLE_IPFS
 diff --git a/src/tool_listhelp.c b/src/tool_listhelp.c
 index c0b0af792f..3ec29e07bc 100644
 --- a/src/tool_listhelp.c
