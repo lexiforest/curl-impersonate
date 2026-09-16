@@ -88,6 +88,15 @@ TLS
   Controls Firefox-style delegated credentials. e.g. ``ecdsa_secp256r1_sha256:ecdsa_secp384r1_sha384:ecdsa_secp521r1_sha512:ecdsa_sha1``
   Command line: ``--tls-delegated-credentials <value>``.
 
+``CURLOPT_TLS_TRUST_ANCHORS`` (string)
+  Advertises requested trust anchor identifiers in the TLS ClientHello. The value is a
+  comma-separated list of relative OIDs in dotted-decimal notation, relative to the
+  ``1.3.6.1.4.1`` private-enterprise prefix. For example, ``32473.1,32473.2``. Spaces
+  and tabs around each identifier are ignored, and the identifiers are sent in random
+  order. An empty string advertises support without requesting a specific trust anchor.
+  This option does not change certificate verification or the local CA trust store.
+  Command line: ``--tls-trust-anchors <OID list>``.
+
 ``CURLOPT_TLS_RECORD_SIZE_LIMIT`` (long)
   Controls Firefox-style TLS record size limit behavior. The typical value is ``16385``
   Command line: ``--tls-record-size-limit <integer>``.

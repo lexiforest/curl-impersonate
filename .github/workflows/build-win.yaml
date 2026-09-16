@@ -76,6 +76,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          cmake -P build/CollectLicenses.cmake
+          license_dir="$GITHUB_WORKSPACE/build/licenses"
           suffix="${{ matrix.env }}-win32"
           if [[ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]]; then
             ver="${{ github.head_ref || github.ref_name }}"
@@ -85,8 +87,8 @@ jobs:
             curl_tar="curl-impersonate-${suffix}.tar.gz"
             lib_tar="libcurl-impersonate-${suffix}.tar.gz"
           fi
-          tar -czf "$curl_tar" -C packages/bin . -C "$GITHUB_WORKSPACE/packages" $LICENSE_FILES
-          tar -czf "$lib_tar" -C packages lib include $LICENSE_FILES
+          tar -czf "$curl_tar" -C packages/bin . -C "$license_dir" $LICENSE_FILES
+          tar -czf "$lib_tar" -C packages lib include -C "$license_dir" $LICENSE_FILES
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

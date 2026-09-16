@@ -40,8 +40,40 @@ set(ZLIB_VERSION "1.3.1")
 set(ZLIB_URL_HASH "SHA256=9a93b2b7dfdac77ceba5a558a580e74667dd6fede4585b91eefb60f03b72df23")
 set(ZSTD_VERSION "1.5.7")
 set(ZSTD_URL_HASH "SHA256=eb33e51f49a15e023950cd7825ca74a4a2b43db8354825ac24fc1b7ee09e6fa3")
-set(CURL_VERSION "curl-8_21_0")
-set(CURL_URL_HASH "SHA256=ec753aa6f408a3ca9f0d6d5f7a77417aecd1544db13c03ae5d443612bf367364")
+set(CURL_VERSION "curl-8_22_0")
+set(CURL_URL_HASH "SHA256=222c6b5c1f368ac63aed59bce2774eb5def9e8e67e46e800be182e684d2845a3")
+
+set(CURL_IMPERSONATE_VERSION "" CACHE STRING
+  "Override the curl-impersonate version (defaults to an exact clean Git tag or local)")
+set(_curl_impersonate_version "local")
+if(CURL_IMPERSONATE_VERSION)
+  set(_curl_impersonate_version "${CURL_IMPERSONATE_VERSION}")
+else()
+  find_package(Git QUIET)
+  if(GIT_FOUND)
+    execute_process(
+      COMMAND "${GIT_EXECUTABLE}" status --porcelain --untracked-files=normal
+      WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+      RESULT_VARIABLE _git_status_result
+      OUTPUT_VARIABLE _git_status
+      OUTPUT_STRIP_TRAILING_WHITESPACE
+      ERROR_QUIET
+    )
+    execute_process(
+      COMMAND "${GIT_EXECUTABLE}" describe --tags --exact-match HEAD
+      WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+      RESULT_VARIABLE _git_tag_result
+      OUTPUT_VARIABLE _git_tag
+      OUTPUT_STRIP_TRAILING_WHITESPACE
+      ERROR_QUIET
+    )
+    if(_git_status_result EQUAL 0 AND _git_status STREQUAL "" AND
+       _git_tag_result EQUAL 0 AND NOT _git_tag STREQUAL "")
+      string(REGEX REPLACE "^v" "" _curl_impersonate_version "${_git_tag}")
+    endif()
+  endif()
+endif()
+message(STATUS "curl-impersonate version: ${_curl_impersonate_version}")
 
 set(ZLIB_URL "https://github.com/madler/zlib/releases/download/v${ZLIB_VERSION}/zlib-${ZLIB_VERSION}.tar.gz")
 set(ZSTD_URL "https://github.com/facebook/zstd/releases/download/v${ZSTD_VERSION}/zstd-${ZSTD_VERSION}.tar.gz")
@@ -563,6 +595,7 @@ ExternalProject_Add(curl
       ${_curl_use_pkgconfig_flag}
       -DCURL_USE_OPENSSL=ON
       -DCURL_ENABLE_SSL=ON
+      -DCURL_IMPERSONATE_VERSION=${_curl_impersonate_version}
       ${_curl_openssl_flags}
       # Bypass BoringSSL check
       -DHAVE_DES_ECB_ENCRYPT=1
@@ -580,6 +613,7 @@ ExternalProject_Add(curl
       -DZSTD_LIBRARY=${_curl_zstd_library}
       -DUSE_NGHTTP2=ON
       -DUSE_NGTCP2=ON
+      -DUSE_PROXY_HTTP3=ON
       -DCURL_DISABLE_LDAP=ON
       -DCURL_DISABLE_LDAPS=ON
       # XXX: psl should be enabled in the future:
@@ -661,33 +695,13 @@ endif()
 if(_curl_wrapper_scripts)
   install(PROGRAMS ${_curl_wrapper_scripts} DESTINATION ${CMAKE_INSTALL_BINDIR})
 endif()
-function(_install_dependency_license project license_file output_name)
-  install(
-    FILES "${DEPS_SRC_DIR}/${project}/${license_file}"
-    DESTINATION "."
-    RENAME "${output_name}"
-  )
-endfunction()
 
-install(FILES "${CMAKE_SOURCE_DIR}/LICENSE" DESTINATION ".")
-_install_dependency_license(boringssl LICENSE LICENSE_BORINGSSL)
-_install_dependency_license(brotli LICENSE LICENSE_BROTLI)
-_install_dependency_license(curl COPYING LICENSE_CURL)
-_install_dependency_license(nghttp2 COPYING LICENSE_NGHTTP2)
-_install_dependency_license(nghttp3 COPYING LICENSE_NGHTTP3)
-_install_dependency_license(ngtcp2 COPYING LICENSE_NGTCP2)
-_install_dependency_license(zlib LICENSE LICENSE_ZLIB)
-_install_dependency_license(zstd LICENSE LICENSE_ZSTD)
-if(USE_LIBIDN2)
-  _install_dependency_license(libidn2 COPYING LICENSE_LIBIDN2_GPL3)
-  _install_dependency_license(libidn2 COPYINGv2 LICENSE_LIBIDN2_GPL2)
-  _install_dependency_license(
-    libidn2 COPYING.LESSERv3 LICENSE_LIBIDN2_LGPL3
-  )
-  _install_dependency_license(
-    libidn2 COPYING.unicode LICENSE_LIBIDN2_UNICODE
-  )
-endif()
+# Release workflows collect licenses separately from installation.
+configure_file(
+  "${CMAKE_SOURCE_DIR}/cmake/CollectLicenses.cmake.in"
+  "${CMAKE_BINARY_DIR}/CollectLicenses.cmake"
+  @ONLY
+)
 
 configure_file(
   "${CMAKE_SOURCE_DIR}/cmake/Uninstall.cmake.in"

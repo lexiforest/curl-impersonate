@@ -1,0 +1,37 @@
+# Run after building with: cmake -P <build-dir>/CollectLicenses.cmake
+# Stage license files for release archives without adding install rules.
+cmake_minimum_required(VERSION 3.20)
+set(_license_dir "@CMAKE_BINARY_DIR@/licenses")
+file(MAKE_DIRECTORY "${_license_dir}")
+
+function(_collect_dependency_license project license_file output_name)
+  configure_file(
+    "@DEPS_SRC_DIR@/${project}/${license_file}"
+    "${_license_dir}/${output_name}"
+    COPYONLY
+  )
+endfunction()
+
+configure_file("@CMAKE_SOURCE_DIR@/LICENSE" "${_license_dir}/LICENSE" COPYONLY)
+_collect_dependency_license(boringssl LICENSE LICENSE_BORINGSSL)
+_collect_dependency_license(brotli LICENSE LICENSE_BROTLI)
+_collect_dependency_license(curl COPYING LICENSE_CURL)
+_collect_dependency_license(nghttp2 COPYING LICENSE_NGHTTP2)
+_collect_dependency_license(nghttp3 COPYING LICENSE_NGHTTP3)
+_collect_dependency_license(ngtcp2 COPYING LICENSE_NGTCP2)
+_collect_dependency_license(zlib LICENSE LICENSE_ZLIB)
+_collect_dependency_license(zstd LICENSE LICENSE_ZSTD)
+if(@USE_LIBIDN2@)
+  _collect_dependency_license(libidn2 COPYING LICENSE_LIBIDN2_GPL3)
+  _collect_dependency_license(libidn2 COPYINGv2 LICENSE_LIBIDN2_GPL2)
+  _collect_dependency_license(libidn2 COPYING.LESSERv3 LICENSE_LIBIDN2_LGPL3)
+  _collect_dependency_license(libidn2 COPYING.unicode LICENSE_LIBIDN2_UNICODE)
+else()
+  # Discard optional files left by an earlier build with libidn2 enabled.
+  file(REMOVE
+    "${_license_dir}/LICENSE_LIBIDN2_GPL3"
+    "${_license_dir}/LICENSE_LIBIDN2_GPL2"
+    "${_license_dir}/LICENSE_LIBIDN2_LGPL3"
+    "${_license_dir}/LICENSE_LIBIDN2_UNICODE"
+  )
+endif()

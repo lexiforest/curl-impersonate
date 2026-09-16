@@ -42,10 +42,8 @@ Configure and build:
 
 .. code-block:: bash
 
-    mkdir build && cd build
-
-    # Optionally, use --enable-static for static binaries
-    ../configure
+    # Static linking with libcurl is enabled by default
+    make configure
 
     # Build and install
     make build
@@ -55,11 +53,12 @@ Configure and build:
     sudo ldconfig
 
     # Optionally remove all the build files
-    cd ../ && rm -Rf build
+    rm -Rf build
 
 This installs curl-impersonate, libcurl-impersonate, and the wrapper scripts to
 ``/usr/local``. To change the installation path, pass
-``--prefix=/path/to/install/`` to ``configure``.
+``CMAKE_CONFIGURE_ARGS="-DCMAKE_INSTALL_PREFIX=/path/to/install/"`` to
+``make configure``.
 
 After installation, you can run the wrapper scripts, for example:
 
@@ -112,12 +111,12 @@ Configure and build:
 
 .. code-block:: bash
 
-    mkdir build && cd build
-    ../configure
+    gmake configure
     # Build and install
-    gmake build sudo gmake install
+    gmake build
+    sudo gmake install
     # Optionally remove all the build files
-    cd ../ && rm -Rf build
+    rm -Rf build
 
 FreeBSD
 ~~~~~~~
@@ -191,8 +190,13 @@ Configure and build:
 Static compilation
 ------------------
 
-To compile curl-impersonate statically with libcurl-impersonate, pass ``--enable-static``
-to the ``configure`` script.
+The CMake option for linking curl-impersonate statically with libcurl-impersonate
+is ``-DBUILD_STATIC_CURL=ON``. The superbuild already passes this option to the
+curl subproject, along with ``-DBUILD_STATIC_LIBS=ON`` and
+``-DBUILD_SHARED_LIBS=ON``, so a normal ``make build`` produces the statically
+linked executable and both static and shared libcurl-impersonate libraries.
+No additional configuration flag is needed. System libraries may still be
+dynamically linked.
 
 Cross compiling
 ---------------

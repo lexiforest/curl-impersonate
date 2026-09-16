@@ -42,6 +42,7 @@ checkbuild:
 	echo "$$v" | grep -q brotli; \
 	echo "$$v" | grep -q nghttp2; \
 	echo "$$v" | grep -q BoringSSL; \
+	echo "$$v" | grep -q proxy-HTTP3; \
 	echo "$$v" | grep -Eq "AppleIDN|libidn2"; \
 	echo "Build OK"
 .PHONY: checkbuild
