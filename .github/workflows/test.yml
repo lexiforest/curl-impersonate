@@ -23,7 +23,7 @@ jobs:
       CC: ${{ github.workspace }}/zigshim/cc
       CXX: ${{ github.workspace }}/zigshim/cxx
       AR: ${{ github.workspace }}/zigshim/ar
-      ZIG_FLAGS: -target x86_64-linux-gnu.2.17
+      ZIG_FLAGS: -target x86_64-linux-gnu.2.17.0
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2

@@ -44,7 +44,7 @@ jobs:
             arch: x86_64
             host: x86_64-linux-gnu
             host_label: x86_64-linux-gnu
-            zigflags: -target x86_64-linux-gnu.2.17
+            zigflags: -target x86_64-linux-gnu.2.17.0
             make: make
           - os: ubuntu-latest
             platform: linux
@@ -58,14 +58,14 @@ jobs:
             arch: i386
             host: i386-linux-gnu
             host_label: i386-linux-gnu
-            zigflags: -target x86-linux-gnu.2.17
+            zigflags: -target x86-linux-gnu.2.17.0
             make: make
           - os: ubuntu-latest
             platform: linux
             arch: aarch64
             host: aarch64-linux-gnu
             host_label: aarch64-linux-gnu
-            zigflags: -target aarch64-linux-gnu.2.17
+            zigflags: -target aarch64-linux-gnu.2.17.0
             make: make
           - os: ubuntu-latest
             platform: linux
@@ -79,21 +79,21 @@ jobs:
             arch: arm
             host: arm-linux-gnueabihf
             host_label: arm-linux-gnueabihf
-            zigflags: -target arm-linux-gnueabihf.2.17 -mcpu=arm1176jzf_s
+            zigflags: -target arm-linux-gnueabihf.2.17.0 -mcpu=arm1176jzf_s
             make: make
           - os: ubuntu-latest
             platform: linux
             arch: riscv64
             host: riscv64-linux-gnu
             host_label: riscv64-linux-gnu
-            zigflags: -target riscv64-linux-gnu.2.27
+            zigflags: -target riscv64-linux-gnu.2.27.0
             make: make
           - os: ubuntu-latest
             platform: linux
             arch: loongarch64
             host: loongarch64-linux-gnu
             host_label: loongarch64-linux-gnu
-            zigflags: -target loongarch64-linux-gnu.2.36 -fPIC
+            zigflags: -target loongarch64-linux-gnu.2.36.0 -fPIC
             make: make
           - os: ubuntu-latest
             platform: android
@@ -214,7 +214,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install build-essential pkg-config cmake ninja-build curl autoconf automake libtool gperf
+          sudo apt-get install build-essential pkg-config cmake ninja-build curl autoconf automake libtool gperf qemu-user libc6-i386-cross
           sudo apt-get install gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf gcc-riscv64-linux-gnu gcc-14-loongarch64-linux-gnu
           sudo apt-get install golang-go
 
@@ -257,7 +257,22 @@ jobs:
           ${{ matrix.make }} configure BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$cmake_args"
           ${{ matrix.make }} build BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$cmake_args"
           if [[ "${{ matrix.platform }}" == "linux" || "${{ matrix.platform }}" == "macos" ]]; then
-            ${{ matrix.make }} checkbuild BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$cmake_args"
+            curl_runner=""
+            if [[ "${{ matrix.platform }}" == "linux" ]]; then
+              case "${{ matrix.arch }}" in
+                x86_64) ;;
+                i386) curl_runner="qemu-i386 -L /usr/i686-linux-gnu" ;;
+                aarch64) curl_runner="qemu-aarch64" ;;
+                arm) curl_runner="qemu-arm" ;;
+                riscv64) curl_runner="qemu-riscv64" ;;
+                loongarch64) curl_runner="qemu-loongarch64" ;;
+                *) echo "Unsupported Linux arch: ${{ matrix.arch }}"; exit 1 ;;
+              esac
+              if [[ -n "$curl_runner" && "${{ matrix.arch }}" != "i386" && "${{ matrix.host }}" == *gnu* ]]; then
+                curl_runner="$curl_runner -L /usr/${{ matrix.host }}"
+              fi
+            fi
+            ${{ matrix.make }} checkbuild BUILD_DIR=build CURL_RUNNER="$curl_runner" CMAKE_CONFIGURE_ARGS="$cmake_args"
           elif [[ "${{ matrix.platform }}" == "ios" ]]; then
             if [[ ! -f build/deps/build/curl/src/curl-impersonate.app/curl-impersonate ]]; then
               echo "Missing iOS curl-impersonate artifact: build/deps/build/curl/src/curl-impersonate.app/curl-impersonate" >&2
@@ -288,7 +303,6 @@ jobs:
           fi
 
           cp "$deps_lib_dir/libcares.a" "$install_lib_dir/"
-
           cp "$deps_lib_dir/libz.a" "$install_lib_dir/"
           cp "$deps_lib_dir/libzstd.a" "$install_lib_dir/"
           cp "$deps_lib_dir/libbrotlidec.a" "$install_lib_dir/"
