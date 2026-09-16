@@ -20,6 +20,7 @@ env:
     LICENSE
     LICENSE_BORINGSSL
     LICENSE_BROTLI
+    LICENSE_CARES
     LICENSE_CURL
     LICENSE_NGHTTP2
     LICENSE_NGHTTP3
@@ -53,9 +54,9 @@ jobs:
       - name: Check out the repo
         uses: actions/checkout@v2
 
-      - name: Install NASM
+      - name: Install NASM and Make
         shell: cmd
-        run: choco install nasm -y
+        run: choco install nasm make -y
 
       - name: Install Ninja for Win-ARM64
         shell: pwsh
@@ -71,6 +72,10 @@ jobs:
       - name: Build
         shell: cmd
         run: ./win/build.bat ${{ matrix.sys }}
+
+      - name: Check build
+        shell: bash
+        run: make checkbuild CURL_BIN=packages/bin/curl-impersonate.exe
 
       - name: Build tarballs
         shell: bash
@@ -88,6 +93,7 @@ jobs:
             lib_tar="libcurl-impersonate-${suffix}.tar.gz"
           fi
           tar -czf "$curl_tar" -C packages/bin . -C "$license_dir" $LICENSE_FILES
+          cp build/deps/install/lib/cares_static.lib packages/lib/
           tar -czf "$lib_tar" -C packages lib include -C "$license_dir" $LICENSE_FILES
 
       - name: Upload artifacts

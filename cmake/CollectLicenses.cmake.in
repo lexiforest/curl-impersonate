@@ -35,3 +35,5 @@ else()
     "${_license_dir}/LICENSE_LIBIDN2_UNICODE"
   )
 endif()
+
+_collect_dependency_license(cares LICENSE.md LICENSE_CARES)

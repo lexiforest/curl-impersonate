@@ -40,6 +40,8 @@ set(ZLIB_VERSION "1.3.1")
 set(ZLIB_URL_HASH "SHA256=9a93b2b7dfdac77ceba5a558a580e74667dd6fede4585b91eefb60f03b72df23")
 set(ZSTD_VERSION "1.5.7")
 set(ZSTD_URL_HASH "SHA256=eb33e51f49a15e023950cd7825ca74a4a2b43db8354825ac24fc1b7ee09e6fa3")
+set(CARES_VERSION "1.34.8")
+set(CARES_URL_HASH "SHA256=c222b6d681096f9444d2c4863d2c1174019e27cacca0a4a5c114d36dd7d7bf78")
 set(CURL_VERSION "curl-8_22_0")
 set(CURL_URL_HASH "SHA256=222c6b5c1f368ac63aed59bce2774eb5def9e8e67e46e800be182e684d2845a3")
 
@@ -82,6 +84,7 @@ set(BORINGSSL_URL "https://github.com/google/boringssl/archive/${BORINGSSL_COMMI
 set(NGHTTP2_URL "https://github.com/nghttp2/nghttp2/releases/download/v${NGHTTP2_VERSION}/nghttp2-${NGHTTP2_VERSION}.tar.bz2")
 set(NGTCP2_URL "https://github.com/ngtcp2/ngtcp2/releases/download/v${NGTCP2_VERSION}/ngtcp2-${NGTCP2_VERSION}.tar.bz2")
 set(NGHTTP3_URL "https://github.com/ngtcp2/nghttp3/releases/download/v${NGHTTP3_VERSION}/nghttp3-${NGHTTP3_VERSION}.tar.bz2")
+set(CARES_URL "https://github.com/c-ares/c-ares/releases/download/v${CARES_VERSION}/c-ares-${CARES_VERSION}.tar.gz")
 set(CURL_URL "https://github.com/curl/curl/archive/${CURL_VERSION}.tar.gz")
 
 set(_disable_boringssl_asm_default OFF)
@@ -216,6 +219,32 @@ set(_shadow_avoid_cmake_args
 )
 
 list(JOIN _common_cmake_args " " _common_cmake_args_str)
+
+# c-ares
+set(_cares_platform_args)
+if(APPLE)
+  # New Apple SDKs expose pipe2 even for deployment targets that lack it.
+  # Use c-ares's portable pipe/fcntl fallback.
+  list(APPEND _cares_platform_args -DHAVE_PIPE2=OFF)
+endif()
+ExternalProject_Add(cares
+  URL "${CARES_URL}"
+  URL_HASH "${CARES_URL_HASH}"
+  SOURCE_DIR "${DEPS_SRC_DIR}/cares"
+  BINARY_DIR "${DEPS_BUILD_DIR}/cares"
+  INSTALL_DIR "${DEPS_INSTALL_DIR}"
+  CMAKE_ARGS
+    ${_common_cmake_args}
+    -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
+    ${_cares_platform_args}
+    -DCARES_SHARED=OFF
+    -DCARES_STATIC=ON
+    -DCARES_STATIC_PIC=ON
+    -DCARES_BUILD_TOOLS=OFF
+    -DCARES_BUILD_TESTS=OFF
+  BUILD_COMMAND ${CMAKE_COMMAND} --build <BINARY_DIR> --config Release --parallel ${SUBJOBS}
+  INSTALL_COMMAND ${CMAKE_COMMAND} --build <BINARY_DIR> --config Release --target install --parallel ${SUBJOBS}
+)
 
 # zlib
 ExternalProject_Add(zlib
@@ -467,7 +496,14 @@ if(NOT CURL_CA_PATH STREQUAL "")
   list(APPEND _curl_ca_flags "-DCURL_CA_PATH=${CURL_CA_PATH}")
 endif()
 
-set(_curl_deps zlib zstd brotli boringssl nghttp2 ngtcp2 nghttp3)
+set(_curl_deps zlib zstd brotli boringssl nghttp2 ngtcp2 nghttp3 cares)
+set(_curl_resolver_flags
+  -DENABLE_ARES=ON
+  -DENABLE_THREADED_RESOLVER=OFF
+  -DCARES_USE_STATIC_LIBS=ON
+  -DCURL_USE_CMAKECONFIG=ON
+  "-Dc-ares_DIR=${DEPS_INSTALL_DIR}/lib/cmake/c-ares"
+)
 if(USE_LIBIDN2)
   list(APPEND _curl_deps libidn2)
 endif()
@@ -627,6 +663,7 @@ ExternalProject_Add(curl
       -DCURL_USE_LIBSSH2=OFF
       -DBUILD_MISC_DOCS=OFF
       -DENABLE_CURL_MANUAL=OFF
+      ${_curl_resolver_flags}
       ${_curl_ca_flags}
       ${_curl_idn_flags}
       ${_curl_build_flags}
