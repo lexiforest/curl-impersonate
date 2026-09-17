@@ -420,6 +420,10 @@ jobs:
             vm_arch: aarch64
             host_label: aarch64-openbsd
             release_only: true
+          - os: OpenBSD
+            vm_arch: riscv64
+            host_label: riscv64-openbsd
+            release_only: true
     steps:
       - name: Skip release-only ${{ matrix.os }} target
         if: ${{ matrix.release_only && !startsWith(github.ref, 'refs/tags/') }}
