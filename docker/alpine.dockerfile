@@ -29,7 +29,4 @@ RUN apk update && \
 
 COPY --from=builder /build/install /usr/local
 
-# Replace /usr/bin/env bash with /usr/bin/env ash
-RUN sed -i 's@/usr/bin/env bash@/usr/bin/env ash@' /usr/local/bin/curl_*
-
 CMD ["curl-impersonate", "--version"]
