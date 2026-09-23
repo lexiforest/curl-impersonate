@@ -356,6 +356,19 @@ jobs:
               exit 1
             fi
           fi
+          if [[ "${{ matrix.platform }}" == "macos" ]]; then
+            cmake \
+              "-DLIBRARY=$install_lib_dir/libcurl-impersonate.dylib" \
+              "-DOUTPUT=$install_lib_dir/libcurl-impersonate.link" \
+              -P "${{ github.workspace }}/cmake/WriteMacOSLinkOptions.cmake"
+            # Test the merged archive, not the dylib or a framework-loaded Python.
+            ${CC:-cc} "${{ github.workspace }}/tests/static-link.c" \
+              "-I$install_dir/include" \
+              "-Wl,-force_load,$install_lib_dir/libcurl-impersonate.a" \
+              "@$install_lib_dir/libcurl-impersonate.link" \
+              -o "${{ runner.temp }}/static-link"
+            "${{ runner.temp }}/static-link"
+          fi
           rm -f libcares.a libz.a libzstd.a libbrotlidec.a libbrotlicommon.a libbrotlienc.a libnghttp2.a libnghttp3.a libngtcp2.a libngtcp2_crypto_boringssl.a libssl.a libcrypto.a libidn2.a
           rm -f libcurl-impersonate.orig.a
           ls -lah .

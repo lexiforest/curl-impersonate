@@ -118,6 +118,20 @@ Configure and build:
     # Optionally remove all the build files
     rm -Rf build
 
+The macOS release library archive includes ``libcurl-impersonate.link`` beside
+the merged ``libcurl-impersonate.a``. This Clang response file records the system
+libraries and frameworks required by that build; it is generated from the matching
+shared library. Pass it at the final link step, including when building Python
+extensions, rather than relying on frameworks already loaded by the host process::
+
+    cc program.c -I/path/to/release/include \
+        /path/to/release/libcurl-impersonate.a \
+        @/path/to/release/libcurl-impersonate.link -o program
+
+Keep both files from the same release and architecture. The response file contains
+only system dependencies, not paths to the build machine or bundled archives.
+
+
 FreeBSD
 ~~~~~~~
 
