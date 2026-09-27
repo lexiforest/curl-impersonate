@@ -674,7 +674,8 @@ add_custom_target(install-all
   COMMAND ${CMAKE_COMMAND} --install ${CMAKE_BINARY_DIR}
 )
 
-# Install only runtime artifacts we ship: curl binary, libcurl library, and wrappers.
+# Install only runtime artifacts we ship: curl binary, libcurl library and
+# pkg-config configuration, curl-impersonate-config script, and wrappers.
 # Do not call curl's own install target, which also installs docs/manpages.
 if(WIN32)
   install(PROGRAMS "${DEPS_BUILD_DIR}/curl/src/curl-impersonate.exe" DESTINATION ${CMAKE_INSTALL_BINDIR})
@@ -710,6 +711,12 @@ install(
   FILES_MATCHING
     PATTERN "*.h"
 )
+install(
+  FILES "${DEPS_BUILD_DIR}/curl/libcurl.pc"
+  DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig"
+  RENAME "libcurl-impersonate.pc"
+)
+install(PROGRAMS "${DEPS_BUILD_DIR}/curl/curl-impersonate-config" DESTINATION ${CMAKE_INSTALL_BINDIR})
 if(WIN32)
   file(GLOB _curl_wrapper_scripts CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/win/bin/curl_*.bat")
 else()
