@@ -13,10 +13,10 @@ on:
     branches:
       - main
 
-permissions:
-  contents: read
+permissions: {}
 
 env:
+  REF_NAME: ${{ github.ref_name }}
   MACOSX_DEPLOYMENT_TARGET: 11.0
   API: "21"  # Targeting an very old android API version
   LICENSE_FILES: >-
@@ -35,6 +35,8 @@ jobs:
   build:
     name: (${{ matrix.host_label }}) Build curl-impersonate
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -146,6 +148,8 @@ jobs:
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
+        with:
+          persist-credentials: false
 
       - name: Set up zig
         if: matrix.platform == 'linux'
@@ -357,15 +361,15 @@ jobs:
           rm -f libcurl-impersonate.orig.a
           ls -lah .
           if [[ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]]; then
-            tar -c -z -f ${{ runner.temp }}/libcurl-impersonate-${{ github.ref_name }}.${{ matrix.host_label }}.tar.gz -C "$install_lib_dir" lib* -C "$install_dir" include -C "$license_dir" $license_files
+            tar -c -z -f ${{ runner.temp }}/libcurl-impersonate-$REF_NAME.${{ matrix.host_label }}.tar.gz -C "$install_lib_dir" lib* -C "$install_dir" include -C "$license_dir" $license_files
           else
             tar -c -z -f ${{ runner.temp }}/libcurl-impersonate.${{ matrix.host_label }}.tar.gz -C "$install_lib_dir" lib* -C "$install_dir" include -C "$license_dir" $license_files
           fi
-          echo "release_file_lib=${{ runner.temp }}/libcurl-impersonate-${{ github.ref_name }}.${{ matrix.host_label }}.tar.gz" >> $GITHUB_ENV
+          echo "release_file_lib=${{ runner.temp }}/libcurl-impersonate-$REF_NAME.${{ matrix.host_label }}.tar.gz" >> $GITHUB_ENV
 
           cd "$install_dir/bin"
           if [[ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]]; then
-            tar -c -z -f ${{ runner.temp }}/curl-impersonate-${{ github.ref_name }}.${{ matrix.host_label }}.tar.gz curl-impersonate curl_* -C "$license_dir" $license_files
+            tar -c -z -f ${{ runner.temp }}/curl-impersonate-$REF_NAME.${{ matrix.host_label }}.tar.gz curl-impersonate curl_* -C "$license_dir" $license_files
           else
             tar -c -z -f ${{ runner.temp }}/curl-impersonate.${{ matrix.host_label }}.tar.gz curl-impersonate curl_* -C "$license_dir" $license_files
           fi
@@ -397,6 +401,8 @@ jobs:
   build-bsd:
     name: (${{ matrix.host_label }}) Build curl-impersonate
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -429,6 +435,8 @@ jobs:
       - name: Check out the repo
         if: ${{ !matrix.release_only || startsWith(github.ref, 'refs/tags/') }}
         uses: actions/checkout@v2
+        with:
+          persist-credentials: false
 
       - name: Start FreeBSD VM
         uses: vmactions/freebsd-vm@v1
@@ -439,6 +447,7 @@ jobs:
           cpu: 4
           mem: 8192
           custom-shell-name: vmsh
+          envs: "REF_NAME"
           prepare: |
             export IGNORE_OSVERSION=yes
             pkg update -f
@@ -453,6 +462,7 @@ jobs:
           cpu: 4
           mem: 8192
           custom-shell-name: vmsh
+          envs: "REF_NAME"
           prepare: |
             pkg_add -Uu
             pkg_add cmake ninja gmake
@@ -499,9 +509,9 @@ jobs:
           rm -f libcurl-impersonate.orig.a
 
           if [ "${{ startsWith(github.ref, 'refs/tags/') }}" = "true" ]; then
-            tar -czf "$artifacts_dir/libcurl-impersonate-${{ github.ref_name }}.${{ matrix.host_label }}.tar.gz" lib* -C "$install_dir" include -C "$license_dir" $license_files
+            tar -czf "$artifacts_dir/libcurl-impersonate-$REF_NAME.${{ matrix.host_label }}.tar.gz" lib* -C "$install_dir" include -C "$license_dir" $license_files
             cd "$install_dir/bin"
-            tar -czf "$artifacts_dir/curl-impersonate-${{ github.ref_name }}.${{ matrix.host_label }}.tar.gz" curl-impersonate curl_* -C "$license_dir" $license_files
+            tar -czf "$artifacts_dir/curl-impersonate-$REF_NAME.${{ matrix.host_label }}.tar.gz" curl-impersonate curl_* -C "$license_dir" $license_files
           else
             tar -czf "$artifacts_dir/libcurl-impersonate.${{ matrix.host_label }}.tar.gz" lib* -C "$install_dir" include -C "$license_dir" $license_files
             cd "$install_dir/bin"
@@ -558,7 +568,7 @@ jobs:
 
           cd ${{ runner.temp }}
           if [[ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]]; then
-            tar -c -z -f ${{ runner.temp }}/libcurl-impersonate-${{ github.ref_name }}.ios-xcframework.tar.gz libcurl-impersonate.xcframework -C ${{ runner.temp }}/ios/device $LICENSE_FILES
+            tar -c -z -f ${{ runner.temp }}/libcurl-impersonate-$REF_NAME.ios-xcframework.tar.gz libcurl-impersonate.xcframework -C ${{ runner.temp }}/ios/device $LICENSE_FILES
           else
             tar -c -z -f ${{ runner.temp }}/libcurl-impersonate.ios-xcframework.tar.gz libcurl-impersonate.xcframework -C ${{ runner.temp }}/ios/device $LICENSE_FILES
           fi

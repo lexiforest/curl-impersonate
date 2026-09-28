@@ -16,13 +16,18 @@ on:
 env:
   DOCKER_CLI_EXPERIMENTAL: enabled
 
+permissions: {}
+
 jobs:
   build:
     runs-on: ubuntu-latest
-
+    permissions:
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Set up docker buildx
         uses: docker/setup-buildx-action@v3

@@ -5,21 +5,22 @@ on:
     tags:
       - "v*"
 
-permissions:
-  contents: write
+permissions: {}
 
 jobs:
   build-unix:
     name: Build Linux, macOS, BSD, Android, and iOS artifacts
-    uses: ./.github/workflows/build.yml
+    uses: $/.github/workflows/build.yml
 
   build-windows:
     name: Build Windows artifacts
-    uses: ./.github/workflows/build-win.yaml
+    uses: $/.github/workflows/build-win.yaml
 
   publish-release:
     name: Publish GitHub release
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     needs:
       - build-unix
       - build-windows

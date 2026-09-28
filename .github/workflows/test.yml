@@ -12,13 +12,14 @@ on:
     branches:
       - main
 
-permissions:
-  contents: read
+permissions: {}
 
 jobs:
   test-linux:
     name: (x86_64-linux-gnu) Build and run tests
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     env:
       CC: ${{ github.workspace }}/zigshim/cc
       CXX: ${{ github.workspace }}/zigshim/cxx
@@ -28,6 +29,7 @@ jobs:
       - name: Check out the repo
         uses: actions/checkout@v2
         with:
+          persist-credentials: false
           submodules: recursive
 
       - name: Set up zig
