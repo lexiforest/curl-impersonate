@@ -82,9 +82,6 @@ Install the required dependencies:
     # OR
     pip3 install ninja
 
-You may need to follow the `Go installation instructions <https://go.dev/doc/install>`_
-if your distribution does not package it.
-
 Then follow the Ubuntu instructions for the actual build.
 
 macOS
