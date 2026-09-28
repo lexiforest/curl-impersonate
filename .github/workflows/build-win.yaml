@@ -58,11 +58,11 @@ jobs:
           persist-credentials: false
 
       - name: Install NASM and Make
-        shell: cmd # zizmor: ignore[misfeature]
+        shell: pwsh
         run: choco install nasm make -y
 
       - name: Install Ninja for Win-ARM64
-        shell: pwsh # zizmor: ignore[misfeature]
+        shell: pwsh
         if: matrix.runner == 'windows-11-arm'
         run: |
           Invoke-WebRequest https://github.com/ninja-build/ninja/releases/download/v1.13.1/ninja-winarm64.zip -OutFile ninja-winarm64.zip
@@ -73,7 +73,7 @@ jobs:
       #   uses: mxschmitt/action-tmate@v3
 
       - name: Build
-        shell: cmd # zizmor: ignore[misfeature]
+        shell: cmd # zizmor: ignore[misfeature] -- for run bat
         run: ./win/build.bat ${{ matrix.sys }}
 
       - name: Check build
