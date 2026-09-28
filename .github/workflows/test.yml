@@ -38,8 +38,7 @@ jobs:
       - name: Install Ubuntu dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install build-essential pkg-config cmake ninja-build curl autoconf automake libtool gperf
-          sudo apt-get install golang-go
+          sudo apt-get install build-essential pkg-config cmake ninja-build curl golang-go
           # Needed to compile 'minicurl'
           sudo apt-get install libcurl4-openssl-dev
           # More dependencies for the tests

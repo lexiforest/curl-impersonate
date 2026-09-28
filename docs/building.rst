@@ -26,10 +26,8 @@ Install the dependencies required to build all components:
 .. code-block:: bash
 
     sudo apt-get install -y \
-        git ninja-build cmake autoconf automake pkg-config libtool \
-        ca-certificates curl \
-        curl \
-        golang-go bzip2 xz-utils unzip
+        git ninja-build cmake pkg-config ca-certificates curl \
+        bzip2 xz-utils unzip
 
 Clone this repository:
 
@@ -83,7 +81,6 @@ Install the required dependencies:
     yum install ninja-build
     # OR
     pip3 install ninja
-    yum install golang
 
 You may need to follow the `Go installation instructions <https://go.dev/doc/install>`_
 if your distribution does not package it.
@@ -97,8 +94,7 @@ Install the dependencies required to build all components:
 
 .. code-block:: bash
 
-    brew install pkg-config make cmake ninja autoconf automake libtool
-    brew install go
+    brew install pkg-config make cmake ninja
 
 Clone this repository:
 
@@ -131,9 +127,7 @@ The FreeBSD dependencies are:
 
 .. code-block:: bash
 
-    pkg install -y \
-        pkgconf cmake ninja curl autoconf automake libtool \
-        gmake gperf go
+    pkg install -y pkgconf cmake ninja gmake
 
 Configure and build:
 

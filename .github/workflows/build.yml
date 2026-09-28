@@ -214,16 +214,13 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install build-essential pkg-config cmake ninja-build curl autoconf automake libtool gperf qemu-user libc6-i386-cross
+          sudo apt-get install build-essential pkg-config cmake ninja-build curl qemu-user libc6-i386-cross
           sudo apt-get install gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf gcc-riscv64-linux-gnu gcc-14-loongarch64-linux-gnu
-          sudo apt-get install golang-go
 
       - name: Install macOS dependencies
         if: runner.os == 'macOS'
         run: |
-          brew install pkg-config make cmake ninja autoconf automake libtool gpatch gperf
-          # Chrome version dependencies, install only not installed.
-          which go || brew install go
+          brew install pkg-config make cmake ninja
           # Dependencies for the tests
           brew install tcpdump curl nghttp2
 
@@ -445,7 +442,7 @@ jobs:
           prepare: |
             export IGNORE_OSVERSION=yes
             pkg update -f
-            pkg install -y pkgconf cmake ninja curl autoconf automake libtool gmake gperf go
+            pkg install -y pkgconf cmake ninja gmake
 
       - name: Start OpenBSD VM
         uses: vmactions/openbsd-vm@v1
