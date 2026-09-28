@@ -10,7 +10,7 @@ CURL_BIN ?= $(BUILD_DIR)/deps/build/curl/src/curl-impersonate
 CURL_RUNNER ?=
 CHECK_IDN ?= 1
 LIBIDN2_VERSION ?= 2.3.7
-LIBIDN2_URL ?= https://ftp.gnu.org/gnu/libidn/libidn2-$(LIBIDN2_VERSION).tar.gz
+LIBIDN2_URL ?= https://ftpmirror.gnu.org/gnu/libidn/libidn2-$(LIBIDN2_VERSION).tar.gz
 
 all: build checkbuild
 .PHONY: all

@@ -13,7 +13,7 @@ build_deps_dir="$build_dir/deps/build"
 downloads_dir="$build_dir/deps/downloads"
 
 libidn2_version=${LIBIDN2_VERSION:-2.3.7}
-libidn2_url=${LIBIDN2_URL:-https://ftp.gnu.org/gnu/libidn/libidn2-$libidn2_version.tar.gz}
+libidn2_url=${LIBIDN2_URL:-https://ftpmirror.gnu.org/gnu/libidn/libidn2-$libidn2_version.tar.gz}
 
 make_cmd=${MAKE:-make}
 if command -v gmake >/dev/null 2>&1; then
