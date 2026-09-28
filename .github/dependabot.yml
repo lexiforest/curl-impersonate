@@ -2,6 +2,13 @@ version: 2
 updates:
   - package-ecosystem: "github-actions"
     directory: "/"
+    groups:
+      github-actions-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
     schedule:
       interval: "weekly"
     cooldown:
