@@ -53,8 +53,12 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Upload release assets
-        uses: softprops/action-gh-release@v3
-        with:
-          files: ${{ steps.collect-release-files.outputs.files }}
-          prerelease: ${{ contains(github.ref_name, 'a') || contains(github.ref_name, 'b') || contains(github.ref_name, 'rc') }}
-          draft: ${{ contains(github.ref_name, 'a') || contains(github.ref_name, 'b') || contains(github.ref_name, 'rc') }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REF_NAME: ${{ github.ref_name }}
+          RELEASE_FILES: ${{ steps.collect-release-files.outputs.files }}
+        run: |
+          gh release create "$REF_NAME" $RELEASE_FILES \
+          --verify-tag \
+          --prerelease="${{ contains(github.ref_name, 'a') || contains(github.ref_name, 'b') || contains(github.ref_name, 'rc') }}" \
+          --draft="${{ contains(github.ref_name, 'a') || contains(github.ref_name, 'b') || contains(github.ref_name, 'rc') }}"
