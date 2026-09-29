@@ -9,11 +9,18 @@ if "%~1"=="" (
   set "VCVARS_BAT=%~1"
 )
 
-if exist "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\%VCVARS_BAT%.bat" (
-  call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\%VCVARS_BAT%.bat" || exit /b 1
-) else (
-  call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\%VCVARS_BAT%.bat" || exit /b 1
+set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
+
+for /f "usebackq tokens=*" %%i in (`"%VSWHERE%" -latest -products * -requiresAny -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -requires Microsoft.VisualStudio.Component.VC.Tools.ARM64 -property installationPath`) do (
+  set "VSINSTALL=%%i"
 )
+
+if not defined VSINSTALL (
+  echo Visual Studio with C++ tools not found. 1>&2
+  exit /b 1
+)
+
+call "%VSINSTALL%\VC\Auxiliary\Build\%VCVARS_BAT%.bat" || exit /b 1
 
 set "BUILD_DIR=%cd%\build"
 set "PACKAGES_DIR=%cd%\packages"
