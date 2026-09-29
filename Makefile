@@ -9,8 +9,6 @@ TARGET ?= curl-impersonate
 CURL_BIN ?= $(BUILD_DIR)/deps/build/curl/src/curl-impersonate
 CURL_RUNNER ?=
 CHECK_IDN ?= 1
-LIBIDN2_VERSION ?= 2.3.7
-LIBIDN2_URL ?= https://ftpmirror.gnu.org/gnu/libidn/libidn2-$(LIBIDN2_VERSION).tar.gz
 
 all: build checkbuild
 .PHONY: all
@@ -18,8 +16,6 @@ all: build checkbuild
 prepare-libidn2:
 	BUILD_DIR="$(BUILD_DIR)" \
 	JOBS="$(JOBS)" \
-	LIBIDN2_VERSION="$(LIBIDN2_VERSION)" \
-	LIBIDN2_URL="$(LIBIDN2_URL)" \
 	./scripts/build-libidn2.sh
 .PHONY: prepare-libidn2
 
