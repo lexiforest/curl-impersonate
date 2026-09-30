@@ -13,10 +13,10 @@ on:
     branches:
       - main
 
-permissions:
-  contents: read
+permissions: {}
 
 env:
+  REF_NAME: ${{ github.ref_name }}
   MACOSX_DEPLOYMENT_TARGET: 11.0
   API: "21"  # Targeting an very old android API version
   LICENSE_FILES: >-
@@ -35,6 +35,8 @@ jobs:
   build:
     name: (${{ matrix.host_label }}) Build curl-impersonate
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -145,11 +147,13 @@ jobs:
             make: gmake
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up zig
         if: matrix.platform == 'linux'
-        uses: goto-bus-stop/setup-zig@v2
+        uses: goto-bus-stop/setup-zig@abea47f85e598557f500fa1fd2ab7464fcb39406 # v2.2.1
         with:
           version: 0.15.2
 
@@ -163,7 +167,7 @@ jobs:
 
       - name: Set up Android NDK
         if: matrix.platform == 'android'
-        uses: nttld/setup-ndk@v1
+        uses: nttld/setup-ndk@ed92fe6cadad69be94a966a7ee3271275e62f779 # v1.6.0
         id: setup-ndk
         with:
           ndk-version: r26d
@@ -357,15 +361,15 @@ jobs:
           rm -f libcurl-impersonate.orig.a
           ls -lah .
           if [[ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]]; then
-            tar -c -z -f ${{ runner.temp }}/libcurl-impersonate-${{ github.ref_name }}.${{ matrix.host_label }}.tar.gz -C "$install_lib_dir" lib* -C "$install_dir" include -C "$license_dir" $license_files
+            tar -c -z -f ${{ runner.temp }}/libcurl-impersonate-$REF_NAME.${{ matrix.host_label }}.tar.gz -C "$install_lib_dir" lib* -C "$install_dir" include -C "$license_dir" $license_files
           else
             tar -c -z -f ${{ runner.temp }}/libcurl-impersonate.${{ matrix.host_label }}.tar.gz -C "$install_lib_dir" lib* -C "$install_dir" include -C "$license_dir" $license_files
           fi
-          echo "release_file_lib=${{ runner.temp }}/libcurl-impersonate-${{ github.ref_name }}.${{ matrix.host_label }}.tar.gz" >> $GITHUB_ENV
+          echo "release_file_lib=${{ runner.temp }}/libcurl-impersonate-$REF_NAME.${{ matrix.host_label }}.tar.gz" >> $GITHUB_ENV
 
           cd "$install_dir/bin"
           if [[ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]]; then
-            tar -c -z -f ${{ runner.temp }}/curl-impersonate-${{ github.ref_name }}.${{ matrix.host_label }}.tar.gz curl-impersonate curl_* -C "$license_dir" $license_files
+            tar -c -z -f ${{ runner.temp }}/curl-impersonate-$REF_NAME.${{ matrix.host_label }}.tar.gz curl-impersonate curl_* -C "$license_dir" $license_files
           else
             tar -c -z -f ${{ runner.temp }}/curl-impersonate.${{ matrix.host_label }}.tar.gz curl-impersonate curl_* -C "$license_dir" $license_files
           fi
@@ -380,7 +384,7 @@ jobs:
           cp "${{ github.workspace }}/build/licenses/"LICENSE* "$slice_dir/"
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: artifacts.${{ matrix.host_label }}
           path: |
@@ -389,7 +393,7 @@ jobs:
 
       - name: Upload iOS slice artifact
         if: matrix.platform == 'ios'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ios-slice.${{ matrix.host_label }}
           path: ${{ runner.temp }}/ios-slice
@@ -397,6 +401,8 @@ jobs:
   build-bsd:
     name: (${{ matrix.host_label }}) Build curl-impersonate
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -428,10 +434,12 @@ jobs:
 
       - name: Check out the repo
         if: ${{ !matrix.release_only || startsWith(github.ref, 'refs/tags/') }}
-        uses: actions/checkout@v2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Start FreeBSD VM
-        uses: vmactions/freebsd-vm@v1
+        uses: vmactions/freebsd-vm@a2f9a41fa97f6848b8c3b791087dfcdaa5b473ff # v1.5.8
         if: ${{ matrix.os == 'FreeBSD' && (!matrix.release_only || startsWith(github.ref, 'refs/tags/')) }}
         with:
           release: "14.3"
@@ -439,13 +447,14 @@ jobs:
           cpu: 4
           mem: 8192
           custom-shell-name: vmsh
+          envs: "REF_NAME"
           prepare: |
             export IGNORE_OSVERSION=yes
             pkg update -f
             pkg install -y pkgconf cmake ninja gmake
 
       - name: Start OpenBSD VM
-        uses: vmactions/openbsd-vm@v1
+        uses: vmactions/openbsd-vm@5f7b2c933b8846a138361d6843c52af4bef5d945 # v1.4.8
         if: ${{ matrix.os == 'OpenBSD' && (!matrix.release_only || startsWith(github.ref, 'refs/tags/')) }}
         with:
           release: "7.9"
@@ -453,6 +462,7 @@ jobs:
           cpu: 4
           mem: 8192
           custom-shell-name: vmsh
+          envs: "REF_NAME"
           prepare: |
             pkg_add -Uu
             pkg_add cmake ninja gmake
@@ -499,9 +509,9 @@ jobs:
           rm -f libcurl-impersonate.orig.a
 
           if [ "${{ startsWith(github.ref, 'refs/tags/') }}" = "true" ]; then
-            tar -czf "$artifacts_dir/libcurl-impersonate-${{ github.ref_name }}.${{ matrix.host_label }}.tar.gz" lib* -C "$install_dir" include -C "$license_dir" $license_files
+            tar -czf "$artifacts_dir/libcurl-impersonate-$REF_NAME.${{ matrix.host_label }}.tar.gz" lib* -C "$install_dir" include -C "$license_dir" $license_files
             cd "$install_dir/bin"
-            tar -czf "$artifacts_dir/curl-impersonate-${{ github.ref_name }}.${{ matrix.host_label }}.tar.gz" curl-impersonate curl_* -C "$license_dir" $license_files
+            tar -czf "$artifacts_dir/curl-impersonate-$REF_NAME.${{ matrix.host_label }}.tar.gz" curl-impersonate curl_* -C "$license_dir" $license_files
           else
             tar -czf "$artifacts_dir/libcurl-impersonate.${{ matrix.host_label }}.tar.gz" lib* -C "$install_dir" include -C "$license_dir" $license_files
             cd "$install_dir/bin"
@@ -510,7 +520,7 @@ jobs:
 
       - name: Upload ${{ matrix.os }} artifacts
         if: ${{ !matrix.release_only || startsWith(github.ref, 'refs/tags/') }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: artifacts.${{ matrix.host_label }}
           path: artifacts/*.tar.gz
@@ -521,19 +531,19 @@ jobs:
     needs: build
     steps:
       - name: Download device slice
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: ios-slice.arm64-apple-ios
           path: ${{ runner.temp }}/ios/device
 
       - name: Download simulator slice
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: ios-slice.arm64-apple-ios-simulator
           path: ${{ runner.temp }}/ios/simulator-arm64
 
       - name: Download Intel simulator slice
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: ios-slice.x86_64-apple-ios-simulator
           path: ${{ runner.temp }}/ios/simulator-x86_64
@@ -558,13 +568,13 @@ jobs:
 
           cd ${{ runner.temp }}
           if [[ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]]; then
-            tar -c -z -f ${{ runner.temp }}/libcurl-impersonate-${{ github.ref_name }}.ios-xcframework.tar.gz libcurl-impersonate.xcframework -C ${{ runner.temp }}/ios/device $LICENSE_FILES
+            tar -c -z -f ${{ runner.temp }}/libcurl-impersonate-$REF_NAME.ios-xcframework.tar.gz libcurl-impersonate.xcframework -C ${{ runner.temp }}/ios/device $LICENSE_FILES
           else
             tar -c -z -f ${{ runner.temp }}/libcurl-impersonate.ios-xcframework.tar.gz libcurl-impersonate.xcframework -C ${{ runner.temp }}/ios/device $LICENSE_FILES
           fi
 
       - name: Upload XCFramework artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: artifacts.ios-xcframework
           path: ${{ runner.temp }}/libcurl-impersonate*.ios-xcframework.tar.gz

@@ -5,27 +5,32 @@ on:
     tags:
       - "v*"
 
-permissions:
-  contents: write
+permissions: {}
 
 jobs:
   build-unix:
     name: Build Linux, macOS, BSD, Android, and iOS artifacts
-    uses: ./.github/workflows/build.yml
+    uses: $/.github/workflows/build.yml
+    permissions:
+      contents: read
 
   build-windows:
     name: Build Windows artifacts
-    uses: ./.github/workflows/build-win.yaml
+    uses: $/.github/workflows/build-win.yaml
+    permissions:
+      contents: read
 
   publish-release:
     name: Publish GitHub release
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     needs:
       - build-unix
       - build-windows
     steps:
       - name: Download release artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: artifacts.*
           path: ${{ runner.temp }}/release-assets
@@ -52,8 +57,12 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Upload release assets
-        uses: softprops/action-gh-release@v3
-        with:
-          files: ${{ steps.collect-release-files.outputs.files }}
-          prerelease: ${{ contains(github.ref_name, 'a') || contains(github.ref_name, 'b') || contains(github.ref_name, 'rc') }}
-          draft: ${{ contains(github.ref_name, 'a') || contains(github.ref_name, 'b') || contains(github.ref_name, 'rc') }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REF_NAME: ${{ github.ref_name }}
+          RELEASE_FILES: ${{ steps.collect-release-files.outputs.files }}
+        run: |
+          gh release create "$REF_NAME" $RELEASE_FILES \
+          --verify-tag \
+          --prerelease="${{ contains(github.ref_name, 'a') || contains(github.ref_name, 'b') || contains(github.ref_name, 'rc') }}" \
+          --draft="${{ contains(github.ref_name, 'a') || contains(github.ref_name, 'b') || contains(github.ref_name, 'rc') }}"
