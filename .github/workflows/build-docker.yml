@@ -52,8 +52,8 @@ jobs:
           file: docker/debian.dockerfile
           push: ${{ env.push_image }}
           tags: |
-            ${{ secrets.DOCKER_USERNAME }}/curl-impersonate:${{ env.image_tag }}
-            ${{ secrets.DOCKER_USERNAME }}/curl-impersonate:latest
+            ${{ secrets.DOCKER_USERNAME && format('{0}/', secrets.DOCKER_USERNAME) }}curl-impersonate:${{ env.image_tag }}
+            ${{ secrets.DOCKER_USERNAME && format('{0}/', secrets.DOCKER_USERNAME) }}curl-impersonate:latest
 
       - name: Build alpine docker image
         uses: docker/build-push-action@v6
@@ -62,5 +62,5 @@ jobs:
           file: docker/alpine.dockerfile
           push: ${{ env.push_image }}
           tags: |
-            ${{ secrets.DOCKER_USERNAME }}/curl-impersonate:${{ env.image_tag }}-alpine
-            ${{ secrets.DOCKER_USERNAME }}/curl-impersonate:alpine
+            ${{ secrets.DOCKER_USERNAME && format('{0}/', secrets.DOCKER_USERNAME) }}curl-impersonate:${{ env.image_tag }}-alpine
+            ${{ secrets.DOCKER_USERNAME && format('{0}/', secrets.DOCKER_USERNAME) }}curl-impersonate:alpine
