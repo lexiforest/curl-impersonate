@@ -1,10 +1,10 @@
-FROM python:3.12-slim-bookworm AS builder
+FROM debian:bookworm-slim AS builder
 
 WORKDIR /build
 
 RUN apt-get update && \
-    apt-get install -y git ninja-build cmake pkg-config ca-certificates curl \
-    bzip2 xz-utils unzip
+    apt-get install -y git gcc g++ binutils patch make ninja-build \
+    cmake ca-certificates curl
 
 COPY . /build
 

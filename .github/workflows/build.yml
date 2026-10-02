@@ -214,13 +214,13 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install build-essential pkg-config cmake ninja-build curl qemu-user libc6-i386-cross
+          sudo apt-get install gcc g++ binutils patch make cmake ninja-build curl qemu-user libc6-i386-cross
           sudo apt-get install gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf gcc-riscv64-linux-gnu gcc-14-loongarch64-linux-gnu
 
       - name: Install macOS dependencies
         if: runner.os == 'macOS'
         run: |
-          brew install pkg-config make cmake ninja
+          brew install make cmake ninja
           # Dependencies for the tests
           brew install tcpdump curl nghttp2
 
@@ -442,7 +442,7 @@ jobs:
           prepare: |
             export IGNORE_OSVERSION=yes
             pkg update -f
-            pkg install -y pkgconf cmake ninja gmake
+            pkg install -y cmake ninja gmake
 
       - name: Start OpenBSD VM
         uses: vmactions/openbsd-vm@v1
