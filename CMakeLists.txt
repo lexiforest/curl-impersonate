@@ -310,6 +310,14 @@ string(APPEND _boringssl_c_flags " -Wno-unknown-warning-option -Wno-stringop-ove
 set(_boringssl_cxx_flags "${CMAKE_CXX_FLAGS}")
 string(APPEND _boringssl_cxx_flags " -Wno-macro-redefined")
 
+# https://boringssl.googlesource.com/boringssl/+/56d3ad9d23bc130aa9404bfdd1957fe81b3ba498%5E!/
+# BoringSSL now requires SSE2 when targeting 32-bit x86 (see the commit above).
+# However, GCC does not enable SSE2 by default.
+if(CMAKE_C_COMPILER_ID STREQUAL "GNU" AND CMAKE_SYSTEM_PROCESSOR MATCHES "i[3-6]86|^x86$")
+  string(APPEND _boringssl_c_flags " -msse2")
+  string(APPEND _boringssl_cxx_flags " -msse2")
+endif()
+
 set(_boringssl_cmake_args
   ${_common_cmake_args}
   "-DCMAKE_C_FLAGS=${_boringssl_c_flags}"
