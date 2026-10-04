@@ -12,8 +12,9 @@ src_dir="$build_dir/deps/src"
 build_deps_dir="$build_dir/deps/build"
 downloads_dir="$build_dir/deps/downloads"
 
-libidn2_version=${LIBIDN2_VERSION:-2.3.7}
-libidn2_url=${LIBIDN2_URL:-https://ftpmirror.gnu.org/gnu/libidn/libidn2-$libidn2_version.tar.gz}
+libidn2_version="2.3.7"
+libidn2_sha256="4c21a791b610b9519b9d0e12b8097bf2f359b12f8dd92647611a929e6bfd7d64"
+libidn2_urls="https://mirrors.ocf.berkeley.edu/gnu/libidn/libidn2-$libidn2_version.tar.gz https://ftp.fau.de/gnu/libidn/libidn2-$libidn2_version.tar.gz https://ftp.nluug.nl/pub/gnu/libidn/libidn2-$libidn2_version.tar.gz https://ftpmirror.gnu.org/gnu/libidn/libidn2-$libidn2_version.tar.gz https://ftp.gnu.org/gnu/libidn/libidn2-$libidn2_version.tar.gz"
 
 make_cmd=${MAKE:-make}
 if command -v gmake >/dev/null 2>&1; then
@@ -22,6 +23,11 @@ fi
 make_jobs=
 if [ -n "${JOBS:-}" ]; then
   make_jobs="-j$JOBS"
+fi
+
+sha256sum_cmd=sha256sum
+if command -v sha256 >/dev/null 2>&1; then
+  sha256sum_cmd=sha256
 fi
 
 host_arg=
@@ -42,7 +48,24 @@ mkdir -p "$downloads_dir" "$src_dir" "$build_deps_dir" "$install_dir"
 included_unistring_marker="$install_dir/.libidn2-included-unistring"
 if [ ! -f "$install_dir/lib/libidn2.a" ] || [ ! -f "$included_unistring_marker" ]; then
   archive="$downloads_dir/libidn2-$libidn2_version.tar.gz"
-  [ -f "$archive" ] || curl -L "$libidn2_url" -o "$archive"
+  verified=
+  if [ ! -f "$archive" ] || \
+      ! printf "%s  %s\n" "$libidn2_sha256" "$archive" | $sha256sum_cmd -c -; then
+    for libidn2_url in $libidn2_urls; do
+      rm -f "$archive"
+      if curl -fL --connect-timeout 15 --max-time 120 \
+        "$libidn2_url" -o "$archive" && \
+        printf "%s  %s\n" "$libidn2_sha256" "$archive" | $sha256sum_cmd -c -; then
+        verified=1
+        break
+      fi
+    done
+    if [ -z "$verified" ]; then
+      echo "Failed to get libidn2 archive"
+      rm -f "$archive"
+      exit 1
+    fi
+  fi
   rm -rf "$src_dir/libidn2" "$build_deps_dir/libidn2"
   mkdir -p "$src_dir/libidn2" "$build_deps_dir/libidn2"
   tar -xf "$archive" -C "$src_dir/libidn2" --strip-components=1
