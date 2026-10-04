@@ -12,8 +12,7 @@ on:
     branches:
       - main
 
-permissions:
-  contents: read
+permissions: {}
 
 env:
   LICENSE_FILES: >-
@@ -31,6 +30,8 @@ env:
 jobs:
   build-windows:
     name: Build windows binaries
+    permissions:
+      contents: read
     strategy:
       matrix:
         include:
@@ -40,22 +41,24 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - name: configure Pagefile
-        uses: al-cheb/configure-pagefile-action@v1.3
+        uses: al-cheb/configure-pagefile-action@9b6da52fb72a3c6147c1aad2df22d8d905681adc # v1.5
         with:
           minimum-size: 16GB
           maximum-size: 16GB
           disk-root: "C:"
 
       - name: Install python 3.11
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.11'
 
       - name: Check out the repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Install NASM and Make
-        shell: cmd
+        shell: pwsh
         run: choco install nasm make -y
 
       - name: Install Ninja for Win-ARM64
@@ -70,7 +73,7 @@ jobs:
       #   uses: mxschmitt/action-tmate@v3
 
       - name: Build
-        shell: cmd
+        shell: cmd # zizmor: ignore[misfeature] -- for run bat
         run: ./win/build.bat ${{ matrix.sys }}
 
       - name: Check build
@@ -79,13 +82,15 @@ jobs:
 
       - name: Build tarballs
         shell: bash
+        env:
+          VER: "${{ github.head_ref || github.ref_name }}"
         run: |
           set -euo pipefail
           cmake -P build/CollectLicenses.cmake
           license_dir="$GITHUB_WORKSPACE/build/licenses"
           suffix="${{ matrix.env }}-win32"
           if [[ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]]; then
-            ver="${{ github.head_ref || github.ref_name }}"
+            ver="$VER"
             curl_tar="curl-impersonate-${ver}.${suffix}.tar.gz"
             lib_tar="libcurl-impersonate-${ver}.${suffix}.tar.gz"
           else
@@ -96,7 +101,7 @@ jobs:
           tar -czf "$lib_tar" -C packages lib include -C "$license_dir" $LICENSE_FILES
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: artifacts.windows.${{ matrix.env }}
           path: |

@@ -12,13 +12,14 @@ on:
     branches:
       - main
 
-permissions:
-  contents: read
+permissions: {}
 
 jobs:
   test-linux:
     name: (x86_64-linux-gnu) Build and run tests
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     env:
       CC: ${{ github.workspace }}/zigshim/cc
       CXX: ${{ github.workspace }}/zigshim/cxx
@@ -26,12 +27,13 @@ jobs:
       ZIG_FLAGS: -target x86_64-linux-gnu.2.17.0
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           submodules: recursive
 
       - name: Set up zig
-        uses: goto-bus-stop/setup-zig@v2
+        uses: goto-bus-stop/setup-zig@abea47f85e598557f500fa1fd2ab7464fcb39406 # v2.2.1
         with:
           version: 0.15.2
 
@@ -58,7 +60,7 @@ jobs:
           make checkbuild BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$cmake_args"
           make install BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$cmake_args"
 
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.10'
 
