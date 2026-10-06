@@ -13,7 +13,7 @@ build_deps_dir="$build_dir/deps/build"
 downloads_dir="$build_dir/deps/downloads"
 
 libidn2_version=${LIBIDN2_VERSION:-2.3.7}
-libidn2_url=${LIBIDN2_URL:-https://ftp.gnu.org/gnu/libidn/libidn2-$libidn2_version.tar.gz}
+libidn2_url=${LIBIDN2_URL:-https://mirrors.kernel.org/gnu/libidn/libidn2-$libidn2_version.tar.gz}
 
 make_cmd=${MAKE:-make}
 if command -v gmake >/dev/null 2>&1; then
@@ -42,7 +42,7 @@ mkdir -p "$downloads_dir" "$src_dir" "$build_deps_dir" "$install_dir"
 included_unistring_marker="$install_dir/.libidn2-included-unistring"
 if [ ! -f "$install_dir/lib/libidn2.a" ] || [ ! -f "$included_unistring_marker" ]; then
   archive="$downloads_dir/libidn2-$libidn2_version.tar.gz"
-  [ -f "$archive" ] || curl -L "$libidn2_url" -o "$archive"
+  [ -f "$archive" ] || curl -fL --retry 3 "$libidn2_url" -o "$archive"
   rm -rf "$src_dir/libidn2" "$build_deps_dir/libidn2"
   mkdir -p "$src_dir/libidn2" "$build_deps_dir/libidn2"
   tar -xf "$archive" -C "$src_dir/libidn2" --strip-components=1
