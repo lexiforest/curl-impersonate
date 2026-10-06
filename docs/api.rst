@@ -178,6 +178,15 @@ HTTP/3 and QUIC
   source connection ID.
   Command line: ``--quic-cid-length <profile>``.
 
+``CURLOPT_QUIC_INITIAL_PACKET_NUMBER`` (long)
+  Sets the initial QUIC packet number for HTTP/3 connections. Accepts values from
+  ``0`` to ``2147483647`` (``INT32_MAX``) for a fixed packet number, or ``-1`` to
+  use Firefox-style randomization with Neqo's biased distribution from ``1`` to
+  ``1024`` for each new QUIC connection. The default is ``0``; an impersonation
+  profile may override it. Values outside this range return
+  ``CURLE_BAD_FUNCTION_ARGUMENT`` from ``curl_easy_setopt()``.
+  Command line: ``--quic-initial-packet-number <num>`` (requires HTTP/3 support).
+
 ``CURLOPT_QUIC_TRANSPORT_PARAMETERS`` (string)
   Sets QUIC transport parameters, in the format ``id:value;id:value``.
   Command line: ``--quic-transport-params <params>``.
