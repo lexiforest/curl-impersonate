@@ -7529,10 +7529,11 @@ diff --git a/lib/vquic/cf-ngtcp2-cmn.c b/lib/vquic/cf-ngtcp2-cmn.c
 index b1cfb68cbd..ba5339ae9c 100644
 --- a/lib/vquic/cf-ngtcp2-cmn.c
 +++ b/lib/vquic/cf-ngtcp2-cmn.c
-@@ -62,6 +62,7 @@
+@@ -62,6 +62,8 @@
  #include "http1.h"
  #include "select.h"
  #include "sockaddr.h"
++#include "socks.h"
 +#include "strcase.h"
  #include "transfer.h"
  #include "bufref.h"
@@ -7566,7 +7567,7 @@ index b1cfb68cbd..ba5339ae9c 100644
      Curl_uint32_hash_destroy(&ctx->streams);
      Curl_ssl_peer_cleanup(&ctx->ssl_peer);
      curlx_safefree(ctx->tunnel_inbuf);
-@@ -188,12 +192,730 @@ static void qlog_callback(void *user_data, uint32_t flags,
+@@ -188,12 +193,733 @@ static void qlog_callback(void *user_data, uint32_t flags,
    }
  }
  
@@ -7584,6 +7585,9 @@ index b1cfb68cbd..ba5339ae9c 100644
 +  bool got_addr = FALSE;
 +  bool got_ip = FALSE;
 +  int dummy = 0;
++
++  if(!Curl_cf_socks_proxy_is_udp_associate(cf))
++    return Curl_cf_socket_peek(cf, data, psock, paddr, pip);
 +
 +  for(; cf; cf = cf->next) {
 +    if(!got_sock && (psock || pip) &&
