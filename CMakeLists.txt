@@ -494,14 +494,23 @@ if(NOT CURL_CA_PATH STREQUAL "")
   list(APPEND _curl_ca_flags "-DCURL_CA_PATH=${CURL_CA_PATH}")
 endif()
 
-set(_curl_deps zlib zstd brotli boringssl nghttp2 ngtcp2 nghttp3 cares)
-set(_curl_resolver_flags
-  -DENABLE_ARES=ON
-  -DENABLE_THREADED_RESOLVER=OFF
-  -DCARES_USE_STATIC_LIBS=ON
-  -DCURL_USE_CMAKECONFIG=ON
-  "-Dc-ares_DIR=${DEPS_INSTALL_DIR}/lib/cmake/c-ares"
-)
+set(_curl_deps zlib zstd brotli boringssl nghttp2 ngtcp2 nghttp3)
+
+if(ANDROID)
+  set(_curl_resolver_flags
+    -DENABLE_ARES=OFF
+    -DENABLE_THREADED_RESOLVER=ON
+  )
+else()
+  list(APPEND _curl_deps cares)
+  set(_curl_resolver_flags
+    -DENABLE_ARES=ON
+    -DENABLE_THREADED_RESOLVER=OFF
+    -DCARES_USE_STATIC_LIBS=ON
+    -DCURL_USE_CMAKECONFIG=ON
+    "-Dc-ares_DIR=${DEPS_INSTALL_DIR}/lib/cmake/c-ares"
+  )
+endif()
 if(USE_LIBIDN2)
   list(APPEND _curl_deps libidn2)
 endif()
