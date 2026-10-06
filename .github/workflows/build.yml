@@ -96,6 +96,13 @@ jobs:
             zigflags: -target loongarch64-linux-gnu.2.36.0 -fPIC
             make: make
           - os: ubuntu-latest
+            platform: linux
+            arch: s390x
+            host: s390x-linux-gnu
+            host_label: s390x-linux-gnu
+            zigflags: -target s390x-linux-gnu.2.17.0
+            make: make
+          - os: ubuntu-latest
             platform: android
             arch: aarch64
             host: aarch64-linux-android
@@ -215,7 +222,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install build-essential pkg-config cmake ninja-build curl qemu-user libc6-i386-cross
-          sudo apt-get install gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf gcc-riscv64-linux-gnu gcc-14-loongarch64-linux-gnu
+          sudo apt-get install gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf gcc-riscv64-linux-gnu gcc-14-loongarch64-linux-gnu gcc-s390x-linux-gnu
 
       - name: Install macOS dependencies
         if: runner.os == 'macOS'
@@ -262,6 +269,7 @@ jobs:
                 arm) curl_runner="qemu-arm" ;;
                 riscv64) curl_runner="qemu-riscv64" ;;
                 loongarch64) curl_runner="qemu-loongarch64" ;;
+                s390x) curl_runner="qemu-s390x" ;;
                 *) echo "Unsupported Linux arch: ${{ matrix.arch }}"; exit 1 ;;
               esac
               if [[ -n "$curl_runner" && "${{ matrix.arch }}" != "i386" && "${{ matrix.host }}" == *gnu* ]]; then
