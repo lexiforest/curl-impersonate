@@ -312,7 +312,9 @@ jobs:
             license_files="$license_files LICENSE_LIBIDN2_GPL2 LICENSE_LIBIDN2_GPL3 LICENSE_LIBIDN2_LGPL3 LICENSE_LIBIDN2_UNICODE"
           fi
 
-          cp "$deps_lib_dir/libcares.a" "$install_lib_dir/"
+          if [[ "${{ matrix.platform }}" != "android" ]]; then
+            cp "$deps_lib_dir/libcares.a" "$install_lib_dir/"
+          fi
           cp "$deps_lib_dir/libz.a" "$install_lib_dir/"
           cp "$deps_lib_dir/libzstd.a" "$install_lib_dir/"
           cp "$deps_lib_dir/libbrotlidec.a" "$install_lib_dir/"
@@ -330,7 +332,10 @@ jobs:
 
           cd "$install_lib_dir"
           mv libcurl-impersonate.a libcurl-impersonate.orig.a
-          lib_list="libcurl-impersonate.orig.a libz.a libzstd.a libbrotlidec.a libbrotlicommon.a libbrotlienc.a libnghttp2.a libnghttp3.a libngtcp2.a libngtcp2_crypto_boringssl.a libssl.a libcrypto.a libcares.a"
+          lib_list="libcurl-impersonate.orig.a libz.a libzstd.a libbrotlidec.a libbrotlicommon.a libbrotlienc.a libnghttp2.a libnghttp3.a libngtcp2.a libngtcp2_crypto_boringssl.a libssl.a libcrypto.a"
+          if [[ "${{ matrix.platform }}" != "android" ]]; then
+            lib_list="$lib_list libcares.a"
+          fi
           if [[ -f libidn2.a ]]; then
             lib_list="$lib_list libidn2.a"
           fi
