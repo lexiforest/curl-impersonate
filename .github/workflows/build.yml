@@ -107,6 +107,18 @@ jobs:
             host: x86_64-linux-android
             host_label: x86_64-linux-android
             make: make
+          - os: ubuntu-latest
+            platform: android
+            arch: x86
+            host: i686-linux-android
+            host_label: x86-linux-android
+            make: make
+          - os: ubuntu-latest
+            platform: android
+            arch: armv7
+            host: armv7a-linux-androideabi
+            host_label: armv7-linux-android
+            make: make
           - os: macos-14
             platform: ios
             arch: arm64
@@ -237,6 +249,8 @@ jobs:
           elif [[ "${{ matrix.platform }}" == "android" ]]; then
             case "${{ matrix.arch }}" in
               aarch64) android_abi="arm64-v8a" ;;
+              armv7) android_abi="armeabi-v7a" ;;
+              x86) android_abi="x86" ;;
               x86_64) android_abi="x86_64" ;;
               *) echo "Unsupported Android arch: ${{ matrix.arch }}"; exit 1 ;;
             esac
