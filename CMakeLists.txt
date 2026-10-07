@@ -93,11 +93,20 @@ if(WIN32)
   string(TOLOWER "${CMAKE_C_COMPILER_TARGET}" _ci_c_target_lc)
   string(TOLOWER "${CMAKE_CXX_COMPILER_TARGET}" _ci_cxx_target_lc)
   string(TOLOWER "${CMAKE_GENERATOR_PLATFORM}" _ci_generator_platform_lc)
-  if(_ci_system_processor_lc MATCHES "arm64|aarch64"
-      OR _ci_c_target_lc MATCHES "arm64|aarch64"
-      OR _ci_cxx_target_lc MATCHES "arm64|aarch64"
-      OR _ci_generator_platform_lc MATCHES "arm64")
-    set(_disable_boringssl_asm_default ON)
+  if(MSVC OR (CMAKE_C_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC"
+      OR CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC"))
+    if(_ci_system_processor_lc MATCHES "arm64|aarch64"
+        OR _ci_c_target_lc MATCHES "arm64|aarch64"
+        OR _ci_cxx_target_lc MATCHES "arm64|aarch64"
+        OR _ci_generator_platform_lc MATCHES "arm64")
+      set(_disable_boringssl_asm_default ON)
+    endif()
+  elseif(MINGW)
+    if(_ci_system_processor_lc MATCHES "^arm$|armv7"
+        OR _ci_c_target_lc MATCHES "^arm$|armv7"
+        OR _ci_cxx_target_lc MATCHES "^arm$|armv7")
+      set(_disable_boringssl_asm_default ON)
+    endif()
   endif()
 endif()
 option(DISABLE_BORINGSSL_ASM "Disable BoringSSL asm (arm64 workaround)" ${_disable_boringssl_asm_default})
@@ -184,6 +193,12 @@ if(CMAKE_MSVC_RUNTIME_LIBRARY)
   list(APPEND _toolchain_cmake_args
     "-DCMAKE_MSVC_RUNTIME_LIBRARY=${CMAKE_MSVC_RUNTIME_LIBRARY}"
     "-DCMAKE_POLICY_DEFAULT_CMP0091=NEW"
+  )
+endif()
+if(MINGW)
+  list(APPEND _toolchain_cmake_args
+    "-DCMAKE_EXE_LINKER_FLAGS=-static"
+    "-DCMAKE_SHARED_LINKER_FLAGS=-static"
   )
 endif()
 if(CMAKE_LINKER)
@@ -320,6 +335,9 @@ set(_boringssl_cmake_args
 if(DISABLE_BORINGSSL_ASM)
   list(APPEND _boringssl_cmake_args -DOPENSSL_NO_ASM=ON)
 endif()
+if(CMAKE_ASM_NASM_COMPILER)
+  list(APPEND _boringssl_cmake_args "-DCMAKE_ASM_NASM_COMPILER=${CMAKE_ASM_NASM_COMPILER}")
+endif()
 
 _track_external_project_patch(
   boringssl _boringssl_patch_file _boringssl_patch_changed
@@ -338,7 +356,8 @@ ExternalProject_Add(boringssl
 ExternalProject_Get_Property(boringssl source_dir binary_dir)
 set(BORINGSSL_SRC_DIR "${source_dir}")
 set(BORINGSSL_BIN_DIR "${binary_dir}")
-if(WIN32)
+if(MSVC OR (CMAKE_C_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC"
+    OR CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC"))
   set(BORINGSSL_SSL_LIB "${DEPS_INSTALL_DIR}/lib/ssl.lib")
   set(BORINGSSL_CRYPTO_LIB "${DEPS_INSTALL_DIR}/lib/crypto.lib")
 else()
@@ -348,7 +367,8 @@ endif()
 set(BORINGSSL_INCLUDE_DIR "${BORINGSSL_SRC_DIR}/include")
 
 set(_ngtcp2_boringssl_libs_arg)
-if(WIN32)
+if(MSVC OR (CMAKE_C_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC"
+    OR CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC"))
   list(APPEND _ngtcp2_boringssl_libs_arg "-DBORINGSSL_LIBRARIES=${BORINGSSL_SSL_LIB}|${BORINGSSL_CRYPTO_LIB}")
 endif()
 
@@ -515,9 +535,13 @@ if(USE_LIBIDN2)
   list(APPEND _curl_deps libidn2)
 endif()
 
-if(WIN32)
+if(MSVC OR (CMAKE_C_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC"
+    OR CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC"))
   set(_curl_zlib_library "${DEPS_INSTALL_DIR}/lib/zlibstatic.lib")
   set(_curl_zstd_library "${DEPS_INSTALL_DIR}/lib/zstd_static.lib")
+elseif(MINGW)
+  set(_curl_zlib_library "${DEPS_INSTALL_DIR}/lib/libzlibstatic.a")
+  set(_curl_zstd_library "${DEPS_INSTALL_DIR}/lib/libzstd.a")
 else()
   set(_curl_zlib_library "${DEPS_INSTALL_DIR}/lib/libz.a")
   set(_curl_zstd_library "${DEPS_INSTALL_DIR}/lib/libzstd.a")
@@ -526,7 +550,8 @@ endif()
 set(_curl_staged_dependency_args
   "-DCMAKE_PREFIX_PATH=${DEPS_INSTALL_DIR}"
 )
-if(NOT WIN32)
+if(NOT (MSVC OR (CMAKE_C_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC"
+      OR CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")))
   set(_curl_c_flags "${CMAKE_C_FLAGS}")
   set(_curl_cxx_flags "${CMAKE_CXX_FLAGS}")
   string(PREPEND _curl_c_flags "-I${DEPS_INSTALL_DIR}/include ")
@@ -564,7 +589,8 @@ if(USE_LIBIDN2 AND NOT WIN32)
 endif()
 
 set(_curl_platform_flags)
-if(WIN32)
+if(MSVC OR (CMAKE_C_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC"
+    OR CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC"))
   set(_curl_platform_c_flags "${CMAKE_C_FLAGS}")
   string(APPEND _curl_platform_c_flags " /DNGHTTP2_STATICLIB=1 /DNGTCP2_STATICLIB=1 /DNGHTTP3_STATICLIB=1 /Dstrtok_r=strtok_s")
   list(APPEND _curl_platform_flags "-DCMAKE_C_FLAGS=${_curl_platform_c_flags}")
@@ -575,6 +601,10 @@ if(WIN32)
   else()
     list(APPEND _curl_platform_flags "-Dssize_t=long")
   endif()
+elseif(MINGW)
+  set(_curl_platform_c_flags "${CMAKE_C_FLAGS}")
+  string(APPEND _curl_platform_c_flags " -DNGHTTP2_STATICLIB=1 -DNGTCP2_STATICLIB=1 -DNGHTTP3_STATICLIB=1")
+  list(APPEND _curl_platform_flags "-DCMAKE_C_FLAGS=${_curl_platform_c_flags}")
 elseif(APPLE)
   list(APPEND _curl_platform_flags -DUSE_APPLE_SECTRUST=ON)
 endif()
