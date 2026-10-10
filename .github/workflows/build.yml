@@ -339,6 +339,20 @@ jobs:
           if [[ -f libidn2.a ]]; then
             lib_list="$lib_list libidn2.a"
           fi
+          if [[ "${{ matrix.platform }}" == "macos" ]]; then
+            autolink_source="$RUNNER_TEMP/curl-system-dependencies.s"
+            autolink_object="curl-system-dependencies.o"
+            cmake \
+              "-DINPUT_PC=${{ github.workspace }}/build/deps/build/curl/libcurl.pc" \
+              "-DDEPENDENCY_PREFIX=${{ github.workspace }}/build/deps/install" \
+              "-DARCHIVE_DIR=$install_lib_dir" \
+              "-DARCHIVES=${lib_list// /;}" \
+              "-DOUTPUT_PC=$install_lib_dir/libcurl-impersonate.pc" \
+              "-DOUTPUT_ASM=$autolink_source" \
+              -P "${{ github.workspace }}/cmake/PrepareMacOSStatic.cmake"
+            ${CC:-cc} -arch "${{ matrix.arch }}" -c "$autolink_source" -o "$autolink_object"
+            lib_list="$lib_list $autolink_object"
+          fi
           if [[ "${{ runner.os }}" == "macOS" || "${{ matrix.platform }}" == "ios" ]]; then
             libtool -static -o libcurl-impersonate.a $lib_list
           elif [[ "${{ matrix.platform }}" == "linux" ]]; then
@@ -374,13 +388,25 @@ jobs:
           fi
           rm -f libcares.a libz.a libzstd.a libbrotlidec.a libbrotlicommon.a libbrotlienc.a libnghttp2.a libnghttp3.a libngtcp2.a libngtcp2_crypto_boringssl.a libssl.a libcrypto.a libidn2.a
           rm -f libcurl-impersonate.orig.a
+          if [[ "${{ matrix.platform }}" == "macos" ]]; then
+            rm -f "$autolink_object" "$autolink_source"
+          fi
           ls -lah .
           if [[ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]]; then
-            tar -c -z -f ${{ runner.temp }}/libcurl-impersonate-${{ github.ref_name }}.${{ matrix.host_label }}.tar.gz -C "$install_lib_dir" lib* -C "$install_dir" include -C "$license_dir" $license_files
+            release_file_lib="${{ runner.temp }}/libcurl-impersonate-${{ github.ref_name }}.${{ matrix.host_label }}.tar.gz"
           else
-            tar -c -z -f ${{ runner.temp }}/libcurl-impersonate.${{ matrix.host_label }}.tar.gz -C "$install_lib_dir" lib* -C "$install_dir" include -C "$license_dir" $license_files
+            release_file_lib="${{ runner.temp }}/libcurl-impersonate.${{ matrix.host_label }}.tar.gz"
           fi
-          echo "release_file_lib=${{ runner.temp }}/libcurl-impersonate-${{ github.ref_name }}.${{ matrix.host_label }}.tar.gz" >> $GITHUB_ENV
+          tar -c -z -f "$release_file_lib" -C "$install_lib_dir" lib* -C "$install_dir" include -C "$license_dir" $license_files
+          echo "release_file_lib=$release_file_lib" >> $GITHUB_ENV
+          if [[ "${{ matrix.platform }}" == "macos" ]]; then
+            cmake \
+              "-DARCHIVE=$release_file_lib" \
+              "-DWORK_DIR=$RUNNER_TEMP/static-autolink-proof" \
+              "-DCOMPILER=${CC:-cc}" \
+              "-DARCHITECTURE=${{ matrix.arch }}" \
+              -P "${{ github.workspace }}/cmake/VerifyMacOSStatic.cmake"
+          fi
 
           cd "$install_dir/bin"
           if [[ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]]; then
