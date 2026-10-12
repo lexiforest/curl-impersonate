@@ -797,7 +797,7 @@ index 4137e98b35..0000000000
 -**wcurl** is licensed under the curl license
 diff --git a/export.sh b/export.sh
 new file mode 100755
-index 0000000000..117cb3c816
+index 0000000000..b58c2cb622
 --- /dev/null
 +++ b/export.sh
 @@ -0,0 +1,9 @@
@@ -808,7 +808,7 @@ index 0000000000..117cb3c816
 +# 1. https://github.com/curl/curl/pull/13244/files
 +# 2. https://everything.curl.dev/build/windows.html
 +
-+git df curl-8_22_0 -- . ':(exclude)tests/**' > chrome.patch
++git diff curl-8_22_0 -- . ':(exclude)tests/**' > chrome.patch
 +mv chrome.patch ../curl-impersonate/patches/curl.patch
 diff --git a/include/curl/curl.h b/include/curl/curl.h
 index b904e49530..5e05a77eaa 100644
