@@ -797,7 +797,7 @@ index 4137e98b35..0000000000
 -**wcurl** is licensed under the curl license
 diff --git a/export.sh b/export.sh
 new file mode 100755
-index 0000000000..117cb3c816
+index 0000000000..b58c2cb622
 --- /dev/null
 +++ b/export.sh
 @@ -0,0 +1,9 @@
@@ -808,7 +808,7 @@ index 0000000000..117cb3c816
 +# 1. https://github.com/curl/curl/pull/13244/files
 +# 2. https://everything.curl.dev/build/windows.html
 +
-+git df curl-8_22_0 -- . ':(exclude)tests/**' > chrome.patch
++git diff curl-8_22_0 -- . ':(exclude)tests/**' > chrome.patch
 +mv chrome.patch ../curl-impersonate/patches/curl.patch
 diff --git a/include/curl/curl.h b/include/curl/curl.h
 index b904e49530..5e05a77eaa 100644
@@ -3369,7 +3369,7 @@ index c3270da1cc..807f0ad6ae 100644
   * Store nghttp2 version info in this buffer.
 diff --git a/lib/impersonate.c b/lib/impersonate.c
 new file mode 100644
-index 0000000000..aad5688f4f
+index 0000000000..5c52f463a1
 --- /dev/null
 +++ b/lib/impersonate.c
 @@ -0,0 +1,2371 @@
@@ -3976,7 +3976,7 @@ index 0000000000..aad5688f4f
 +      "AES256-GCM-SHA384:"
 +      "AES128-SHA:"
 +      "AES256-SHA",
-+    .curves = "X25519:P-256:P-384",
++    .curves = "X25519MLKEM768:X25519:P-256:P-384",
 +    .npn = false,
 +    .alpn = true,
 +    .alps = true,
@@ -3985,7 +3985,7 @@ index 0000000000..aad5688f4f
 +    .cert_compression = "brotli",
 +    .http_headers = {
 +      "sec-ch-ua: \"Google Chrome\";v=\"131\", \"Chromium\";v=\"131\", \"Not_A Brand\";v=\"24\"",
-+      "sec-ch-ua-mobile: ?0",
++      "sec-ch-ua-mobile: ?1",
 +      "sec-ch-ua-platform: \"Android\"",
 +      "Upgrade-Insecure-Requests: 1",
 +      "User-Agent: Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36",
@@ -4004,7 +4004,7 @@ index 0000000000..aad5688f4f
 +    .http2_stream_exclusive = 1,
 +    .ech = "true",
 +    .tls_extension_order = NULL,
-+    .tls_use_new_alps_codepoint = false,
++    .tls_use_new_alps_codepoint = true,
 +    .tls_signed_cert_timestamps = true,
 +    .tls_grease = true,
 +    .split_cookies = true,
