@@ -7535,6 +7535,30 @@ index 249331d30b..31fab8935d 100644
    BIT(post301); /* keep POSTs as POSTs after a 301 request */
    BIT(post302); /* keep POSTs as POSTs after a 302 request */
    BIT(post303); /* keep POSTs as POSTs after a 303 request */
+diff --git a/lib/vdns/cf-dns.c b/lib/vdns/cf-dns.c
+index 8a08912d93..34d7e05e8b 100644
+--- a/lib/vdns/cf-dns.c
++++ b/lib/vdns/cf-dns.c
+@@ -640,6 +640,19 @@ CURLcode Curl_conn_dns_add_https_resolve(struct Curl_easy *data,
+                                          int8_t sockindex,
+                                          struct Curl_peer *peer)
+ {
++#ifndef CURL_DISABLE_PROXY
++  /* curl-impersonate: do not leak names through HTTPS-RR queries when
++   * resolving them is delegated to a proxy. Keep this here so both HTTPS
++   * connection setup and TLS/ECH setup obey the same policy. */
++  if(conn->socks_proxy.peer && (peer != conn->socks_proxy.peer) &&
++     ((conn->socks_proxy.proxytype == CURLPROXY_SOCKS4A) ||
++      (conn->socks_proxy.proxytype == CURLPROXY_SOCKS5_HOSTNAME)))
++    return CURLE_OK;
++
++  if(conn->http_proxy.peer && (peer != conn->http_proxy.peer))
++    return CURLE_OK;
++#endif
++
+   return cf_dns_add_resolve(data, conn, sockindex, peer,
+                             CURL_DNSQ_HTTPS, conn->transport_wanted);
+ }
 diff --git a/lib/version.c b/lib/version.c
 index ec796e87ba..0199bbb106 100644
 --- a/lib/version.c
