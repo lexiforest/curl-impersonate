@@ -42,8 +42,8 @@ set(ZSTD_VERSION "1.5.7")
 set(ZSTD_URL_HASH "SHA256=eb33e51f49a15e023950cd7825ca74a4a2b43db8354825ac24fc1b7ee09e6fa3")
 set(CARES_VERSION "1.34.8")
 set(CARES_URL_HASH "SHA256=c222b6d681096f9444d2c4863d2c1174019e27cacca0a4a5c114d36dd7d7bf78")
-set(CURL_VERSION "curl-8_22_0")
-set(CURL_URL_HASH "SHA256=222c6b5c1f368ac63aed59bce2774eb5def9e8e67e46e800be182e684d2845a3")
+set(CURL_VERSION "curl-8_23_0")
+set(CURL_URL_HASH "SHA256=d0605d5883124ef5ae64c6d2b307e1417c482b362583b57491fdf37d9a99a792")
 
 set(CURL_IMPERSONATE_VERSION "" CACHE STRING
   "Override the curl-impersonate version (defaults to an exact clean Git tag or local)")
@@ -514,14 +514,23 @@ if(NOT CURL_CA_PATH STREQUAL "")
   list(APPEND _curl_ca_flags "-DCURL_CA_PATH=${CURL_CA_PATH}")
 endif()
 
-set(_curl_deps zlib zstd brotli boringssl nghttp2 ngtcp2 nghttp3 cares)
-set(_curl_resolver_flags
-  -DENABLE_ARES=ON
-  -DENABLE_THREADED_RESOLVER=OFF
-  -DCARES_USE_STATIC_LIBS=ON
-  -DCURL_USE_CMAKECONFIG=ON
-  "-Dc-ares_DIR=${DEPS_INSTALL_DIR}/lib/cmake/c-ares"
-)
+set(_curl_deps zlib zstd brotli boringssl nghttp2 ngtcp2 nghttp3)
+
+if(ANDROID)
+  set(_curl_resolver_flags
+    -DENABLE_ARES=OFF
+    -DENABLE_THREADED_RESOLVER=ON
+  )
+else()
+  list(APPEND _curl_deps cares)
+  set(_curl_resolver_flags
+    -DENABLE_ARES=ON
+    -DENABLE_THREADED_RESOLVER=OFF
+    -DCARES_USE_STATIC_LIBS=ON
+    -DCURL_USE_CMAKECONFIG=ON
+    "-Dc-ares_DIR=${DEPS_INSTALL_DIR}/lib/cmake/c-ares"
+  )
+endif()
 if(USE_LIBIDN2)
   list(APPEND _curl_deps libidn2)
 endif()
@@ -641,7 +650,9 @@ ExternalProject_Add(curl
       -DCMAKE_BUILD_TYPE=Release
       ${_shadow_avoid_cmake_args}
       -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}
-      -DCMAKE_INSTALL_LIBDIR=lib
+      -DCMAKE_INSTALL_LIBDIR=${CMAKE_INSTALL_LIBDIR}
+      -DCMAKE_INSTALL_INCLUDEDIR=${CMAKE_INSTALL_INCLUDEDIR}
+      -DCMAKE_INSTALL_BINDIR=${CMAKE_INSTALL_BINDIR}
       ${_toolchain_cmake_args}
       -DCMAKE_POSITION_INDEPENDENT_CODE=ON
       ${_curl_staged_dependency_args}
@@ -705,7 +716,7 @@ add_custom_target(install-all
   COMMAND ${CMAKE_COMMAND} --install ${CMAKE_BINARY_DIR}
 )
 
-# Install only runtime artifacts we ship: curl binary, libcurl library, and wrappers.
+# Install runtime artifacts and the files needed by libcurl consumers.
 # Do not call curl's own install target, which also installs docs/manpages.
 if(WIN32)
   install(PROGRAMS "${DEPS_BUILD_DIR}/curl/src/curl-impersonate.exe" DESTINATION ${CMAKE_INSTALL_BINDIR})
@@ -740,6 +751,30 @@ install(
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
   FILES_MATCHING
     PATTERN "*.h"
+)
+# Keep static dependencies private so they do not replace system libraries.
+install(
+  DIRECTORY "${DEPS_INSTALL_DIR}/lib/"
+  DESTINATION "${CMAKE_INSTALL_LIBDIR}/curl-impersonate"
+  FILES_MATCHING
+    PATTERN "*.a"
+    PATTERN "*.lib"
+    PATTERN "cmake" EXCLUDE
+    PATTERN "pkgconfig" EXCLUDE
+)
+configure_file(
+  "${CMAKE_SOURCE_DIR}/cmake/PrepareInstallMetadata.cmake.in"
+  "${CMAKE_BINARY_DIR}/PrepareInstallMetadata.cmake"
+  @ONLY
+)
+install(SCRIPT "${CMAKE_BINARY_DIR}/PrepareInstallMetadata.cmake")
+install(
+  FILES "${CMAKE_BINARY_DIR}/install-metadata/libcurl-impersonate.pc"
+  DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig"
+)
+install(
+  PROGRAMS "${CMAKE_BINARY_DIR}/install-metadata/curl-impersonate-config"
+  DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 if(WIN32)
   file(GLOB _curl_wrapper_scripts CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/win/bin/curl_*.bat")
