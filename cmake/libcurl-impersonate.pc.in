@@ -1,0 +1,12 @@
+prefix=${pcfiledir}
+libdir=${prefix}
+includedir=${prefix}/include
+
+Name: libcurl-impersonate
+Description: libcurl with browser impersonation support
+URL: https://github.com/lexiforest/curl-impersonate
+Version: @CURL_VERSION@
+Libs: -L${libdir} -lcurl-impersonate
+Libs.private: @CURL_SYSTEM_LIBS@
+Cflags: -I${includedir}
+Cflags.private: -DCURL_STATICLIB

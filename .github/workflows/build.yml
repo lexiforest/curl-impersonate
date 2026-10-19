@@ -339,6 +339,14 @@ jobs:
           if [[ -f libidn2.a ]]; then
             lib_list="$lib_list libidn2.a"
           fi
+          if [[ "${{ matrix.platform }}" == "macos" ]]; then
+            cmake \
+              "-DINPUT_PC=${{ github.workspace }}/build/deps/build/curl/libcurl.pc" \
+              "-DDEPENDENCY_PREFIX=${{ github.workspace }}/build/deps/install" \
+              "-DLIBRARY_DIR=$install_lib_dir" \
+              "-DARCHIVES=${lib_list// /;}" \
+              -P "${{ github.workspace }}/cmake/ReleasePkgConfig.cmake"
+          fi
           if [[ "${{ runner.os }}" == "macOS" || "${{ matrix.platform }}" == "ios" ]]; then
             libtool -static -o libcurl-impersonate.a $lib_list
           elif [[ "${{ matrix.platform }}" == "linux" ]]; then
@@ -376,11 +384,12 @@ jobs:
           rm -f libcurl-impersonate.orig.a
           ls -lah .
           if [[ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]]; then
-            tar -c -z -f ${{ runner.temp }}/libcurl-impersonate-${{ github.ref_name }}.${{ matrix.host_label }}.tar.gz -C "$install_lib_dir" lib* -C "$install_dir" include -C "$license_dir" $license_files
+            release_file_lib="${{ runner.temp }}/libcurl-impersonate-${{ github.ref_name }}.${{ matrix.host_label }}.tar.gz"
           else
-            tar -c -z -f ${{ runner.temp }}/libcurl-impersonate.${{ matrix.host_label }}.tar.gz -C "$install_lib_dir" lib* -C "$install_dir" include -C "$license_dir" $license_files
+            release_file_lib="${{ runner.temp }}/libcurl-impersonate.${{ matrix.host_label }}.tar.gz"
           fi
-          echo "release_file_lib=${{ runner.temp }}/libcurl-impersonate-${{ github.ref_name }}.${{ matrix.host_label }}.tar.gz" >> $GITHUB_ENV
+          tar -c -z -f "$release_file_lib" -C "$install_lib_dir" lib* -C "$install_dir" include -C "$license_dir" $license_files
+          echo "release_file_lib=$release_file_lib" >> $GITHUB_ENV
 
           cd "$install_dir/bin"
           if [[ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]]; then
@@ -388,6 +397,18 @@ jobs:
           else
             tar -c -z -f ${{ runner.temp }}/curl-impersonate.${{ matrix.host_label }}.tar.gz curl-impersonate curl_* -C "$license_dir" $license_files
           fi
+
+      - name: Verify macOS release pkg-config
+        if: matrix.platform == 'macos'
+        run: |
+          release_dir="$RUNNER_TEMP/release with spaces"
+          mkdir -p "$release_dir"
+          tar -xzf "$release_file_lib" -C "$release_dir"
+          cmake -S tests/pkgconfig -B "$RUNNER_TEMP/pkgconfig-consumer" \
+            -DRELEASE_DIR="$release_dir" \
+            -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch }}
+          cmake --build "$RUNNER_TEMP/pkgconfig-consumer"
+          ctest --test-dir "$RUNNER_TEMP/pkgconfig-consumer" --output-on-failure
 
       - name: Create iOS XCFramework slice
         if: matrix.platform == 'ios'

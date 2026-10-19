@@ -131,6 +131,24 @@ Configure and build
     # Optionally remove all the build files
     rm -Rf build
 
+macOS static release dependencies
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The macOS release archives include a relocatable ``libcurl-impersonate.pc``
+beside the merged static library. It retains required system libraries and
+frameworks while omitting dependencies already bundled into the archive.
+
+Set ``PKG_CONFIG_PATH`` to the extracted release directory and query
+``pkg-config --static --cflags --libs libcurl-impersonate``. The ``--static``
+option adds private dependencies; replace ``-lcurl-impersonate`` with the explicit
+archive path to avoid selecting the adjacent dynamic library. Downstream build
+scripts must consume these flags and rebuild their binaries.
+
+Release verification extracts the package into a path containing spaces, then
+configures, builds, and runs a standalone CMake consumer using only the released
+pkg-config metadata. It verifies that the static archive and headers come from
+the extracted package.
+
 BSD family (FreeBSD / OpenBSD)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
