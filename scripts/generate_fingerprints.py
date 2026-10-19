@@ -6,10 +6,13 @@ Examples:
   python3 scripts/generate_fingerprints.py sample.json
   python3 scripts/generate_fingerprints.py sample.json \
       --profile chrome_150_macos_26.0 --target chrome150
+  python3 scripts/generate_fingerprints.py --remove chrome150 --dry-run
 
 Full profile names are used by default to preserve OS variants. Existing
 presets with matching targets are replaced; other presets are preserved.
 The complete impersonations array is sorted alphabetically by target.
+Use --remove TARGET (repeatable) to remove presets and their generated
+wrappers, target-named signatures and test registry entries without JSON input.
 Patch export is left to the caller.
 """
 
@@ -159,7 +162,7 @@ def render_preset(profile, target, limit):
     return "\n".join(lines)
 
 
-def update_presets(source, presets):
+def update_presets(source, presets, remove=()):
     """Merge selected presets and sort all entries lexically by target."""
     marker = "const struct impersonate_opts impersonations[] = {"
     start = source.index(marker) + len(marker)
@@ -168,7 +171,7 @@ def update_presets(source, presets):
     # Entries and their closing braces use two spaces; nested header arrays
     # use four. Anchoring to those lines avoids braces in header values.
     entries = list(re.finditer(r"^  \{\n.*?^  \},?", body, re.M | re.S))
-    if not entries:
+    if not entries and body.strip():
         raise ValueError("cannot locate existing impersonation entries")
     merged = {}
     cursor = 0
@@ -185,6 +188,8 @@ def update_presets(source, presets):
     if body[cursor:].strip():
         raise ValueError("unexpected content after impersonation entries")
     merged.update(presets)
+    for target in remove:
+        merged.pop(target, None)
     body = "\n" + ",\n".join(merged[target] for target in sorted(merged)) + "\n"
     return source[:start] + body + source[end:]
 
@@ -233,9 +238,10 @@ def render_signature(profile, target, limit):
     }
 
 
-def update_test_targets(rows, targets):
+def update_test_targets(rows, targets, remove=()):
     """Replace selected wrapper/libcurl rows, preserving unrelated tests."""
-    wrappers = {f"curl_{target}" for target in targets}
+    selected = set(targets) | set(remove)
+    wrappers = {f"curl_{target}" for target in selected}
     result = []
     for row in rows:
         if not isinstance(row, list) or len(row) != 4:
@@ -243,7 +249,7 @@ def update_test_targets(rows, targets):
         binary, env, library, expected = row
         if binary in wrappers:
             continue
-        if binary == "minicurl" and (env or {}).get("CURL_IMPERSONATE") in targets:
+        if binary == "minicurl" and (env or {}).get("CURL_IMPERSONATE") in selected:
             continue
         result.append(row)
     for target in targets:
@@ -252,21 +258,74 @@ def update_test_targets(rows, targets):
     return result
 
 
+def remove_fingerprints(args, yaml):
+    """Remove exact target names and their generated artifacts; missing is OK."""
+    targets = sorted(set(args.remove))
+    for target in targets:
+        if not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_.-]*", target):
+            raise ValueError(f"invalid target name: {target!r}")
+    path = args.curl_chrome_dir / "lib/impersonate.c"
+    updated = update_presets(path.read_text(), {}, remove=targets)
+    targets_text = None
+    if args.targets_file.exists():
+        text = args.targets_file.read_text()
+        json_targets = args.targets_file.suffix.lower() == ".json"
+        rows = json.loads(text) if json_targets else yaml.safe_load(text)
+        rows = update_test_targets(rows, (), remove=targets)
+        targets_text = (json.dumps(rows, indent=2) + "\n" if json_targets else
+                        yaml.safe_dump(rows, sort_keys=False))
+    artifacts = [
+        artifact
+        for target in targets
+        for artifact in (
+            args.wrapper_dir / f"curl_{target}",
+            args.windows_wrapper_dir / f"curl_{target}.bat",
+            args.signatures_dir / f"{target}.yaml",
+        )
+    ]
+    if args.dry_run:
+        print(f"Would remove targets from {path}: {', '.join(targets)}")
+        for artifact in artifacts:
+            if artifact.exists() or artifact.is_symlink():
+                print(f"Would delete {artifact}")
+        if targets_text is not None:
+            print(f"\n# {args.targets_file}\n{targets_text}")
+        return
+    path.write_text(updated)
+    for artifact in artifacts:
+        artifact.unlink(missing_ok=True)
+    if targets_text is not None:
+        args.targets_file.write_text(targets_text)
+    print(f"Removed targets from {path} and their generated artifacts: "
+          f"{', '.join(targets)}")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("profile_file", nargs="?", type=Path, default=ROOT / "sample.json")
     parser.add_argument("--profile", action="append", help="select a profile name (repeatable)")
     parser.add_argument("--list", action="store_true", help="list available profile names without writing files")
     parser.add_argument("--target", help="override target name; requires exactly one profile")
+    parser.add_argument("--remove", action="append", metavar="TARGET",
+                        help="remove a target and its generated artifacts (repeatable; no JSON input needed)")
     parser.add_argument("--curl-chrome-dir", type=Path, default=ROOT.parent / "curl-chrome")
     parser.add_argument("--wrapper-dir", type=Path, default=ROOT / "bin")
     parser.add_argument("--windows-wrapper-dir", type=Path, default=ROOT / "win/bin")
     parser.add_argument("--signatures-dir", type=Path, default=ROOT / "tests/signatures")
     parser.add_argument("--targets-file", type=Path, default=ROOT / "tests/targets.yaml",
                         help="test registry to update (.yaml or .json)")
-    parser.add_argument("--dry-run", action="store_true", help="preview presets, signature YAML and test registry without writing files")
+    parser.add_argument("--dry-run", action="store_true", help="preview generation or removal without changing files")
     args = parser.parse_args()
+    if args.remove and (args.profile or args.target or args.list):
+        parser.error("--remove cannot be combined with --profile, --target or --list")
     try:
+        if args.remove:
+            try:
+                import yaml
+            except ImportError as exc:
+                raise ValueError("PyYAML is required: python3 -m pip install pyyaml") from exc
+            remove_fingerprints(args, yaml)
+            return
         data = json.loads(args.profile_file.read_text())
         profiles = data.get("data", [data]) if isinstance(data, dict) else data
         if args.list:

@@ -1,4 +1,3 @@
-# Test wrapper scripts
 - - curl_chrome99
   - null
   - null
@@ -131,10 +130,6 @@
   - null
   - null
   - tor_14.5_macOS
-
-# Test libcurl-impersonate by loading it with LD_PRELOAD to an app
-# linked against the regular libcurl and setting the
-# CURL_IMPERSONATE env var.
 - - minicurl
   - CURL_IMPERSONATE: chrome99
   - libcurl-impersonate
@@ -259,3 +254,35 @@
   - CURL_IMPERSONATE: tor145
   - libcurl-impersonate
   - tor_14.5_macOS
+- - curl_chrome151_macos
+  - null
+  - null
+  - chrome151_macos
+- - minicurl
+  - CURL_IMPERSONATE: chrome151_macos
+  - libcurl-impersonate
+  - chrome151_macos
+- - curl_chrome152_macos
+  - null
+  - null
+  - chrome152_macos
+- - minicurl
+  - CURL_IMPERSONATE: chrome152_macos
+  - libcurl-impersonate
+  - chrome152_macos
+- - curl_chrome151
+  - null
+  - null
+  - chrome151
+- - minicurl
+  - CURL_IMPERSONATE: chrome151
+  - libcurl-impersonate
+  - chrome151
+- - curl_chrome152
+  - null
+  - null
+  - chrome152
+- - minicurl
+  - CURL_IMPERSONATE: chrome152
+  - libcurl-impersonate
+  - chrome152
