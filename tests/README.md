@@ -1,4 +1,4 @@
-The tests verify that `curl-impersonate` has the same network signature as that of the supported browsers. They do not test curl's functionality itself.
+The tests verify that `curl-impersonate` has the same network signature as that of the supported browsers, and smoke-test WebSocket functionality.
 
 ## Running the tests
 
@@ -13,6 +13,30 @@ then run with:
 docker run --rm curl-impersonate-tests
 ```
 This simply runs `pytest` in the container. You can pass additional flags to `pytest` such as `--log-cli-level DEBUG`.
+
+### WebSocket smoke tests
+
+Run just the WebSocket tests against an installed build on Linux or macOS:
+
+```sh
+python3 -m pip install pytest pytest-asyncio 'websockets>=15,<16'
+python3 -m pytest tests/test_websocket.py --install-dir <install-prefix> -v
+```
+
+These tests compile a small C client against the headers and shared library in
+the install prefix (using `CC`, or `cc` by default). They run a loopback echo
+server and require neither Internet access nor packet-capture privileges.
+Both `ws://` and `wss://` are tested without impersonation and with Chrome 150,
+Firefox 144, and Safari 26.0 profiles. Each case checks the HTTP 101 upgrade,
+text and binary echoes (including chunked reads), ping/pong, and normal closure.
+The basic cases disable compression. A separate Chrome test enables
+`CURLWS_PERMESSAGE_DEFLATE` over both schemes and checks extension negotiation,
+compressed text and binary frames in both directions, repeated messages with
+context takeover, and uncompressed control frames. This requires a build with
+the `CURLWS_PERMESSAGE_DEFLATE` API. TLS uses the existing self-signed test certificate
+with certificate verification disabled in the smoke client.
+
+The existing CI and Docker `pytest` runs discover these tests automatically.
 
 ## How the tests work
 For each supported browser, the following tests are performed:
