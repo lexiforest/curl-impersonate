@@ -3,7 +3,7 @@ FROM python:3.12-slim-bookworm AS builder
 WORKDIR /build
 
 RUN apt-get update && \
-    apt-get install -y git ninja-build cmake pkg-config ca-certificates curl \
+    apt-get install -y build-essential git ninja-build cmake pkg-config ca-certificates curl \
     bzip2 xz-utils unzip
 
 COPY . /build
