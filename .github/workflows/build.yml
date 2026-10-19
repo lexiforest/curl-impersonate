@@ -340,18 +340,12 @@ jobs:
             lib_list="$lib_list libidn2.a"
           fi
           if [[ "${{ matrix.platform }}" == "macos" ]]; then
-            autolink_source="$RUNNER_TEMP/curl-system-dependencies.s"
-            autolink_object="curl-system-dependencies.o"
             cmake \
               "-DINPUT_PC=${{ github.workspace }}/build/deps/build/curl/libcurl.pc" \
               "-DDEPENDENCY_PREFIX=${{ github.workspace }}/build/deps/install" \
-              "-DARCHIVE_DIR=$install_lib_dir" \
+              "-DLIBRARY_DIR=$install_lib_dir" \
               "-DARCHIVES=${lib_list// /;}" \
-              "-DOUTPUT_PC=$install_lib_dir/libcurl-impersonate.pc" \
-              "-DOUTPUT_ASM=$autolink_source" \
-              -P "${{ github.workspace }}/cmake/PrepareMacOSStatic.cmake"
-            ${CC:-cc} -arch "${{ matrix.arch }}" -c "$autolink_source" -o "$autolink_object"
-            lib_list="$lib_list $autolink_object"
+              -P "${{ github.workspace }}/cmake/ReleasePkgConfig.cmake"
           fi
           if [[ "${{ runner.os }}" == "macOS" || "${{ matrix.platform }}" == "ios" ]]; then
             libtool -static -o libcurl-impersonate.a $lib_list
@@ -388,9 +382,6 @@ jobs:
           fi
           rm -f libcares.a libz.a libzstd.a libbrotlidec.a libbrotlicommon.a libbrotlienc.a libnghttp2.a libnghttp3.a libngtcp2.a libngtcp2_crypto_boringssl.a libssl.a libcrypto.a libidn2.a
           rm -f libcurl-impersonate.orig.a
-          if [[ "${{ matrix.platform }}" == "macos" ]]; then
-            rm -f "$autolink_object" "$autolink_source"
-          fi
           ls -lah .
           if [[ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]]; then
             release_file_lib="${{ runner.temp }}/libcurl-impersonate-${{ github.ref_name }}.${{ matrix.host_label }}.tar.gz"
@@ -399,14 +390,6 @@ jobs:
           fi
           tar -c -z -f "$release_file_lib" -C "$install_lib_dir" lib* -C "$install_dir" include -C "$license_dir" $license_files
           echo "release_file_lib=$release_file_lib" >> $GITHUB_ENV
-          if [[ "${{ matrix.platform }}" == "macos" ]]; then
-            cmake \
-              "-DARCHIVE=$release_file_lib" \
-              "-DWORK_DIR=$RUNNER_TEMP/static-autolink-proof" \
-              "-DCOMPILER=${CC:-cc}" \
-              "-DARCHITECTURE=${{ matrix.arch }}" \
-              -P "${{ github.workspace }}/cmake/VerifyMacOSStatic.cmake"
-          fi
 
           cd "$install_dir/bin"
           if [[ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]]; then
@@ -414,6 +397,18 @@ jobs:
           else
             tar -c -z -f ${{ runner.temp }}/curl-impersonate.${{ matrix.host_label }}.tar.gz curl-impersonate curl_* -C "$license_dir" $license_files
           fi
+
+      - name: Verify macOS release pkg-config
+        if: matrix.platform == 'macos'
+        run: |
+          release_dir="$RUNNER_TEMP/release with spaces"
+          mkdir -p "$release_dir"
+          tar -xzf "$release_file_lib" -C "$release_dir"
+          cmake -S tests/pkgconfig -B "$RUNNER_TEMP/pkgconfig-consumer" \
+            -DRELEASE_DIR="$release_dir" \
+            -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch }}
+          cmake --build "$RUNNER_TEMP/pkgconfig-consumer"
+          ctest --test-dir "$RUNNER_TEMP/pkgconfig-consumer" --output-on-failure
 
       - name: Create iOS XCFramework slice
         if: matrix.platform == 'ios'

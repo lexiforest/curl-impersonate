@@ -119,26 +119,20 @@ Configure and build
 macOS static release dependencies
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The macOS release workflow uses curl's pkg-config metadata to derive the system
-libraries and frameworks required by the merged ``libcurl-impersonate.a``. It
-publishes a relocatable ``libcurl-impersonate.pc`` beside the archive and embeds
-the same system dependencies as Mach-O linker options in an archive member.
+The macOS release archives include a relocatable ``libcurl-impersonate.pc``
+beside the merged static library. It retains required system libraries and
+frameworks while omitting dependencies already bundled into the archive.
 
-Existing Apple linker consumers using ``-Wl,-force_load,<archive>`` receive these
-options without querying pkg-config themselves. The metadata member must be
-loaded and automatic linking must be enabled. Ordinary selective archive links
-can query ``pkg-config --static`` using the extracted release directory, but
-``--static`` only adds private dependencies. Replace ``-lcurl-impersonate`` with
-the explicit archive path to avoid selecting the adjacent dynamic library.
-These release artifacts do not change the ordinary local install target, and
-existing downstream binaries must be rebuilt to receive the new link options.
+Set ``PKG_CONFIG_PATH`` to the extracted release directory and query
+``pkg-config --static --cflags --libs libcurl-impersonate``. The ``--static``
+option adds private dependencies; replace ``-lcurl-impersonate`` with the explicit
+archive path to avoid selecting the adjacent dynamic library. Downstream build
+scripts must consume these flags and rebuild their binaries.
 
-Release verification checks two native consumers after extracting the archive
-into a path containing spaces: one relies on the embedded automatic link options,
-and the other uses pkg-config flags with automatic linking disabled. Its include
-and library search paths must resolve inside the extracted release, and the
-selected static archive must be the one in that package. Both consumers must
-transfer the expected file contents.
+Release verification extracts the package into a path containing spaces, then
+configures, builds, and runs a standalone CMake consumer using only the released
+pkg-config metadata. It verifies that the static archive and headers come from
+the extracted package.
 
 BSD family (FreeBSD / OpenBSD)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
