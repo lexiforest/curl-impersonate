@@ -3,9 +3,8 @@ FROM python:3.12-slim-bookworm AS builder
 WORKDIR /build
 
 RUN apt-get update && \
-    apt-get install -y git ninja-build cmake autoconf automake pkg-config libtool gperf \
-    ca-certificates curl \
-    golang-go bzip2 xz-utils unzip
+    apt-get install -y git ninja-build cmake pkg-config ca-certificates curl \
+    bzip2 xz-utils unzip
 
 COPY . /build
 

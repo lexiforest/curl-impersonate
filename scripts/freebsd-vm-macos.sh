@@ -178,12 +178,7 @@ packages:
   - cmake
   - ninja
   - curl
-  - autoconf
-  - automake
-  - libtool
   - gmake
-  - gperf
-  - go
   - rsync
 runcmd:
   - sysrc sshd_enable=YES

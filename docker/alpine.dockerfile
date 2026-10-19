@@ -3,12 +3,11 @@ FROM alpine:3.21 AS builder
 WORKDIR /build
 
 RUN apk update && \
-    apk add git ninja cmake make patch linux-headers autoconf automake pkgconfig libtool gperf \
-    build-base libc-dev \
+    apk add git ninja cmake make patch linux-headers pkgconfig build-base libc-dev \
     xz-libs xz-dev xz-static \
     ca-certificates curl bash \
     python3 python3-dev \
-    go bzip2 xz unzip
+    bzip2 xz unzip
 
 COPY . /build
 
