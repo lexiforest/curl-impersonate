@@ -310,3 +310,19 @@
   - CURL_IMPERSONATE: firefox155
   - libcurl-impersonate
   - firefox155
+- - curl_safari270
+  - null
+  - null
+  - safari270
+- - minicurl
+  - CURL_IMPERSONATE: safari270
+  - libcurl-impersonate
+  - safari270
+- - curl_safari270_ios
+  - null
+  - null
+  - safari270_ios
+- - minicurl
+  - CURL_IMPERSONATE: safari270_ios
+  - libcurl-impersonate
+  - safari270_ios
