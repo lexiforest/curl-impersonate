@@ -619,7 +619,9 @@ ExternalProject_Add(curl
       -DCMAKE_BUILD_TYPE=Release
       ${_shadow_avoid_cmake_args}
       -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}
-      -DCMAKE_INSTALL_LIBDIR=lib
+      -DCMAKE_INSTALL_LIBDIR=${CMAKE_INSTALL_LIBDIR}
+      -DCMAKE_INSTALL_INCLUDEDIR=${CMAKE_INSTALL_INCLUDEDIR}
+      -DCMAKE_INSTALL_BINDIR=${CMAKE_INSTALL_BINDIR}
       ${_toolchain_cmake_args}
       -DCMAKE_POSITION_INDEPENDENT_CODE=ON
       ${_curl_staged_dependency_args}
@@ -683,7 +685,7 @@ add_custom_target(install-all
   COMMAND ${CMAKE_COMMAND} --install ${CMAKE_BINARY_DIR}
 )
 
-# Install only runtime artifacts we ship: curl binary, libcurl library, and wrappers.
+# Install runtime artifacts and the files needed by libcurl consumers.
 # Do not call curl's own install target, which also installs docs/manpages.
 if(WIN32)
   install(PROGRAMS "${DEPS_BUILD_DIR}/curl/src/curl-impersonate.exe" DESTINATION ${CMAKE_INSTALL_BINDIR})
@@ -718,6 +720,30 @@ install(
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
   FILES_MATCHING
     PATTERN "*.h"
+)
+# Keep static dependencies private so they do not replace system libraries.
+install(
+  DIRECTORY "${DEPS_INSTALL_DIR}/lib/"
+  DESTINATION "${CMAKE_INSTALL_LIBDIR}/curl-impersonate"
+  FILES_MATCHING
+    PATTERN "*.a"
+    PATTERN "*.lib"
+    PATTERN "cmake" EXCLUDE
+    PATTERN "pkgconfig" EXCLUDE
+)
+configure_file(
+  "${CMAKE_SOURCE_DIR}/cmake/PrepareInstallMetadata.cmake.in"
+  "${CMAKE_BINARY_DIR}/PrepareInstallMetadata.cmake"
+  @ONLY
+)
+install(SCRIPT "${CMAKE_BINARY_DIR}/PrepareInstallMetadata.cmake")
+install(
+  FILES "${CMAKE_BINARY_DIR}/install-metadata/libcurl-impersonate.pc"
+  DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig"
+)
+install(
+  PROGRAMS "${CMAKE_BINARY_DIR}/install-metadata/curl-impersonate-config"
+  DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 if(WIN32)
   file(GLOB _curl_wrapper_scripts CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/win/bin/curl_*.bat")

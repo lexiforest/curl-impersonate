@@ -1,0 +1,27 @@
+# Adapt curl's generated metadata to the superbuild's installed dependencies.
+# Run at install time so --prefix is honored; DESTDIR must not enter the files.
+file(READ "@DEPS_BUILD_DIR@/curl/libcurl.pc" _pc)
+file(READ "@DEPS_BUILD_DIR@/curl/curl-impersonate-config" _config)
+
+string(REPLACE "\nprefix=@CMAKE_INSTALL_PREFIX@\n"
+  "\nprefix=${CMAKE_INSTALL_PREFIX}\n" _pc "${_pc}")
+string(REPLACE "\nprefix='@CMAKE_INSTALL_PREFIX@'\n"
+  "\nprefix='${CMAKE_INSTALL_PREFIX}'\n" _config "${_config}")
+
+# curl's CMake build already expands its dependency targets into Libs.private.
+# Requiring the dependencies' .pc files as well would make even shared-library
+# consumers depend on development packages outside this installation.
+string(REGEX REPLACE "\nRequires\\.private:[^\n]*" "" _pc "${_pc}")
+string(REPLACE "\nName: libcurl\n" "\nName: libcurl-impersonate\n" _pc "${_pc}")
+string(REPLACE "@DEPS_INSTALL_DIR@/lib" "\${libdir}/curl-impersonate" _pc "${_pc}")
+
+if(IS_ABSOLUTE "@CMAKE_INSTALL_LIBDIR@")
+  set(_private_libdir "@CMAKE_INSTALL_LIBDIR@/curl-impersonate")
+else()
+  set(_private_libdir "\${exec_prefix}/@CMAKE_INSTALL_LIBDIR@/curl-impersonate")
+endif()
+string(REPLACE "@DEPS_INSTALL_DIR@/lib" "${_private_libdir}" _config "${_config}")
+
+file(MAKE_DIRECTORY "@CMAKE_BINARY_DIR@/install-metadata")
+file(WRITE "@CMAKE_BINARY_DIR@/install-metadata/libcurl-impersonate.pc" "${_pc}")
+file(WRITE "@CMAKE_BINARY_DIR@/install-metadata/curl-impersonate-config" "${_config}")

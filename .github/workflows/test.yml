@@ -57,6 +57,7 @@ jobs:
           make build BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$cmake_args"
           make checkbuild BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$cmake_args"
           make install BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$cmake_args"
+          python3 tests/check_install.py --prefix "$install_dir"
 
       - uses: actions/setup-python@v4
         with:

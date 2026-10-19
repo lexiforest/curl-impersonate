@@ -77,6 +77,21 @@ This installs curl-impersonate, libcurl-impersonate, and the wrapper scripts to
 ``CMAKE_CONFIGURE_ARGS="-DCMAKE_INSTALL_PREFIX=/path/to/install/"`` to
 ``make configure``.
 
+The install also provides ``curl-impersonate-config`` and
+``lib/pkgconfig/libcurl-impersonate.pc`` for downstream builds. Set
+``PKG_CONFIG_PATH`` to the installed pkg-config directory when using a custom
+prefix. Query ``pkg-config --cflags --libs libcurl-impersonate`` for shared
+linking, or ``curl-impersonate-config --cflags --static-libs`` for static linking.
+``pkg-config --static --libs libcurl-impersonate`` includes static dependencies
+but does not force the linker to select the static libcurl archive.
+
+Static dependency archives are installed in ``lib/curl-impersonate`` so consumers
+continue to work after the build directory is removed. The metadata uses the
+configured ``CMAKE_INSTALL_LIBDIR`` and ``CMAKE_INSTALL_INCLUDEDIR`` when these
+differ from ``lib`` and ``include``. To check a native POSIX installation, run
+``python3 tests/check_install.py --prefix /path/to/install``; use ``--libdir``
+and ``--bindir`` if those installation directories were customized.
+
 After installation, you can run the wrapper scripts, for example:
 
 .. code-block:: bash
