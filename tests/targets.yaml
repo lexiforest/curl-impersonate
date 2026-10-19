@@ -286,3 +286,27 @@
   - CURL_IMPERSONATE: chrome152
   - libcurl-impersonate
   - chrome152
+- - curl_firefox153
+  - null
+  - null
+  - firefox153
+- - minicurl
+  - CURL_IMPERSONATE: firefox153
+  - libcurl-impersonate
+  - firefox153
+- - curl_firefox154
+  - null
+  - null
+  - firefox154
+- - minicurl
+  - CURL_IMPERSONATE: firefox154
+  - libcurl-impersonate
+  - firefox154
+- - curl_firefox155
+  - null
+  - null
+  - firefox155
+- - minicurl
+  - CURL_IMPERSONATE: firefox155
+  - libcurl-impersonate
+  - firefox155

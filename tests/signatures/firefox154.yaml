@@ -1,0 +1,44 @@
+browser:
+  name: firefox
+  version: '154'
+  os: windows_10
+  target: firefox154
+signature:
+  options:
+    tls_permute_extensions: false
+  http2:
+    frames:
+    - frame_type: SETTINGS
+      settings:
+      - key: 1
+        value: 65536
+      - key: 2
+        value: 0
+      - key: 4
+        value: 131072
+      - key: 5
+        value: 16384
+      stream_id: 0
+    - frame_type: WINDOW_UPDATE
+      stream_id: 0
+      window_size_increment: 12517377
+    - frame_type: HEADERS
+      stream_id: 1
+      headers:
+      - 'user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:154.0) Gecko/20100101
+        Firefox/154.0'
+      - 'accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+      - 'accept-language: en-US,en;q=0.9'
+      - 'accept-encoding: gzip, deflate, br, zstd'
+      - 'upgrade-insecure-requests: 1'
+      - 'sec-fetch-dest: document'
+      - 'sec-fetch-mode: navigate'
+      - 'sec-fetch-site: same-origin'
+      - 'sec-fetch-user: ?1'
+      - 'priority: u=0, i'
+      - 'te: trailers'
+      pseudo_headers:
+      - :method
+      - :path
+      - :authority
+      - :scheme
