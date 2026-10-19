@@ -7250,7 +7250,7 @@ index 0ad0d549ed..9bd7bfb3dc 100644
                          const char *thisheader,
                          const size_t thislen);
 diff --git a/lib/url.c b/lib/url.c
-index b189d52841..42488b252d 100644
+index b189d52841..10333423e4 100644
 --- a/lib/url.c
 +++ b/lib/url.c
 @@ -175,6 +175,10 @@ void Curl_freeset(struct Curl_easy *data)
@@ -7311,7 +7311,7 @@ index b189d52841..42488b252d 100644
  
    for(i = 0; i < (int8_t)CURL_ARRAYSIZE(conn->cfilter); ++i) {
      Curl_conn_cf_discard_all(data, conn, i);
-+#if defined(USE_ECH) && defined(HAVE_BORINGSSL_LIKE)
++#if defined(USE_OPENSSL) && defined(HAVE_SSL_SET1_ECH_CONFIG_LIST)
 +    curlx_safefree(conn->ech_retry_configs[i]);
 +#endif
    }
@@ -7358,7 +7358,7 @@ index b189d52841..42488b252d 100644
  
  #endif /* USE_HTTP2 || USE_HTTP3 */
 diff --git a/lib/urldata.h b/lib/urldata.h
-index 249331d30b..a9826a16cc 100644
+index 249331d30b..31fab8935d 100644
 --- a/lib/urldata.h
 +++ b/lib/urldata.h
 @@ -182,6 +182,7 @@ struct ConnectBits {
@@ -7388,7 +7388,7 @@ index 249331d30b..a9826a16cc 100644
    struct Curl_cfilter *cfilter[2]; /* connection filters */
    Curl_recv *recv[2];
    Curl_send *send[2];
-+#if defined(USE_ECH) && defined(HAVE_BORINGSSL_LIKE)
++#if defined(USE_OPENSSL) && defined(HAVE_SSL_SET1_ECH_CONFIG_LIST)
 +  /* Preserved while the setup filter recreates the connection chain. */
 +  unsigned char *ech_retry_configs[2];
 +  size_t ech_retry_configs_len[2];
