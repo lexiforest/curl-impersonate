@@ -485,8 +485,13 @@ def _assert_http3_signature(response, expected):
         auto_ids = {key for key, value in parameters.items() if value == "AUTO"}
         assert _http3_transport_parameters(transport, auto_ids) == parameters
 
+    # Current API responses use name/value records; older captures use a map.
+    actual_headers = actual["headers"]
+    if isinstance(actual_headers, list):
+        actual_headers = {header["name"]: header["value"] for header in actual_headers}
     for name, value in expected["headers"].items():
-        assert actual["headers"].get(name) == value
+        observed = actual_headers.get(name)
+        assert observed == value, f"HTTP/3 header {name}: {observed!r} != {value!r}"
 
     # Option-only profiles do not contain a complete QUIC TLS capture.
     if "ja3_text" in expected:
