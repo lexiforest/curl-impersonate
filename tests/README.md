@@ -1,5 +1,8 @@
 The tests verify that `curl-impersonate` has the same network signature as that of the supported browsers, and smoke-test WebSocket functionality.
 
+See the [generator guide](../docs/dev.rst) for JSON inputs, CSV batches,
+replacement and removal behavior, and patch export.
+
 `scripts/generate_fingerprints.py` generates HTTP/2 expectations, HTTP/3 settings,
 pseudo-header order, QUIC transport parameters and headers when available, and
 TLS expectations marked `partial: true`. Partial TLS checks cover the supplied
@@ -11,10 +14,10 @@ retain their full checks. Regenerate existing profiles to add the new sections.
 Partial TLS expectations use th1's `ciphersuites` and ordered `extensions`
 structure, including named extension types and fields such as `sig_hash_algs`.
 Unknown fields are omitted. The `grease` flag checks presence without assuming
-GREASE positions or payloads. These partial expectations still require our local
-comparison adapter: th1's native `TLSClientHelloSignature.from_dict()` requires
-a complete capture and does not yet support `partial: true`. HTTP/3 comparisons
-also remain local; th1 currently supports TLS and HTTP/2 only.
+GREASE positions or payloads. The test suite uses its local comparison adapter
+for these partial expectations and uses th1's `TLSClientHelloSignature` for
+full captures. HTTP/3 comparisons also run through the local helper in
+`test_impersonate.py`.
 
 Run the generator's offline regression tests with:
 

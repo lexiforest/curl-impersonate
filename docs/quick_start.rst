@@ -13,72 +13,71 @@ For example:
 
     curl-impersonate -v -L https://example.com
 
-However, running the binary directly does not produce the same TLS and HTTP/2 signatures
-as the impersonated browsers. To solve this, the project provides *wrapper scripts* that
-launch the binaries with the correct command-line flags. For example:
+To select a browser profile, use a wrapper script or pass ``--impersonate``
+directly:
 
-.. code-block:: bash
+.. code-block:: sh
 
-    curl_chrome104 -v -L https://example.com
+    curl_chrome152 -v -L https://example.com
+    curl-impersonate --compressed --impersonate chrome152 -v -L https://example.com
 
-This produces a signature identical to Chrome 104. You can add your own command-line
-flags and they will be passed through to curl. However, some flags change curl's TLS
-signature.
+The wrapper selects the profile and enables response decompression. Extra
+command-line flags are passed through to curl; some can change the resulting
+TLS or HTTP signature. Running the binary without a profile does not select a
+browser fingerprint.
 
-The full list of wrapper scripts is available on the :doc:`api`.
+See :doc:`fingerprints` for the full list of targets, OS variants, and HTTP/3
+fingerprint support.
 
 Changing the HTTP headers
 -------------------------
 
-The wrapper scripts set a default group of HTTP headers such as ``User-Agent`` and
-``Accept-Encoding``. These headers were chosen to match the browser's default headers
-for a first visit to a website, including header order.
+Profiles supply default headers such as ``User-Agent`` and ``Accept-Encoding``.
+Use ``-H`` to override a default header or add a new one:
 
-In many situations, you may want to change the headers, change their order, or add new
-ones. The safest approach today is to modify the wrapper scripts directly. Otherwise,
-you may end up with duplicate headers or the wrong header order.
+.. code-block:: sh
+
+    curl_chrome152 -H 'Accept-Language: en-US,en;q=0.9' \
+        -H 'X-Example: value' https://example.com
+
+Application headers replace matching profile defaults and additional headers
+are appended. ``-H 'Header-Name:'`` suppresses a header. Changing these values
+can change the fingerprint seen by the server.
+
+HTTP/3
+------
+
+For profiles with dedicated HTTP/3 fingerprints:
+
+.. code-block:: sh
+
+    curl_chrome152 --http3 https://example.com
+    curl_safari270_ios --http3-only https://example.com
+
+``--http3`` permits fallback to HTTP/2 or HTTP/1.1, while ``--http3-only``
+requires HTTP/3. The negotiated protocol determines which default headers are
+used: HTTP/3-specific defaults when provided by the profile, otherwise the
+regular defaults. ``-H`` overrides apply to either set.
 
 How the wrapper scripts work
 ----------------------------
 
-Let's look at the ``curl_chrome104`` wrapper script. Understanding how it works is
-helpful when you need tighter control over the final signature.
+The ``curl_chrome152`` POSIX wrapper is:
 
-The important part of the script is:
+.. code-block:: sh
 
-.. code-block:: bash
+    #!/bin/sh
 
-    "$dir/curl-impersonate" \
-        --ciphers TLS_AES_128_GCM_SHA256,TLS_AES_256_GCM_SHA384,TLS_CHACHA20_POLY1305_SHA256,ECDHE-ECDSA-AES128-GCM-SHA256,ECDHE-RSA-AES128-GCM-SHA256,ECDHE-ECDSA-AES256-GCM-SHA384,ECDHE-RSA-AES256-GCM-SHA384,ECDHE-ECDSA-CHACHA20-POLY1305,ECDHE-RSA-CHACHA20-POLY1305,ECDHE-RSA-AES128-SHA,ECDHE-RSA-AES256-SHA,AES128-GCM-SHA256,AES256-GCM-SHA384,AES128-SHA,AES256-SHA \
-        -H 'sec-ch-ua: "Chromium";v="104", " Not A;Brand";v="99", "Google Chrome";v="104"' \
-        -H 'sec-ch-ua-mobile: ?0' \
-        -H 'sec-ch-ua-platform: "Windows"' \
-        -H 'Upgrade-Insecure-Requests: 1' \
-        -H 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 Safari/537.36' \
-        -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9' \
-        -H 'Sec-Fetch-Site: none' \
-        -H 'Sec-Fetch-Mode: navigate' \
-        -H 'Sec-Fetch-User: ?1' \
-        -H 'Sec-Fetch-Dest: document' \
-        -H 'Accept-Encoding: gzip, deflate, br' \
-        -H 'Accept-Language: en-US,en;q=0.9' \
-        --http2 --compressed \
-        --tlsv1.2 --no-npn --alps \
-        --cert-compression brotli \
-        "$@"
+    # Find the directory of this script
+    dir=${0%/*}
 
-The most important flags are:
+    exec "$dir/curl-impersonate" --compressed --impersonate "chrome152" "$@"
 
-* ``--ciphers`` controls the cipher list, which is an important part of the TLS ClientHello
-  message. The ciphers were chosen to match Chrome's.
-* The multiple ``-H`` flags set the HTTP headers. You may want to modify these in many
-  scenarios where other HTTP headers are required.
-* ``--tlsv1.2`` sets the minimal TLS version, which is part of the TLS client hello
-  message, to TLS 1.2.
-* ``--no-npn`` disables the NPN TLS extension.
-* ``--alps`` enables the ALPS TLS extension. This flag was added for this project.
-* ``--cert-compression`` enables TLS certificate compression used by Chrome. This flag
-  was added for this project.
+The profile's TLS settings, protocol settings, and default headers live in
+libcurl's preset table. The wrapper selects that preset with ``--impersonate``
+and passes along your arguments. ``exec`` replaces the shell process with curl,
+so signals and exit status propagate directly. Windows wrappers in ``win/bin``
+select the same presets.
 
 Flags that modify the TLS signature
 -----------------------------------
@@ -106,8 +105,8 @@ It has an additional API function:
     CURLcode curl_easy_impersonate(struct Curl_easy *data, const char *target,
                                    int default_headers);
 
-You can call it with a target name such as ``chrome123``. It will internally set all the
-options and headers that the wrapper scripts would otherwise apply. If
+You can call it with a target name such as ``chrome152``. It will internally set all the
+profile options and headers selected by the wrapper scripts. If
 ``default_headers`` is set to ``0``, the built-in list of HTTP headers will not be set,
 and you are expected to provide them yourself using the standard
 `CURLOPT_HTTPHEADER <https://curl.se/libcurl/c/CURLOPT_HTTPHEADER.html>`_ libcurl option.

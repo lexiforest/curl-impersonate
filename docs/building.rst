@@ -132,7 +132,7 @@ Configure and build
     rm -Rf build
 
 macOS static release dependencies
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The macOS release archives include a relocatable ``libcurl-impersonate.pc``
 beside the merged static library. It retains required system libraries and
@@ -227,8 +227,50 @@ Cross compiling
 ---------------
 
 We use the ``zig`` toolchain for cross-compilation targets. Use the
-`GitHub workflow <https://github.com/lexiforest/curl-impersonate/blob/main/.github/workflows/build-and-test.yml>`_
+`GitHub workflow <https://github.com/lexiforest/curl-impersonate/blob/main/.github/workflows/build.yml>`_
 as a reference.
+
+Android
+~~~~~~~
+
+The workflow builds with the Android NDK for ``arm64-v8a``, ``armeabi-v7a``,
+``x86_64``, and ``x86``. Android builds use curl's threaded resolver; other
+builds use c-ares. Use the workflow's NDK and ABI configuration as the reference
+for cross-compiling these targets.
+
+Windows with MinGW
+~~~~~~~~~~~~~~~~~~
+
+Initial MinGW support is available through ``scripts/mingw.sh`` on POSIX hosts
+and ``win/mingw-build.bat`` on Windows. Install CMake, Ninja, NASM, a MinGW
+toolchain, and the tools needed by the superbuild; the POSIX helper also uses
+Make. The helpers accept ``clang`` or ``gcc`` with ``x86_64``, ``i686``, or
+``aarch64``. ``armv7`` requires Clang. Your toolchain must provide compilers
+for the chosen architecture.
+
+For example, with a Clang MinGW toolchain on ``PATH``:
+
+.. code-block:: sh
+
+   scripts/mingw.sh configure --toolchain=clang --arch=x86_64
+   scripts/mingw.sh build --toolchain=clang --arch=x86_64
+   scripts/mingw.sh install --toolchain=clang --arch=x86_64
+
+Set ``MINGW_ROOT`` to add a toolchain's ``bin`` directory to ``PATH``, or set
+``MINGW_CC`` and ``MINGW_CXX`` to override the compiler names. The default build
+directory is ``build/mingw-<toolchain>-<architecture>``. Pass
+``CMAKE_CONFIGURE_ARGS`` to the POSIX helper to customize the install prefix
+and other CMake options.
+
+From a Windows command prompt:
+
+.. code-block:: bat
+
+   win\mingw-build.bat clang x86_64 C:\llvm-mingw
+
+The Windows helper configures, builds, and installs into
+``packages/mingw-<toolchain>-<architecture>`` by default. Use ``BUILD_DIR`` and
+``PACKAGES_DIR`` to override its directories. Both helpers disable libidn2.
 
 
 Docker build
@@ -243,7 +285,7 @@ patches. Build it like this:
 
 .. code-block:: bash
 
-    docker build -t curl-impersonate .
+    docker build -f docker/debian.dockerfile -t curl-impersonate .
 
 `docker/alpine.dockerfile <https://github.com/lexiforest/curl-impersonate/blob/main/docker/alpine.dockerfile>`_
 is the Alpine-based variant.

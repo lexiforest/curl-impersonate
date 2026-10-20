@@ -25,6 +25,10 @@ Impersonation and Headers
   ``default_headers`` enabled, this is where the built-in browser header set is applied.
   Command line: no direct equivalent.
 
+Profiles may also provide separate HTTP/3 default headers. These are selected
+after HTTP/3 is negotiated and merged with ``CURLOPT_HTTPHEADER`` using the
+same application-override rules. HTTP/2 and HTTP/1.1 use the regular defaults.
+
 ``CURLOPT_HTTPHEADER_ORDER`` (string)
   Comma-separated order for normal HTTP headers. e.g. ``Host,User-Agent,Cookie``. This
   is particularly useful for impersonating the http/1.1 behavior.
@@ -152,7 +156,9 @@ HTTP/3 and QUIC
 
 ``CURLOPT_HTTP3_HTTPHEADER`` (slist)
   Sets HTTP/3-specific custom headers. When set, this list is used instead of
-  ``CURLOPT_HTTPHEADER`` for HTTP/3 requests.
+  the merged profile defaults and ``CURLOPT_HTTPHEADER`` for HTTP/3 requests.
+  To override individual profile headers while retaining the other defaults,
+  use ``CURLOPT_HTTPHEADER`` instead.
   Command line: ``--http3-httpheader <header/@file>``. Specify the option once for each
   header, or use ``@file`` to read headers from a file.
 
@@ -204,6 +210,23 @@ HTTP/3 and QUIC
 WebSockets
 ----------
 
+``CURLWS_PERMESSAGE_DEFLATE`` (bit in ``CURLOPT_WS_OPTIONS``)
+  Enables negotiation of the WebSocket ``permessage-deflate`` extension.
+  Set this before the WebSocket handshake. When the server accepts the
+  extension, libcurl compresses outgoing text and binary messages and
+  decompresses incoming messages; applications continue to use
+  ``curl_ws_send()`` and ``curl_ws_recv()`` with uncompressed payloads.
+  Control frames remain uncompressed. If the server does not negotiate
+  compression, the connection uses uncompressed messages.
+
+  Compression is opt-in and requires zlib. Combining this bit with
+  ``CURLWS_RAW_MODE`` returns ``CURLE_BAD_FUNCTION_ARGUMENT``; a build without
+  zlib returns ``CURLE_NOT_BUILT_IN``. There is no direct CLI equivalent.
+
+  .. code-block:: c
+
+     curl_easy_setopt(curl, CURLOPT_WS_OPTIONS, CURLWS_PERMESSAGE_DEFLATE);
+
 ``CURLOPT_WS_HTTPHEADER`` (slist)
   Sets WebSocket-specific custom headers. When set, this list is used instead of
   ``CURLOPT_HTTPHEADER`` for ``ws://`` and ``wss://`` requests.
@@ -228,6 +251,11 @@ WebSockets
 
 Proxy and Cookies
 -----------------
+
+When origin DNS resolution is delegated to an HTTP proxy or a SOCKS4a/SOCKS5h
+proxy, curl-impersonate also skips direct HTTPS DNS-record lookups for that
+origin. This keeps those lookups from bypassing the proxy's DNS handling.
+Local-resolution SOCKS modes retain local DNS behavior.
 
 ``CURLOPT_PROXY_CREDENTIAL_NO_REUSE`` (long)
   Prevents reuse of TLS sessions or connections across different proxy credentials.

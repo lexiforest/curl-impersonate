@@ -26,7 +26,10 @@ curl-impersonate (lexiforest's fork)
    This documentation covers `lexiforest's fork <https://github.com/lexiforest/curl-impersonate>`_
    of curl-impersonate.
 
-The current stable release is curl-impersonate 2.0.0, based on curl 8.21.0.
+This documentation covers curl-impersonate 2.4.0, based on curl 8.23.0.
+See :doc:`changelog` for recent changes and the
+`releases page <https://github.com/lexiforest/curl-impersonate/releases>`_ for
+published releases and downloads.
 
 ``curl-impersonate`` is a curl build that makes HTTP requests look like they came from a
 real browser. It can impersonate recent versions of Chrome, Edge, Safari, Firefox, and
