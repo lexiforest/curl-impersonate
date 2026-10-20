@@ -1554,7 +1554,7 @@ index d5337eb353..b2fb669979 100644
  /**
   * Return the n-th header entry or NULL if it does not exist.
 diff --git a/lib/easy.c b/lib/easy.c
-index 9d467f4c4b..7901115120 100644
+index 9d467f4c4b..98ac05f93f 100644
 --- a/lib/easy.c
 +++ b/lib/easy.c
 @@ -70,10 +70,14 @@
@@ -1572,7 +1572,7 @@ index 9d467f4c4b..7901115120 100644
  #include "curl_sspi.h" /* Curl_sspi_global_init()/Curl_sspi_global_cleanup() */
  #include "curlx/timeval.h" /* for curlx_now_init() */
  #include "curlx/version_win32.h" /* for curlx_verify_windows_init() */
-@@ -361,6 +365,408 @@ CURLsslset curl_global_sslset(curl_sslbackend id, const char *name,
+@@ -361,6 +365,425 @@ CURLsslset curl_global_sslset(curl_sslbackend id, const char *name,
    return rc;
  }
  
@@ -1729,6 +1729,23 @@ index 9d467f4c4b..7901115120 100644
 +      if(ret)
 +        return ret;
 +    }
++
++    /* Keep HTTP/3 defaults owned by the handle, like the base headers. */
++    headers = NULL;
++    for(i = 0; i < IMPERSONATE_MAX_HEADERS; i++) {
++      if(opts->http3_headers[i]) {
++        struct curl_slist *next =
++          curl_slist_append(headers, opts->http3_headers[i]);
++        if(!next) {
++          curl_slist_free_all(headers);
++          return CURLE_OUT_OF_MEMORY;
++        }
++        headers = next;
++      }
++    }
++    /* Also clear the old list when the new profile has no HTTP/3 defaults. */
++    curl_slist_free_all(data->state.http3_base_headers);
++    data->state.http3_base_headers = headers;
 +  }
 +
 +  if(opts->http2_pseudo_headers_order) {
@@ -1981,7 +1998,7 @@ index 9d467f4c4b..7901115120 100644
  /*
   * curl_easy_init() is the external interface to alloc, setup and init an
   * easy handle that is returned. If anything goes wrong, NULL is returned.
-@@ -369,6 +775,8 @@ CURL *curl_easy_init(void)
+@@ -369,6 +792,8 @@ CURL *curl_easy_init(void)
  {
    CURLcode result;
    struct Curl_easy *data;
@@ -1990,7 +2007,7 @@ index 9d467f4c4b..7901115120 100644
  
    /* Make sure we inited the global SSL stuff */
    global_init_lock();
-@@ -391,6 +799,30 @@ CURL *curl_easy_init(void)
+@@ -391,6 +816,30 @@ CURL *curl_easy_init(void)
      return NULL;
    }
  
@@ -2021,7 +2038,7 @@ index 9d467f4c4b..7901115120 100644
    return data;
  }
  
-@@ -1078,6 +1510,13 @@ CURL *curl_easy_duphandle(CURL *curl)
+@@ -1078,6 +1527,19 @@ CURL *curl_easy_duphandle(CURL *curl)
          goto fail;
      }
  
@@ -2031,11 +2048,17 @@ index 9d467f4c4b..7901115120 100644
 +      if(!outcurl->state.base_headers)
 +        goto fail;
 +    }
++    if(data->state.http3_base_headers) {
++      outcurl->state.http3_base_headers =
++        Curl_slist_duplicate(data->state.http3_base_headers);
++      if(!outcurl->state.http3_base_headers)
++        goto fail;
++    }
 +
      /* Reinitialize an SSL engine for the new handle
       * note: the engine name has already been copied by dupset */
      str = CURL_EASY_STR(outcurl, STRING_SSL_ENGINE);
-@@ -1174,6 +1613,21 @@ void curl_easy_reset(CURL *curl)
+@@ -1174,6 +1636,21 @@ void curl_easy_reset(CURL *curl)
      Curl_http_auth_cleanup_digest(data);
  #endif
      data->master_mid = UINT32_MAX;
@@ -2301,7 +2324,7 @@ index f5efe4185c..0b7ccc509f 100644
  
  #endif /* HEADER_CURL_GETINFO_H */
 diff --git a/lib/http.c b/lib/http.c
-index 016e42c3bd..a201bab6bd 100644
+index 016e42c3bd..eb3e04e34a 100644
 --- a/lib/http.c
 +++ b/lib/http.c
 @@ -48,6 +48,7 @@
@@ -2417,7 +2440,7 @@ index 016e42c3bd..a201bab6bd 100644
        else if((httpversion >= 20) &&
                curlx_str_casecompare(&name, "Transfer-Encoding"))
          /* HTTP/2 does not support chunked requests */
-@@ -2067,6 +2103,110 @@ void Curl_http_method(struct Curl_easy *data,
+@@ -2067,6 +2103,116 @@ void Curl_http_method(struct Curl_easy *data,
    *reqp = httpreq;
  }
  
@@ -2437,9 +2460,15 @@ index 016e42c3bd..a201bab6bd 100644
 +  struct curl_slist *head;
 +  struct curl_slist *dup = NULL;
 +  struct curl_slist *new_list = NULL;
++  struct curl_slist *base_headers = data->state.base_headers;
 +  char *uagent;
 +
-+  if (!data->state.base_headers)
++  /* Select defaults for the negotiated protocol, including HTTP/2 fallback. */
++  if(data->conn && Curl_conn_http_version(data, data->conn) == 30 &&
++     data->state.http3_base_headers)
++    base_headers = data->state.http3_base_headers;
++
++  if(!base_headers)
 +    return CURLE_OK;
 +
 +  /* Duplicate the list for temporary use. */
@@ -2449,7 +2478,7 @@ index 016e42c3bd..a201bab6bd 100644
 +      return CURLE_OUT_OF_MEMORY;
 +  }
 +
-+  for(head = data->state.base_headers; head; head = head->next) {
++  for(head = base_headers; head; head = head->next) {
 +    char *sep;
 +    size_t prefix_len;
 +    bool found = FALSE;
@@ -2528,7 +2557,7 @@ index 016e42c3bd..a201bab6bd 100644
  static CURLcode http_set_aptr_host(struct Curl_easy *data)
  {
    struct connectdata *conn = data->conn;
-@@ -2117,9 +2257,9 @@ static CURLcode http_set_aptr_host(struct Curl_easy *data)
+@@ -2117,9 +2263,9 @@ static CURLcode http_set_aptr_host(struct Curl_easy *data)
  #endif
  
      if(!curl_strequal("Host:", ptr)) {
@@ -2541,7 +2570,7 @@ index 016e42c3bd..a201bab6bd 100644
      }
    }
    else {
-@@ -2511,6 +2651,231 @@ static CURLcode addexpect(struct Curl_easy *data, struct dynbuf *r,
+@@ -2511,6 +2657,231 @@ static CURLcode addexpect(struct Curl_easy *data, struct dynbuf *r,
    return CURLE_OK;
  }
  
@@ -2773,7 +2802,7 @@ index 016e42c3bd..a201bab6bd 100644
  static CURLcode http_add_content_hds(struct Curl_easy *data,
                                       struct dynbuf *r,
                                       int httpversion,
-@@ -2597,6 +2962,8 @@ static CURLcode http_cookies(struct Curl_easy *data,
+@@ -2597,6 +2968,8 @@ static CURLcode http_cookies(struct Curl_easy *data,
    CURLcode result = CURLE_OK;
    const char *addcookies = NULL;
    bool linecap = FALSE;
@@ -2782,7 +2811,7 @@ index 016e42c3bd..a201bab6bd 100644
    if(CURL_EASY_STR(data, STRING_COOKIE) &&
       !Curl_checkheaders(data, STRCONST("Cookie")) &&
       Curl_auth_allowed_to_host(data))
-@@ -2621,6 +2988,22 @@ static CURLcode http_cookies(struct Curl_easy *data,
+@@ -2621,6 +2994,22 @@ static CURLcode http_cookies(struct Curl_easy *data,
            struct Cookie *co = Curl_node_elem(n);
            if(co->value) {
              size_t add;
@@ -2805,7 +2834,7 @@ index 016e42c3bd..a201bab6bd 100644
              if(!count) {
                result = curlx_dyn_addn(r, STRCONST("Cookie: "));
                if(result)
-@@ -2645,7 +3028,32 @@ static CURLcode http_cookies(struct Curl_easy *data,
+@@ -2645,7 +3034,32 @@ static CURLcode http_cookies(struct Curl_easy *data,
        }
        Curl_share_unlock(data, CURL_LOCK_DATA_COOKIE);
      }
@@ -2839,7 +2868,7 @@ index 016e42c3bd..a201bab6bd 100644
        if(!count)
          result = curlx_dyn_addn(r, STRCONST("Cookie: "));
        if(!result) {
-@@ -2653,7 +3061,7 @@ static CURLcode http_cookies(struct Curl_easy *data,
+@@ -2653,7 +3067,7 @@ static CURLcode http_cookies(struct Curl_easy *data,
          count++;
        }
      }
@@ -2848,7 +2877,7 @@ index 016e42c3bd..a201bab6bd 100644
        result = curlx_dyn_addn(r, STRCONST("\r\n"));
  
      if(result)
-@@ -2843,7 +3251,7 @@ static CURLcode http_add_connection_hd(struct Curl_easy *data,
+@@ -2843,7 +3257,7 @@ static CURLcode http_add_connection_hd(struct Curl_easy *data,
    bool skip;
  
    /* Add the 1st custom "Connection: " header, if there is one */
@@ -2857,7 +2886,7 @@ index 016e42c3bd..a201bab6bd 100644
      if(curl_strnequal(head->data, "Connection", 10) &&
         Curl_headersep(head->data[10]) &&
         !http_header_is_empty(head->data)) {
-@@ -2877,7 +3285,7 @@ static CURLcode http_add_connection_hd(struct Curl_easy *data,
+@@ -2877,7 +3291,7 @@ static CURLcode http_add_connection_hd(struct Curl_easy *data,
  
    /* Add all user-defined Connection: headers after the first */
    skip = TRUE;
@@ -2866,7 +2895,7 @@ index 016e42c3bd..a201bab6bd 100644
      if(curl_strnequal(head->data, "Connection", 10) &&
         Curl_headersep(head->data[10]) &&
         !http_header_is_empty(head->data)) {
-@@ -2982,8 +3390,7 @@ static CURLcode http_add_hd(struct Curl_easy *data,
+@@ -2982,8 +3396,7 @@ static CURLcode http_add_hd(struct Curl_easy *data,
    }
  
    case H1_HD_ACCEPT:
@@ -2876,7 +2905,7 @@ index 016e42c3bd..a201bab6bd 100644
      break;
  
    case H1_HD_TE:
-@@ -3119,8 +3526,12 @@ CURLcode Curl_http(struct Curl_easy *data, bool *done)
+@@ -3119,8 +3532,12 @@ CURLcode Curl_http(struct Curl_easy *data, bool *done)
    /* what kind of request do we need to send? */
    Curl_http_method(data, &method, &httpreq);
  
@@ -2890,7 +2919,7 @@ index 016e42c3bd..a201bab6bd 100644
    /* setup the authentication headers, how that method and host are known */
    if(!result)
      result = Curl_http_output_auth(data, data->conn, method, httpreq,
-@@ -3145,6 +3556,10 @@ CURLcode Curl_http(struct Curl_easy *data, bool *done)
+@@ -3145,6 +3562,10 @@ CURLcode Curl_http(struct Curl_easy *data, bool *done)
        goto out;
    }
  
@@ -2901,7 +2930,7 @@ index 016e42c3bd..a201bab6bd 100644
    /* setup variables for the upcoming transfer and send */
    Curl_xfer_setup_sendrecv(data, FIRSTSOCKET, -1);
    result = Curl_req_send(data, &req, httpversion);
-@@ -3593,6 +4008,14 @@ static CURLcode http_header_s(struct Curl_easy *data,
+@@ -3593,6 +4014,14 @@ static CURLcode http_header_s(struct Curl_easy *data,
    (void)hdlen;
  #endif
  
@@ -2916,7 +2945,7 @@ index 016e42c3bd..a201bab6bd 100644
  #ifndef CURL_DISABLE_COOKIES
    v = (data->cookies && data->state.cookie_engine) ?
      HD_VAL(hd, hdlen, "Set-Cookie:") : NULL;
-@@ -3607,7 +4030,8 @@ static CURLcode http_header_s(struct Curl_easy *data,
+@@ -3607,7 +4036,8 @@ static CURLcode http_header_s(struct Curl_easy *data,
      Curl_share_lock(data, CURL_LOCK_DATA_COOKIE, CURL_LOCK_ACCESS_SINGLE);
      result = Curl_cookie_add(data, data->cookies, v, host,
                               data->state.up.path,
@@ -2926,7 +2955,7 @@ index 016e42c3bd..a201bab6bd 100644
      Curl_share_unlock(data, CURL_LOCK_DATA_COOKIE);
      return result;
    }
-@@ -4999,6 +5423,29 @@ static bool http_TE_has_token(const char *fvalue, const char *token)
+@@ -4999,6 +5429,29 @@ static bool http_TE_has_token(const char *fvalue, const char *token)
    return FALSE;
  }
  
@@ -2956,7 +2985,7 @@ index 016e42c3bd..a201bab6bd 100644
  CURLcode Curl_http_req_to_h2(struct dynhds *h2_headers,
                               struct httpreq *req, struct Curl_easy *data)
  {
-@@ -5007,6 +5454,10 @@ CURLcode Curl_http_req_to_h2(struct dynhds *h2_headers,
+@@ -5007,6 +5460,10 @@ CURLcode Curl_http_req_to_h2(struct dynhds *h2_headers,
    size_t i;
    CURLcode result;
  
@@ -2967,7 +2996,7 @@ index 016e42c3bd..a201bab6bd 100644
    DEBUGASSERT(req);
    DEBUGASSERT(h2_headers);
  
-@@ -5036,20 +5487,46 @@ CURLcode Curl_http_req_to_h2(struct dynhds *h2_headers,
+@@ -5036,20 +5493,46 @@ CURLcode Curl_http_req_to_h2(struct dynhds *h2_headers,
  
    Curl_dynhds_reset(h2_headers);
    Curl_dynhds_set_opts(h2_headers, DYNHDS_OPT_LOWERCASE);
@@ -3025,7 +3054,7 @@ index 016e42c3bd..a201bab6bd 100644
    for(i = 0; !result && i < Curl_dynhds_count(&req->headers); ++i) {
      e = Curl_dynhds_getn(&req->headers, i);
      /* "TE" is special in that it is only permissible when it
-@@ -5062,6 +5539,8 @@ CURLcode Curl_http_req_to_h2(struct dynhds *h2_headers,
+@@ -5062,6 +5545,8 @@ CURLcode Curl_http_req_to_h2(struct dynhds *h2_headers,
      else if(h2_permissible_field(e)) {
        result = Curl_dynhds_add(h2_headers, e->name, e->namelen,
                                 e->value, e->valuelen);
@@ -3424,10 +3453,10 @@ index c3270da1cc..807f0ad6ae 100644
   * Store nghttp2 version info in this buffer.
 diff --git a/lib/impersonate.c b/lib/impersonate.c
 new file mode 100644
-index 0000000000..aad5688f4f
+index 0000000000..a0d252cb4b
 --- /dev/null
 +++ b/lib/impersonate.c
-@@ -0,0 +1,2371 @@
+@@ -0,0 +1,2883 @@
 +#include "curl_setup.h"
 +#include <curl/curl.h>
 +#include "impersonate.h"
@@ -4474,6 +4503,274 @@ index 0000000000..aad5688f4f
 +    .form_boundary = "webkit",
 +  },
 +  {
++    .target = "chrome151",
++    .alias = "chrome151",
++    .ciphers = "TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-RSA-AES128-SHA:ECDHE-RSA-AES256-SHA:AES128-GCM-SHA256:AES256-GCM-SHA384:AES128-SHA:AES256-SHA",
++    .httpversion = CURL_HTTP_VERSION_2_0,
++    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
++    .curves = "X25519MLKEM768:X25519:P-256:P-384",
++    .http3_curves = "X25519MLKEM768:X25519:P-256:P-384",
++    .sig_hash_algs = "mldsa44:mldsa65:mldsa87:ecdsa_secp256r1_sha256:rsa_pss_rsae_sha256:rsa_pkcs1_sha256:ecdsa_secp384r1_sha384:rsa_pss_rsae_sha384:rsa_pkcs1_sha384:rsa_pss_rsae_sha512:rsa_pkcs1_sha512",
++    .cert_compression = "brotli",
++    .tls_delegated_credentials = NULL,
++    .alpn = true,
++    .alps = true,
++    .ech = "true",
++    .http_header_order = "sec-ch-ua,sec-ch-ua-mobile,sec-ch-ua-platform,upgrade-insecure-requests,user-agent,accept,sec-fetch-site,sec-fetch-mode,sec-fetch-user,sec-fetch-dest,referer,accept-encoding,accept-language,priority,cookie",
++    .http3_http_header_order = "sec-ch-ua,sec-ch-ua-mobile,sec-ch-ua-platform,upgrade-insecure-requests,user-agent,accept,sec-fetch-site,sec-fetch-mode,sec-fetch-user,sec-fetch-dest,referer,accept-encoding,accept-language,priority,cookie",
++    .tls_session_ticket = true,
++    .tls_permute_extensions = true,
++    .tls_grease = true,
++    .tls_use_new_alps_codepoint = true,
++    .tls_signed_cert_timestamps = true,
++    .tls_record_size_limit = 0,
++    .tls_key_shares_limit = 2,
++    .tls_extension_order = NULL,
++    .http2_settings = "1:65536;2:0;4:6291456;6:262144",
++    .http2_window_update = 15663105,
++    .http2_pseudo_headers_order = "masp",
++    .http2_no_priority = false,
++    .http3_settings = "1:65536;6:262144;7:100;51:1;GREASE",
++    .http3_pseudo_headers_order = "masp",
++    .http3_tls_extension_order = "17613-51-0-43-57-13-65037-10-45-16-27",
++    .quic_transport_parameters = "5:6291456;12584:0x4f524947;8:100;9:103;17:1@1,GREASE;6:6291456;GREASE;1:30000;4:15728640;7:6291456;3:1472;15:AUTO;32:65536",
++    .split_cookies = true,
++    .form_boundary = "webkit",
++    .http2_stream_weight = 256,
++    .http2_stream_exclusive = 1,
++    .http_headers = {
++      "sec-ch-ua: \"Not=A?Brand\";v=\"99\", \"Google Chrome\";v=\"151\", \"Chromium\";v=\"151\"",
++      "sec-ch-ua-mobile: ?0",
++      "sec-ch-ua-platform: \"Windows\"",
++      "upgrade-insecure-requests: 1",
++      "user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
++      "accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
++      "sec-fetch-site: none",
++      "sec-fetch-mode: navigate",
++      "sec-fetch-user: ?1",
++      "sec-fetch-dest: document",
++      "accept-encoding: gzip, deflate, br, zstd",
++      "accept-language: en-US,en;q=0.9",
++      "priority: u=0, i",
++    },
++    .http3_headers = {
++      "sec-ch-ua: \"Not=A?Brand\";v=\"99\", \"Google Chrome\";v=\"151\", \"Chromium\";v=\"151\"",
++      "sec-ch-ua-mobile: ?0",
++      "sec-ch-ua-platform: \"Windows\"",
++      "upgrade-insecure-requests: 1",
++      "user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
++      "accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
++      "sec-fetch-site: none",
++      "sec-fetch-mode: navigate",
++      "sec-fetch-user: ?1",
++      "sec-fetch-dest: document",
++      "accept-encoding: gzip, deflate, br, zstd",
++      "accept-language: en-US,en;q=0.9",
++      "priority: u=0, i",
++    },
++  },
++  {
++    .target = "chrome151_macos",
++    .alias = "chrome151_macos",
++    .ciphers = "TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-RSA-AES128-SHA:ECDHE-RSA-AES256-SHA:AES128-GCM-SHA256:AES256-GCM-SHA384:AES128-SHA:AES256-SHA",
++    .httpversion = CURL_HTTP_VERSION_2_0,
++    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
++    .curves = "X25519MLKEM768:X25519:P-256:P-384",
++    .http3_curves = "X25519MLKEM768:X25519:P-256:P-384",
++    .sig_hash_algs = "mldsa44:mldsa65:mldsa87:ecdsa_secp256r1_sha256:rsa_pss_rsae_sha256:rsa_pkcs1_sha256:ecdsa_secp384r1_sha384:rsa_pss_rsae_sha384:rsa_pkcs1_sha384:rsa_pss_rsae_sha512:rsa_pkcs1_sha512",
++    .cert_compression = "brotli",
++    .tls_delegated_credentials = NULL,
++    .alpn = true,
++    .alps = true,
++    .ech = "true",
++    .http_header_order = "sec-ch-ua,sec-ch-ua-mobile,sec-ch-ua-platform,upgrade-insecure-requests,user-agent,accept,sec-fetch-site,sec-fetch-mode,sec-fetch-user,sec-fetch-dest,referer,accept-encoding,accept-language,priority,cookie",
++    .http3_http_header_order = "sec-ch-ua,sec-ch-ua-mobile,sec-ch-ua-platform,upgrade-insecure-requests,user-agent,accept,sec-fetch-site,sec-fetch-mode,sec-fetch-user,sec-fetch-dest,referer,accept-encoding,accept-language,priority,cookie",
++    .tls_session_ticket = true,
++    .tls_permute_extensions = true,
++    .tls_grease = true,
++    .tls_use_new_alps_codepoint = true,
++    .tls_signed_cert_timestamps = true,
++    .tls_record_size_limit = 0,
++    .tls_key_shares_limit = 2,
++    .tls_extension_order = NULL,
++    .http2_settings = "1:65536;2:0;4:6291456;6:262144",
++    .http2_window_update = 15663105,
++    .http2_pseudo_headers_order = "masp",
++    .http2_no_priority = false,
++    .http3_settings = "1:65536;6:262144;7:100;51:1;GREASE",
++    .http3_pseudo_headers_order = "masp",
++    .http3_tls_extension_order = "17613-51-0-43-57-13-65037-10-45-16-27",
++    .quic_transport_parameters = "5:6291456;12584:0x4f524947;8:100;9:103;17:1@1,GREASE;6:6291456;GREASE;1:30000;4:15728640;7:6291456;3:1472;15:AUTO;32:65536",
++    .split_cookies = true,
++    .form_boundary = "webkit",
++    .http2_stream_weight = 256,
++    .http2_stream_exclusive = 1,
++    .http_headers = {
++      "sec-ch-ua: \"Not=A?Brand\";v=\"99\", \"Google Chrome\";v=\"151\", \"Chromium\";v=\"151\"",
++      "sec-ch-ua-mobile: ?0",
++      "sec-ch-ua-platform: \"macOS\"",
++      "upgrade-insecure-requests: 1",
++      "user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
++      "accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
++      "sec-fetch-site: none",
++      "sec-fetch-mode: navigate",
++      "sec-fetch-user: ?1",
++      "sec-fetch-dest: document",
++      "accept-encoding: gzip, deflate, br, zstd",
++      "accept-language: en-US,en;q=0.9",
++      "priority: u=0, i",
++    },
++    .http3_headers = {
++      "sec-ch-ua: \"Not=A?Brand\";v=\"99\", \"Google Chrome\";v=\"151\", \"Chromium\";v=\"151\"",
++      "sec-ch-ua-mobile: ?0",
++      "sec-ch-ua-platform: \"macOS\"",
++      "upgrade-insecure-requests: 1",
++      "user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
++      "accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
++      "sec-fetch-site: none",
++      "sec-fetch-mode: navigate",
++      "sec-fetch-user: ?1",
++      "sec-fetch-dest: document",
++      "accept-encoding: gzip, deflate, br, zstd",
++      "accept-language: en-US,en;q=0.9",
++      "priority: u=0, i",
++    },
++  },
++  {
++    .target = "chrome152",
++    .alias = "chrome152",
++    .ciphers = "TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-RSA-AES128-SHA:ECDHE-RSA-AES256-SHA:AES128-GCM-SHA256:AES256-GCM-SHA384:AES128-SHA:AES256-SHA",
++    .httpversion = CURL_HTTP_VERSION_2_0,
++    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
++    .curves = "X25519MLKEM768:X25519:P-256:P-384",
++    .http3_curves = "X25519MLKEM768:X25519:P-256:P-384",
++    .sig_hash_algs = "mldsa44:mldsa65:mldsa87:ecdsa_secp256r1_sha256:rsa_pss_rsae_sha256:rsa_pkcs1_sha256:ecdsa_secp384r1_sha384:rsa_pss_rsae_sha384:rsa_pkcs1_sha384:rsa_pss_rsae_sha512:rsa_pkcs1_sha512",
++    .cert_compression = "brotli",
++    .tls_delegated_credentials = NULL,
++    .tls_trust_anchors = "11129.9.11,11129.9.7,52580.200109.1.18,11129.9.10,11129.9.8,44947.2.13,44947.2.14,44947.2.1,52580.200109.1.11,11129.9.15,44947.2.20,11129.9.1,11129.9.4,11129.9.12,44947.2.18,44947.2.15,11129.9.13,52580.200109.1.13,52580.200109.1.10,52580.200109.1.12,52580.200109.1.9,11129.9.6,52580.200109.1.7,11129.9.5,44947.2.6,52580.200109.1.19,44947.2.19,52580.200109.1.8",
++    .alpn = true,
++    .alps = true,
++    .ech = "true",
++    .http_header_order = "sec-ch-ua,sec-ch-ua-mobile,sec-ch-ua-platform,upgrade-insecure-requests,user-agent,accept,sec-fetch-site,sec-fetch-mode,sec-fetch-user,sec-fetch-dest,referer,accept-encoding,accept-language,priority,cache-control,cookie",
++    .http3_http_header_order = "sec-ch-ua,sec-ch-ua-mobile,sec-ch-ua-platform,user-agent,accept,sec-fetch-site,sec-fetch-mode,sec-fetch-dest,referer,accept-encoding,accept-language,priority,cookie",
++    .tls_session_ticket = true,
++    .tls_permute_extensions = true,
++    .tls_grease = true,
++    .tls_use_new_alps_codepoint = true,
++    .tls_signed_cert_timestamps = true,
++    .tls_record_size_limit = 0,
++    .tls_key_shares_limit = 2,
++    .tls_extension_order = NULL,
++    .http2_settings = "1:65536;2:0;4:6291456;6:262144",
++    .http2_window_update = 15663105,
++    .http2_pseudo_headers_order = "masp",
++    .http2_no_priority = false,
++    .http3_settings = "1:65536;6:262144;7:100;51:1;GREASE",
++    .http3_pseudo_headers_order = "masp",
++    .http3_tls_extension_order = "0-16-65037-43-17613-57-45-13-51-10-51764-27",
++    .quic_transport_parameters = "12584:0x4f524947;15:AUTO;GREASE;4:15728640;32:65536;5:6291456;9:103;1:30000;6:6291456;7:6291456;17:1@1,GREASE;3:1472;8:100",
++    .split_cookies = true,
++    .form_boundary = "webkit",
++    .http2_stream_weight = 256,
++    .http2_stream_exclusive = 1,
++    .http_headers = {
++      "sec-ch-ua: \"Chromium\";v=\"152\", \"Not?A_Brand\";v=\"24\", \"Google Chrome\";v=\"152\"",
++      "sec-ch-ua-mobile: ?0",
++      "sec-ch-ua-platform: \"Windows\"",
++      "upgrade-insecure-requests: 1",
++      "user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
++      "accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
++      "sec-fetch-site: none",
++      "sec-fetch-mode: navigate",
++      "sec-fetch-user: ?1",
++      "sec-fetch-dest: document",
++      "accept-encoding: gzip, deflate, br, zstd",
++      "accept-language: en-US,en;q=0.9",
++      "priority: u=0, i",
++      "cache-control: max-age=0",
++    },
++    .http3_headers = {
++      "sec-ch-ua: \"Chromium\";v=\"152\", \"Not?A_Brand\";v=\"24\", \"Google Chrome\";v=\"152\"",
++      "sec-ch-ua-mobile: ?0",
++      "sec-ch-ua-platform: \"Windows\"",
++      "user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
++      "accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
++      "sec-fetch-site: none",
++      "sec-fetch-mode: cors",
++      "sec-fetch-dest: empty",
++      "accept-encoding: gzip, deflate, br, zstd",
++      "accept-language: en-US,en;q=0.9",
++      "priority: u=1, i",
++    },
++  },
++  {
++    .target = "chrome152_macos",
++    .alias = "chrome152_macos",
++    .ciphers = "TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-RSA-AES128-SHA:ECDHE-RSA-AES256-SHA:AES128-GCM-SHA256:AES256-GCM-SHA384:AES128-SHA:AES256-SHA",
++    .httpversion = CURL_HTTP_VERSION_2_0,
++    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
++    .curves = "X25519MLKEM768:X25519:P-256:P-384",
++    .http3_curves = "X25519MLKEM768:X25519:P-256:P-384",
++    .sig_hash_algs = "mldsa44:mldsa65:mldsa87:ecdsa_secp256r1_sha256:rsa_pss_rsae_sha256:rsa_pkcs1_sha256:ecdsa_secp384r1_sha384:rsa_pss_rsae_sha384:rsa_pkcs1_sha384:rsa_pss_rsae_sha512:rsa_pkcs1_sha512",
++    .cert_compression = "brotli",
++    .tls_delegated_credentials = NULL,
++    .tls_trust_anchors = "11129.9.11,11129.9.7,52580.200109.1.18,11129.9.10,11129.9.8,44947.2.13,44947.2.14,44947.2.1,52580.200109.1.11,11129.9.15,44947.2.20,11129.9.1,11129.9.4,11129.9.12,44947.2.18,44947.2.15,11129.9.13,52580.200109.1.13,52580.200109.1.10,52580.200109.1.12,52580.200109.1.9,11129.9.6,52580.200109.1.7,11129.9.5,44947.2.6,52580.200109.1.19,44947.2.19,52580.200109.1.8",
++    .alpn = true,
++    .alps = true,
++    .ech = "true",
++    .http_header_order = "sec-ch-ua,sec-ch-ua-mobile,sec-ch-ua-platform,upgrade-insecure-requests,user-agent,accept,sec-fetch-site,sec-fetch-mode,sec-fetch-user,sec-fetch-dest,referer,accept-encoding,accept-language,priority,cache-control,cookie",
++    .http3_http_header_order = "sec-ch-ua,sec-ch-ua-mobile,sec-ch-ua-platform,user-agent,accept,sec-fetch-site,sec-fetch-mode,sec-fetch-dest,referer,accept-encoding,accept-language,priority,cookie",
++    .tls_session_ticket = true,
++    .tls_permute_extensions = true,
++    .tls_grease = true,
++    .tls_use_new_alps_codepoint = true,
++    .tls_signed_cert_timestamps = true,
++    .tls_record_size_limit = 0,
++    .tls_key_shares_limit = 2,
++    .tls_extension_order = NULL,
++    .http2_settings = "1:65536;2:0;4:6291456;6:262144",
++    .http2_window_update = 15663105,
++    .http2_pseudo_headers_order = "masp",
++    .http2_no_priority = false,
++    .http3_settings = "1:65536;6:262144;7:100;51:1;GREASE",
++    .http3_pseudo_headers_order = "masp",
++    .http3_tls_extension_order = "0-16-65037-43-17613-57-45-13-51-10-51764-27",
++    .quic_transport_parameters = "12584:0x4f524947;15:AUTO;GREASE;4:15728640;32:65536;5:6291456;9:103;1:30000;6:6291456;7:6291456;17:1@1,GREASE;3:1472;8:100",
++    .split_cookies = true,
++    .form_boundary = "webkit",
++    .http2_stream_weight = 256,
++    .http2_stream_exclusive = 1,
++    .http_headers = {
++      "sec-ch-ua: \"Chromium\";v=\"152\", \"Not?A_Brand\";v=\"24\", \"Google Chrome\";v=\"152\"",
++      "sec-ch-ua-mobile: ?0",
++      "sec-ch-ua-platform: \"macOS\"",
++      "upgrade-insecure-requests: 1",
++      "user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
++      "accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
++      "sec-fetch-site: none",
++      "sec-fetch-mode: navigate",
++      "sec-fetch-user: ?1",
++      "sec-fetch-dest: document",
++      "accept-encoding: gzip, deflate, br, zstd",
++      "accept-language: en-US,en;q=0.9",
++      "priority: u=0, i",
++      "cache-control: max-age=0",
++    },
++    .http3_headers = {
++      "sec-ch-ua: \"Chromium\";v=\"152\", \"Not?A_Brand\";v=\"24\", \"Google Chrome\";v=\"152\"",
++      "sec-ch-ua-mobile: ?0",
++      "sec-ch-ua-platform: \"macOS\"",
++      "user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
++      "accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
++      "sec-fetch-site: none",
++      "sec-fetch-mode: cors",
++      "sec-fetch-dest: empty",
++      "accept-encoding: gzip, deflate, br, zstd",
++      "accept-language: en-US,en;q=0.9",
++      "priority: u=1, i",
++    },
++  },
++  {
 +    .target = "chrome99",
 +    .alias = "chrome99",
 +    .httpversion = CURL_HTTP_VERSION_2_0,
@@ -4955,6 +5252,135 @@ index 0000000000..aad5688f4f
 +    .tls_key_shares_limit = 3,
 +    .split_cookies = true,
 +    .form_boundary = "firefox",
++  },
++  {
++    .target = "firefox153",
++    .alias = "firefox153",
++    .ciphers = "TLS_AES_128_GCM_SHA256:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_256_GCM_SHA384:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES256-SHA:ECDHE-RSA-AES128-SHA:ECDHE-RSA-AES256-SHA:AES128-GCM-SHA256:AES256-GCM-SHA384:AES128-SHA:AES256-SHA",
++    .httpversion = CURL_HTTP_VERSION_2_0,
++    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
++    .curves = "X25519MLKEM768:X25519:P-256:P-384:P-521:ffdhe2048:ffdhe3072",
++    .sig_hash_algs = "ecdsa_secp256r1_sha256:ecdsa_secp384r1_sha384:ecdsa_secp521r1_sha512:rsa_pss_rsae_sha256:rsa_pss_rsae_sha384:rsa_pss_rsae_sha512:rsa_pkcs1_sha256:rsa_pkcs1_sha384:rsa_pkcs1_sha512:ecdsa_sha1:rsa_pkcs1_sha1",
++    .cert_compression = "zlib,brotli,zstd",
++    .tls_delegated_credentials = "ecdsa_secp256r1_sha256:ecdsa_secp384r1_sha384:ecdsa_secp521r1_sha512:ecdsa_sha1",
++    .alpn = true,
++    .alps = false,
++    .ech = "true",
++    .http_header_order = "user-agent,accept,accept-language,accept-encoding,referer,sec-fetch-dest,sec-fetch-mode,sec-fetch-site,priority,te,cookie",
++    .tls_session_ticket = true,
++    .tls_permute_extensions = false,
++    .tls_grease = false,
++    .tls_use_new_alps_codepoint = false,
++    .tls_signed_cert_timestamps = true,
++    .tls_record_size_limit = 16385,
++    .tls_key_shares_limit = 3,
++    .tls_extension_order = "0-23-65281-10-11-35-16-5-34-18-51-43-13-45-28-27-65037",
++    .http2_settings = "1:65536;2:0;4:131072;5:16384",
++    .http2_window_update = 12517377,
++    .http2_pseudo_headers_order = "mpas",
++    .http2_no_priority = false,
++    .split_cookies = true,
++    .form_boundary = "firefox",
++    .http2_stream_weight = 22,
++    .http2_stream_exclusive = 0,
++    .http_headers = {
++      "user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:153.0) Gecko/20100101 Firefox/153.0",
++      "accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
++      "accept-language: en-US,en;q=0.9",
++      "accept-encoding: gzip, deflate, br, zstd",
++      "sec-fetch-dest: empty",
++      "sec-fetch-mode: cors",
++      "sec-fetch-site: same-origin",
++      "priority: u=4",
++      "te: trailers",
++    },
++  },
++  {
++    .target = "firefox154",
++    .alias = "firefox154",
++    .ciphers = "TLS_AES_128_GCM_SHA256:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_256_GCM_SHA384:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-SHA:ECDHE-RSA-AES256-SHA:AES128-GCM-SHA256:AES256-GCM-SHA384:AES128-SHA:AES256-SHA",
++    .httpversion = CURL_HTTP_VERSION_2_0,
++    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
++    .curves = "X25519MLKEM768:X25519:P-256:P-384:P-521:ffdhe2048:ffdhe3072",
++    .sig_hash_algs = "ecdsa_secp256r1_sha256:ecdsa_secp384r1_sha384:ecdsa_secp521r1_sha512:rsa_pss_rsae_sha256:rsa_pss_rsae_sha384:rsa_pss_rsae_sha512:rsa_pkcs1_sha256:rsa_pkcs1_sha384:rsa_pkcs1_sha512:ecdsa_sha1:rsa_pkcs1_sha1",
++    .cert_compression = "zlib,brotli,zstd",
++    .tls_delegated_credentials = "ecdsa_secp256r1_sha256:ecdsa_secp384r1_sha384:ecdsa_secp521r1_sha512:ecdsa_sha1",
++    .alpn = true,
++    .alps = false,
++    .ech = "true",
++    .http_header_order = "user-agent,accept,accept-language,accept-encoding,referer,upgrade-insecure-requests,sec-fetch-dest,sec-fetch-mode,sec-fetch-site,sec-fetch-user,priority,te,cookie",
++    .tls_session_ticket = true,
++    .tls_permute_extensions = false,
++    .tls_grease = false,
++    .tls_use_new_alps_codepoint = false,
++    .tls_signed_cert_timestamps = true,
++    .tls_record_size_limit = 16385,
++    .tls_key_shares_limit = 3,
++    .tls_extension_order = "0-23-65281-10-11-35-16-5-34-18-51-43-13-45-28-27-65037",
++    .http2_settings = "1:65536;2:0;4:131072;5:16384",
++    .http2_window_update = 12517377,
++    .http2_pseudo_headers_order = "mpas",
++    .http2_no_priority = false,
++    .split_cookies = true,
++    .form_boundary = "firefox",
++    .http2_stream_weight = 42,
++    .http2_stream_exclusive = 0,
++    .http_headers = {
++      "user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:154.0) Gecko/20100101 Firefox/154.0",
++      "accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
++      "accept-language: en-US,en;q=0.9",
++      "accept-encoding: gzip, deflate, br, zstd",
++      "upgrade-insecure-requests: 1",
++      "sec-fetch-dest: document",
++      "sec-fetch-mode: navigate",
++      "sec-fetch-site: same-origin",
++      "sec-fetch-user: ?1",
++      "priority: u=0, i",
++      "te: trailers",
++    },
++  },
++  {
++    .target = "firefox155",
++    .alias = "firefox155",
++    .ciphers = "TLS_AES_128_GCM_SHA256:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_256_GCM_SHA384:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-SHA:ECDHE-RSA-AES256-SHA:AES128-GCM-SHA256:AES256-GCM-SHA384:AES128-SHA:AES256-SHA",
++    .httpversion = CURL_HTTP_VERSION_2_0,
++    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
++    .curves = "X25519MLKEM768:X25519:P-256:P-384:P-521:ffdhe2048:ffdhe3072",
++    .sig_hash_algs = "ecdsa_secp256r1_sha256:ecdsa_secp384r1_sha384:ecdsa_secp521r1_sha512:rsa_pss_rsae_sha256:rsa_pss_rsae_sha384:rsa_pss_rsae_sha512:rsa_pkcs1_sha256:rsa_pkcs1_sha384:rsa_pkcs1_sha512:ecdsa_sha1:rsa_pkcs1_sha1",
++    .cert_compression = "zlib,brotli,zstd",
++    .tls_delegated_credentials = "ecdsa_secp256r1_sha256:ecdsa_secp384r1_sha384:ecdsa_secp521r1_sha512:ecdsa_sha1",
++    .tls_trust_anchors = NULL,
++    .alpn = true,
++    .alps = false,
++    .ech = "true",
++    .http_header_order = "user-agent,accept,accept-language,accept-encoding,referer,sec-fetch-dest,sec-fetch-mode,sec-fetch-site,priority,te,cookie",
++    .tls_session_ticket = true,
++    .tls_permute_extensions = false,
++    .tls_grease = false,
++    .tls_use_new_alps_codepoint = false,
++    .tls_signed_cert_timestamps = true,
++    .tls_record_size_limit = 16385,
++    .tls_key_shares_limit = 3,
++    .tls_extension_order = "0-23-65281-10-11-35-16-5-34-18-51-43-13-45-28-27-65037",
++    .http2_settings = "1:65536;2:0;4:131072;5:16384",
++    .http2_window_update = 12517377,
++    .http2_pseudo_headers_order = "mpas",
++    .http2_no_priority = false,
++    .split_cookies = true,
++    .form_boundary = "firefox",
++    .http2_stream_weight = 22,
++    .http2_stream_exclusive = 0,
++    .http_headers = {
++      "user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:155.0) Gecko/20100101 Firefox/155.0",
++      "accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
++      "accept-language: en-US,en;q=0.9",
++      "accept-encoding: gzip, deflate, br, zstd",
++      "sec-fetch-dest: empty",
++      "sec-fetch-mode: cors",
++      "sec-fetch-site: same-origin",
++      "priority: u=4",
++      "te: trailers",
++    },
 +  },
 +  {
 +    .target = "okhttp4_android",
@@ -5731,6 +6157,120 @@ index 0000000000..aad5688f4f
 +    .form_boundary = "webkit",
 +  },
 +  {
++    .target = "safari270",
++    .alias = "safari270",
++    .ciphers = "TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES256-SHA:ECDHE-ECDSA-AES128-SHA:ECDHE-RSA-AES256-SHA:ECDHE-RSA-AES128-SHA:AES256-GCM-SHA384:AES128-GCM-SHA256:AES256-SHA:AES128-SHA:ECDHE-ECDSA-DES-CBC3-SHA:ECDHE-RSA-DES-CBC3-SHA:DES-CBC3-SHA",
++    .httpversion = CURL_HTTP_VERSION_2_0,
++    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
++    .curves = "X25519MLKEM768:X25519:P-256:P-384:P-521",
++    .http3_curves = "X25519:P-256:P-384:P-521",
++    .sig_hash_algs = "ecdsa_secp256r1_sha256:rsa_pss_rsae_sha256:rsa_pkcs1_sha256:ecdsa_secp384r1_sha384:rsa_pss_rsae_sha384:rsa_pss_rsae_sha384:rsa_pkcs1_sha384:rsa_pss_rsae_sha512:rsa_pkcs1_sha512:rsa_pkcs1_sha1",
++    .cert_compression = "zlib",
++    .tls_delegated_credentials = NULL,
++    .tls_trust_anchors = NULL,
++    .alpn = true,
++    .alps = false,
++    .ech = NULL,
++    .http_header_order = "sec-fetch-dest,user-agent,accept,referer,sec-fetch-site,sec-fetch-mode,accept-language,priority,accept-encoding,cookie",
++    .http3_http_header_order = "sec-fetch-dest,user-agent,accept,referer,sec-fetch-site,sec-fetch-mode,accept-language,priority,accept-encoding,cookie",
++    .tls_session_ticket = false,
++    .tls_permute_extensions = false,
++    .tls_grease = true,
++    .tls_use_new_alps_codepoint = false,
++    .tls_signed_cert_timestamps = true,
++    .tls_record_size_limit = 0,
++    .tls_key_shares_limit = 2,
++    .tls_extension_order = "0-23-65281-10-11-16-5-13-18-51-45-43-27",
++    .http2_settings = "2:0;3:100;4:2097152;9:1",
++    .http2_window_update = 10420225,
++    .http2_pseudo_headers_order = "msap",
++    .http2_no_priority = true,
++    .http3_settings = "1:16383;7:100;GREASE",
++    .http3_pseudo_headers_order = "msap",
++    .http3_tls_extension_order = "0-10-16-5-13-18-51-45-43-57-27",
++    .quic_transport_parameters = "9:8;14:64;15:AUTO;1:300000;4:16777216;5:2097152;6:2097152;7:2097152",
++    .split_cookies = true,
++    .form_boundary = "webkit",
++    .http2_stream_weight = 0,
++    .http2_stream_exclusive = 0,
++    .http_headers = {
++      "sec-fetch-dest: document",
++      "user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0 Safari/605.1.15",
++      "accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
++      "sec-fetch-site: same-origin",
++      "sec-fetch-mode: navigate",
++      "accept-language: en-US,en;q=0.9",
++      "priority: u=0, i",
++      "accept-encoding: gzip, deflate, br, zstd",
++    },
++    .http3_headers = {
++      "sec-fetch-dest: document",
++      "user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0 Safari/605.1.15",
++      "accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
++      "sec-fetch-site: same-origin",
++      "sec-fetch-mode: navigate",
++      "accept-language: en-US,en;q=0.9",
++      "priority: u=0, i",
++      "accept-encoding: gzip, deflate, br, zstd",
++    },
++  },
++  {
++    .target = "safari270_ios",
++    .alias = "safari270_ios",
++    .ciphers = "TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES256-SHA:ECDHE-ECDSA-AES128-SHA:ECDHE-RSA-AES256-SHA:ECDHE-RSA-AES128-SHA:AES256-GCM-SHA384:AES128-GCM-SHA256:AES256-SHA:AES128-SHA:ECDHE-ECDSA-DES-CBC3-SHA:ECDHE-RSA-DES-CBC3-SHA:DES-CBC3-SHA",
++    .httpversion = CURL_HTTP_VERSION_2_0,
++    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
++    .curves = "X25519MLKEM768:X25519:P-256:P-384:P-521",
++    .http3_curves = "X25519MLKEM768:X25519:P-256:P-384:P-521",
++    .sig_hash_algs = "ecdsa_secp256r1_sha256:rsa_pss_rsae_sha256:rsa_pkcs1_sha256:ecdsa_secp384r1_sha384:rsa_pss_rsae_sha384:rsa_pss_rsae_sha384:rsa_pkcs1_sha384:rsa_pss_rsae_sha512:rsa_pkcs1_sha512:rsa_pkcs1_sha1",
++    .cert_compression = "zlib",
++    .tls_delegated_credentials = NULL,
++    .tls_trust_anchors = NULL,
++    .alpn = true,
++    .alps = false,
++    .ech = NULL,
++    .http_header_order = "sec-fetch-dest,user-agent,accept,referer,sec-fetch-site,sec-fetch-mode,accept-language,priority,accept-encoding,upgrade-insecure-requests,cookie",
++    .http3_http_header_order = "user-agent,accept,referer,accept-language,priority,accept-encoding,cookie",
++    .tls_session_ticket = false,
++    .tls_permute_extensions = false,
++    .tls_grease = true,
++    .tls_use_new_alps_codepoint = false,
++    .tls_signed_cert_timestamps = true,
++    .tls_record_size_limit = 0,
++    .tls_key_shares_limit = 2,
++    .tls_extension_order = "0-23-65281-10-11-16-5-13-18-51-45-43-27",
++    .http2_settings = "2:0;3:100;4:2097152;9:1",
++    .http2_window_update = 10420225,
++    .http2_pseudo_headers_order = "msap",
++    .http2_no_priority = true,
++    .http3_settings = "1:16383;7:100;GREASE",
++    .http3_pseudo_headers_order = "msap",
++    .http3_tls_extension_order = "0-10-16-5-13-18-51-45-43-57-27",
++    .quic_transport_parameters = "9:8;14:64;15:AUTO;4:16777216;5:2097152;6:2097152;7:2097152;4278716424:0x09",
++    .split_cookies = true,
++    .form_boundary = "webkit",
++    .http2_stream_weight = 0,
++    .http2_stream_exclusive = 0,
++    .http_headers = {
++      "sec-fetch-dest: document",
++      "user-agent: Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0 Mobile/15E148 Safari/604.1",
++      "accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
++      "sec-fetch-site: same-origin",
++      "sec-fetch-mode: navigate",
++      "accept-language: en-US,en;q=0.9",
++      "priority: u=0, i",
++      "accept-encoding: gzip, deflate, br, zstd",
++      "upgrade-insecure-requests: 1",
++    },
++    .http3_headers = {
++      "user-agent: Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0 Mobile/15E148 Safari/604.1",
++      "accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
++      "accept-language: en-US,en;q=0.9",
++      "priority: u=3",
++      "accept-encoding: gzip, deflate, br",
++    },
++  },
++  {
 +    .target = "tor145",  // tor 14.5, based on firefox 128
 +    .alias = "tor145",
 +    .httpversion = CURL_HTTP_VERSION_2_0,
@@ -5796,6 +6336,7 @@ index 0000000000..aad5688f4f
 +    .split_cookies = true,
 +    .form_boundary = "firefox",
 +  }
++
 +};
 +
 +const size_t num_impersonations = sizeof(impersonations) / sizeof(impersonations[0]);
@@ -7303,21 +7844,23 @@ index 0ad0d549ed..9bd7bfb3dc 100644
                          const char *thisheader,
                          const size_t thislen);
 diff --git a/lib/url.c b/lib/url.c
-index b189d52841..10333423e4 100644
+index b189d52841..90315f38cd 100644
 --- a/lib/url.c
 +++ b/lib/url.c
-@@ -175,6 +175,10 @@ void Curl_freeset(struct Curl_easy *data)
+@@ -175,6 +175,12 @@ void Curl_freeset(struct Curl_easy *data)
    curl_slist_free_all(data->state.cookielist);
    data->state.cookielist = NULL;
  #endif
 +  curl_slist_free_all(data->state.base_headers);
 +  data->state.base_headers = NULL;
++  curl_slist_free_all(data->state.http3_base_headers);
++  data->state.http3_base_headers = NULL;
 +  curl_slist_free_all(data->state.merged_headers);
 +  data->state.merged_headers = NULL;
  }
  
  /* free the URL pieces */
-@@ -270,6 +274,8 @@ CURLcode Curl_close(struct Curl_easy **datap)
+@@ -270,6 +276,8 @@ CURLcode Curl_close(struct Curl_easy **datap)
    curlx_safefree(data->state.most_recent_ftp_entrypath);
    curlx_safefree(data->info.contenttype);
    curlx_safefree(data->info.wouldredirect);
@@ -7326,7 +7869,7 @@ index b189d52841..10333423e4 100644
    curlx_safefree(data->info.effective_url);
  
    /* No longer a dirty share, if it exists */
-@@ -285,7 +291,6 @@ CURLcode Curl_close(struct Curl_easy **datap)
+@@ -285,7 +293,6 @@ CURLcode Curl_close(struct Curl_easy **datap)
  #ifndef CURL_DISABLE_COOKIES
    curlx_safefree(data->req.cookiehost);
  #endif
@@ -7334,7 +7877,7 @@ index b189d52841..10333423e4 100644
  #if !defined(CURL_DISABLE_HTTP) && !defined(CURL_DISABLE_FORM_API)
    Curl_mime_cleanpart(data->state.formp);
    curlx_safefree(data->state.formp);
-@@ -395,6 +400,7 @@ void Curl_init_userdefined(struct Curl_easy *data)
+@@ -395,6 +402,7 @@ void Curl_init_userdefined(struct Curl_easy *data)
    Curl_setopt_SSLVERSION(data, CURLOPT_PROXY_SSLVERSION,
                           CURL_SSLVERSION_DEFAULT);
  #endif
@@ -7342,7 +7885,7 @@ index b189d52841..10333423e4 100644
  #endif
  #ifndef CURL_DISABLE_FTP
    set->wildcard_enabled = FALSE;
-@@ -409,8 +415,17 @@ void Curl_init_userdefined(struct Curl_easy *data)
+@@ -409,8 +417,17 @@ void Curl_init_userdefined(struct Curl_easy *data)
    set->tcp_fastopen = FALSE;
    set->tcp_nodelay = TRUE;
    set->ssl_enable_alpn = TRUE;
@@ -7360,7 +7903,7 @@ index b189d52841..10333423e4 100644
    set->buffer_size = READBUFFER_SIZE;
    set->upload_buffer_size = UPLOADBUFFER_DEFAULT;
    set->upload_flags = CURLULFLAG_SEEN;
-@@ -502,6 +517,9 @@ void Curl_conn_free(struct Curl_easy *data, struct connectdata *conn)
+@@ -502,6 +519,9 @@ void Curl_conn_free(struct Curl_easy *data, struct connectdata *conn)
  
    for(i = 0; i < (int8_t)CURL_ARRAYSIZE(conn->cfilter); ++i) {
      Curl_conn_cf_discard_all(data, conn, i);
@@ -7370,7 +7913,7 @@ index b189d52841..10333423e4 100644
    }
  
  #ifndef CURL_DISABLE_PROXY
-@@ -1148,6 +1166,10 @@ static struct connectdata *allocate_conn(struct Curl_easy *data)
+@@ -1148,6 +1168,10 @@ static struct connectdata *allocate_conn(struct Curl_easy *data)
  #endif
    conn->ip_version = data->set.ipver;
    conn->bits.connect_only = (bool)data->set.connect_only;
@@ -7381,7 +7924,7 @@ index b189d52841..10333423e4 100644
    conn->transport_wanted = TRNSPRT_TCP; /* most of them are TCP streams */
  
    /* Store the local bind parameters that will be used for this connection */
-@@ -2036,6 +2058,11 @@ static CURLcode url_create_needle(struct Curl_easy *data,
+@@ -2036,6 +2060,11 @@ static CURLcode url_create_needle(struct Curl_easy *data,
         (default) */
      if(data->set.ssl_enable_alpn)
        needle->bits.tls_enable_alpn = TRUE;
@@ -7393,7 +7936,7 @@ index b189d52841..10333423e4 100644
    }
  
    if(network_scheme) {
-@@ -2253,7 +2280,7 @@ static CURLcode url_match_init(struct Curl_easy *data,
+@@ -2253,7 +2282,7 @@ static CURLcode url_match_init(struct Curl_easy *data,
    m->may_tls = data->set.use_ssl > CURLUSESSL_NONE;
  
    /* Get a shallow setup of filter configs for connection cache matching */
@@ -7402,7 +7945,7 @@ index b189d52841..10333423e4 100644
                                           &m->ssl_config,
  #ifndef CURL_DISABLE_PROXY
                                           &m->proxy_ssl_config);
-@@ -2576,6 +2603,7 @@ CURLcode Curl_init_transfer(struct Curl_easy *data, struct connectdata *conn)
+@@ -2576,6 +2605,7 @@ CURLcode Curl_init_transfer(struct Curl_easy *data, struct connectdata *conn)
  void Curl_data_priority_clear_state(struct Curl_easy *data)
  {
    data->state.weight = 0;
@@ -7411,7 +7954,7 @@ index b189d52841..10333423e4 100644
  
  #endif /* USE_HTTP2 || USE_HTTP3 */
 diff --git a/lib/urldata.h b/lib/urldata.h
-index 249331d30b..987921e229 100644
+index 249331d30b..9c755bd3b7 100644
 --- a/lib/urldata.h
 +++ b/lib/urldata.h
 @@ -182,6 +182,7 @@ struct ConnectBits {
@@ -7462,7 +8005,7 @@ index 249331d30b..987921e229 100644
    char *effective_url; /* when needed */
    curl_off_t retry_after; /* info from Retry-After: header */
    const char *conn_scheme;
-@@ -600,6 +620,19 @@ struct UrlState {
+@@ -600,6 +620,21 @@ struct UrlState {
                                      curl_easy_setopt(COOKIEFILE) calls */
  #endif
  
@@ -7471,6 +8014,8 @@ index 249331d30b..987921e229 100644
 +   * List of "base" headers set by CURLOPT_HTTPBASEHEADER.
 +   */
 +  struct curl_slist *base_headers;
++  /* Owned HTTP/3 defaults from the impersonation profile. */
++  struct curl_slist *http3_base_headers;
 +  /*
 +   * curl-impersonate:
 +   * Dynamically-constructed list of HTTP headers.
@@ -7482,7 +8027,7 @@ index 249331d30b..987921e229 100644
  #ifdef CURLVERBOSE
    struct curl_trc_feat *feat; /* opt. trace feature transfer is part of */
  #endif
-@@ -631,6 +664,7 @@ struct UrlState {
+@@ -631,6 +666,7 @@ struct UrlState {
  
  #if defined(USE_HTTP2) || defined(USE_HTTP3)
    int weight; /* shallow copy of data->set */
@@ -7490,7 +8035,7 @@ index 249331d30b..987921e229 100644
  #endif
    uint16_t followlocation; /* redirect counter */
    uint8_t retrycount; /* number of retries on a new connection, up to
-@@ -706,6 +740,8 @@ enum dupstring {
+@@ -706,6 +742,8 @@ enum dupstring {
    STRING_SSL_CRLFILE,     /* CRL file to check certificate */
    STRING_SSL_ISSUERCERT,  /* issuer cert file to check certificate */
    STRING_SERVICE_NAME,    /* Service name */
@@ -7499,7 +8044,7 @@ index 249331d30b..987921e229 100644
  #ifndef CURL_DISABLE_PROXY
    STRING_CERT_PROXY,      /* client certificate filename */
    STRING_CERT_TYPE_PROXY, /* format for certificate (default: PEM)*/
-@@ -794,6 +830,7 @@ enum dupstring {
+@@ -794,6 +832,7 @@ enum dupstring {
    STRING_DNS_LOCAL_IP6,
  #endif
    STRING_SSL_EC_CURVES,
@@ -7507,7 +8052,7 @@ index 249331d30b..987921e229 100644
  #ifndef CURL_DISABLE_AWS
    STRING_AWS_SIGV4, /* Parameters for V4 signature */
  #endif
-@@ -807,6 +844,23 @@ enum dupstring {
+@@ -807,6 +846,23 @@ enum dupstring {
  #endif
    STRING_ECH_CONFIG,            /* CURLOPT_ECH_CONFIG */
    STRING_ECH_PUBLIC,            /* CURLOPT_ECH_PUBLIC */
@@ -7531,7 +8076,7 @@ index 249331d30b..987921e229 100644
    STRING_SSL_SIGNATURE_ALGORITHMS, /* CURLOPT_SSL_SIGNATURE_ALGORITHMS */
  
    STRING_LAST /* not used, an end-of-list marker */
-@@ -881,6 +935,8 @@ struct UserDefined {
+@@ -881,6 +937,8 @@ struct UserDefined {
                                  download */
    curl_off_t set_resume_from;  /* continue [ftp] transfer from here */
    struct curl_slist *headers; /* linked list of extra headers */
@@ -7540,7 +8085,7 @@ index 249331d30b..987921e229 100644
    struct curl_httppost *httppost;  /* linked list of old POST data */
  #if !defined(CURL_DISABLE_MIME) || !defined(CURL_DISABLE_FORM_API)
    curl_mimepart *mimepostp;  /* MIME/POST data. */
-@@ -1048,6 +1104,7 @@ struct UserDefined {
+@@ -1048,6 +1106,7 @@ struct UserDefined {
    BIT(sep_headers);     /* handle host and proxy headers separately */
  #ifndef CURL_DISABLE_COOKIES
    BIT(cookiesession);   /* new cookie session? */
@@ -7548,7 +8093,7 @@ index 249331d30b..987921e229 100644
  #endif
    BIT(crlf);            /* convert crlf on ftp upload(?) */
  #ifdef USE_SSH
-@@ -1064,6 +1121,7 @@ struct UserDefined {
+@@ -1064,6 +1123,7 @@ struct UserDefined {
    BIT(get_filetime);     /* get the time and get of the remote file */
  #ifndef CURL_DISABLE_PROXY
    BIT(tunnel_thru_httpproxy); /* use CONNECT through an HTTP proxy */
@@ -7556,7 +8101,7 @@ index 249331d30b..987921e229 100644
  #endif
    BIT(prefer_ascii);     /* ASCII rather than binary */
    BIT(remote_append);    /* append, not overwrite, on upload */
-@@ -1107,7 +1165,18 @@ struct UserDefined {
+@@ -1107,7 +1167,18 @@ struct UserDefined {
    BIT(sasl_ir);         /* Enable/disable SASL initial response */
    BIT(tcp_keepalive);  /* use TCP keepalives */
    BIT(tcp_fastopen);   /* use TCP Fast Open */
@@ -7575,7 +8120,7 @@ index 249331d30b..987921e229 100644
    BIT(path_as_is);     /* allow dotdots? */
    BIT(pipewait);       /* wait for multiplex status before starting a new
                            connection */
-@@ -1132,7 +1201,14 @@ struct UserDefined {
+@@ -1132,7 +1203,14 @@ struct UserDefined {
  #ifndef CURL_DISABLE_WEBSOCKETS
    BIT(ws_raw_mode);
    BIT(ws_no_auto_pong);

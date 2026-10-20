@@ -1,0 +1,120 @@
+browser:
+  name: chrome
+  version: '152'
+  os: macos_26.0
+  target: chrome152_macos
+signature:
+  options:
+    tls_permute_extensions: true
+  http2:
+    frames:
+    - frame_type: SETTINGS
+      settings:
+      - key: 1
+        value: 65536
+      - key: 2
+        value: 0
+      - key: 4
+        value: 6291456
+      - key: 6
+        value: 262144
+      stream_id: 0
+    - frame_type: WINDOW_UPDATE
+      stream_id: 0
+      window_size_increment: 15663105
+    - frame_type: HEADERS
+      stream_id: 1
+      headers:
+      - 'sec-ch-ua: "Chromium";v="152", "Not?A_Brand";v="24", "Google Chrome";v="152"'
+      - 'sec-ch-ua-mobile: ?0'
+      - 'sec-ch-ua-platform: "macOS"'
+      - 'upgrade-insecure-requests: 1'
+      - 'user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36
+        (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36'
+      - 'accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7'
+      - 'sec-fetch-site: none'
+      - 'sec-fetch-mode: navigate'
+      - 'sec-fetch-user: ?1'
+      - 'sec-fetch-dest: document'
+      - 'accept-encoding: gzip, deflate, br, zstd'
+      - 'accept-language: en-US,en;q=0.9'
+      - 'priority: u=0, i'
+      - 'cache-control: max-age=0'
+      pseudo_headers:
+      - :method
+      - :authority
+      - :scheme
+      - :path
+  tls_client_hello:
+    partial: true
+    ciphersuites:
+    - 4865
+    - 4866
+    - 4867
+    - 49195
+    - 49199
+    - 49196
+    - 49200
+    - 52393
+    - 52392
+    - 49171
+    - 49172
+    - 156
+    - 157
+    - 47
+    - 53
+    extensions:
+    - type: signature_algorithms
+      sig_hash_algs:
+      - 2308
+      - 2309
+      - 2310
+      - 1027
+      - 2052
+      - 1025
+      - 1283
+      - 2053
+      - 1281
+      - 2054
+      - 1537
+    - type: compress_certificate
+      algorithms:
+      - 2
+    - type: trust_anchors
+    - type: extended_master_secret
+    - type: application_layer_protocol_negotiation
+    - type: ec_point_formats
+    - type: supported_versions
+    - type: psk_key_exchange_modes
+    - type: renegotiation_info
+    - type: supported_groups
+      supported_groups:
+      - 4588
+      - 29
+      - 23
+      - 24
+    - type: signed_certificate_timestamp
+    - type: application_settings_new
+    - type: keyshare
+    - type: encrypted_client_hello
+    - type: server_name
+    - type: status_request
+    - type: session_ticket
+    grease: true
+  http3:
+    settings: 1:65536;6:262144;7:100;51:1;GREASE
+    pseudo_headers_order: masp
+    quic_transport_parameters: 12584:0x4f524947;15:AUTO;GREASE;4:15728640;32:65536;5:6291456;9:103;1:30000;6:6291456;7:6291456;17:1@1,GREASE;3:1472;8:100
+    headers:
+      sec-ch-ua: '"Chromium";v="152", "Not?A_Brand";v="24", "Google Chrome";v="152"'
+      sec-ch-ua-mobile: ?0
+      sec-ch-ua-platform: '"macOS"'
+      user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36
+        (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36
+      accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7
+      sec-fetch-site: none
+      sec-fetch-mode: cors
+      sec-fetch-dest: empty
+      accept-encoding: gzip, deflate, br, zstd
+      accept-language: en-US,en;q=0.9
+      priority: u=1, i
