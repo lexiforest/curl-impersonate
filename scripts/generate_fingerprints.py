@@ -7,19 +7,26 @@ Examples:
   python3 scripts/generate_fingerprints.py sample.json \
       --profile chrome_150_macos_26.0 --target chrome150
   python3 scripts/generate_fingerprints.py --remove chrome150 --dry-run
+  python3 scripts/generate_fingerprints.py sample.json --csv profiles.csv
 
 Full profile names are used by default to preserve OS variants. Existing
 presets with matching targets are replaced; other presets are preserved.
 The complete impersonations array is sorted alphabetically by target.
+Signatures include HTTP/2, available HTTP/3 fields and partial TLS expectations.
+Full signature captures supplied in the JSON take precedence; packet lengths
+and record versions are not inferred from curl options.
 Use --remove TARGET (repeatable) to remove presets and their generated
 wrappers, target-named signatures and test registry entries without JSON input.
 Patch export is left to the caller.
+CSV files contain profile,target pairs with an optional profile,target header.
 """
 
 import argparse
+import csv
 import json
 from pathlib import Path
 import re
+import sys
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -41,19 +48,58 @@ CIPHERS = {
     "TLS_AES_256_GCM_SHA384": "TLS_AES_256_GCM_SHA384",
     "TLS_CHACHA20_POLY1305_SHA256": "TLS_CHACHA20_POLY1305_SHA256",
 }
-for _iana, _openssl in (
-    ("RSA", ""), ("ECDHE_RSA", "ECDHE-RSA-"),
-    ("ECDHE_ECDSA", "ECDHE-ECDSA-"),
+CIPHER_IDS = {
+    "TLS_AES_128_GCM_SHA256": 0x1301,
+    "TLS_AES_256_GCM_SHA384": 0x1302,
+    "TLS_CHACHA20_POLY1305_SHA256": 0x1303,
+}
+for _iana, _openssl, _ids in (
+    ("RSA", "", (0x002F, 0x0035, 0x009C, 0x009D, 0x000A, None)),
+    ("ECDHE_RSA", "ECDHE-RSA-", (0xC013, 0xC014, 0xC02F, 0xC030, 0xC012, 0xCCA8)),
+    ("ECDHE_ECDSA", "ECDHE-ECDSA-", (0xC009, 0xC00A, 0xC02B, 0xC02C, 0xC008, 0xCCA9)),
 ):
-    for _suite, _name in (
+    for (_suite, _name), _id in zip((
         ("AES_128_CBC_SHA", "AES128-SHA"),
         ("AES_256_CBC_SHA", "AES256-SHA"),
         ("AES_128_GCM_SHA256", "AES128-GCM-SHA256"),
         ("AES_256_GCM_SHA384", "AES256-GCM-SHA384"),
         ("3DES_EDE_CBC_SHA", "DES-CBC3-SHA"),
         ("CHACHA20_POLY1305_SHA256", "CHACHA20-POLY1305"),
-    ):
+    ), _ids):
         CIPHERS[f"TLS_{_iana}_WITH_{_suite}"] = _openssl + _name
+        if _id is not None:
+            CIPHER_IDS[f"TLS_{_iana}_WITH_{_suite}"] = _id
+
+# Wire IDs used by the BoringSSL presets and the signature test parser.
+GROUP_IDS = {
+    "P-256": 23, "P-384": 24, "P-521": 25, "X25519": 29,
+    "X25519MLKEM768": 4588, "X25519Kyber768": 25497,
+    "X25519Kyber768Draft00": 25497, "MLKEM1024": 514,
+    "ffdhe2048": 256, "ffdhe3072": 257,
+}
+SIGNATURE_IDS = {
+    "rsa_pkcs1_sha1": 0x0201, "ecdsa_sha1": 0x0203,
+    "rsa_pkcs1_sha256": 0x0401, "ecdsa_secp256r1_sha256": 0x0403,
+    "rsa_pkcs1_sha384": 0x0501, "ecdsa_secp384r1_sha384": 0x0503,
+    "rsa_pkcs1_sha512": 0x0601, "ecdsa_secp521r1_sha512": 0x0603,
+    "rsa_pss_rsae_sha256": 0x0804, "rsa_pss_rsae_sha384": 0x0805,
+    "rsa_pss_rsae_sha512": 0x0806, "ed25519": 0x0807,
+    "mldsa44": 0x0904, "mldsa65": 0x0905, "mldsa87": 0x0906,
+}
+COMPRESSION_IDS = {"zlib": 1, "brotli": 2, "zstd": 3}
+EXTENSION_NAMES = {
+    0: "server_name", 5: "status_request", 10: "supported_groups",
+    11: "ec_point_formats", 13: "signature_algorithms",
+    16: "application_layer_protocol_negotiation", 18: "signed_certificate_timestamp",
+    21: "padding", 22: "encrypt_then_mac", 23: "extended_master_secret",
+    27: "compress_certificate", 28: "record_size_limit", 34: "delegated_credentials",
+    35: "session_ticket", 41: "pre_shared_key", 43: "supported_versions",
+    45: "psk_key_exchange_modes", 49: "post_handshake_auth", 51: "keyshare",
+    13172: "next_protocol_negotiation", 17513: "application_settings",
+    17613: "application_settings_new", 51764: "trust_anchors",
+    64768: "ech_outer_extensions", 65037: "encrypted_client_hello",
+    65281: "renegotiation_info",
+}
 
 
 def c_string(value):
@@ -194,8 +240,72 @@ def update_presets(source, presets, remove=()):
     return source[:start] + body + source[end:]
 
 
+def render_tls_signature(fp):
+    """Use th1 field names for known values; full captures supply packet details."""
+    def wire_ids(source, values):
+        try:
+            return [values[value] for value in fp[source]]
+        except KeyError as exc:
+            raise ValueError(f"unsupported or missing {source} value: {exc}") from exc
+
+    order = fp.get("tls_extension_order")
+    if not order:
+        raise ValueError("tls_extension_order is required for partial TLS expectations")
+    try:
+        names = [EXTENSION_NAMES[int(value)] for value in order.split("-")]
+    except KeyError as exc:
+        raise ValueError(f"unsupported TLS extension ID: {exc}") from exc
+    if len(set(names)) != len(names):
+        raise ValueError("duplicate TLS extension in tls_extension_order")
+    extensions = {name: {"type": name} for name in names}
+    signature = {
+        "partial": True,
+        "ciphersuites": wire_ids("tls_ciphers", CIPHER_IDS),
+        "extensions": list(extensions.values()),
+    }
+    for source, extension, field, values in (
+        ("tls_supported_groups", "supported_groups", "supported_groups", GROUP_IDS),
+        ("tls_signature_hashes", "signature_algorithms", "sig_hash_algs", SIGNATURE_IDS),
+        ("tls_cert_compression", "compress_certificate", "algorithms", COMPRESSION_IDS),
+        ("tls_delegated_credentials", "delegated_credentials", "sig_hash_algs", SIGNATURE_IDS),
+    ):
+        if source in fp:
+            values = wire_ids(source, values)
+            if extension in extensions:
+                extensions[extension][field] = values
+            elif values:
+                raise ValueError(f"{source} requires {extension} in tls_extension_order")
+    if "tls_grease" in fp:
+        # The option records presence, not GREASE count, position or payload.
+        signature["grease"] = fp["tls_grease"]
+    if fp.get("tls_record_size_limit"):
+        if "record_size_limit" not in extensions:
+            raise ValueError("tls_record_size_limit requires extension 28")
+        extensions["record_size_limit"]["record_size_limit"] = fp["tls_record_size_limit"]
+    return signature
+
+
+def render_http3_signature(fp, limit):
+    """Keep captured HTTP/3 options without inventing a QUIC TLS handshake."""
+    if not fp.get("http3_settings"):
+        return None
+    order = fp.get("http3_pseudo_headers_order", "")
+    if sorted(order) != sorted("masp"):
+        raise ValueError(f"invalid HTTP/3 pseudo-header order: {order!r}")
+    if not fp.get("quic_transport_parameters"):
+        raise ValueError("HTTP/3 settings require quic_transport_parameters")
+    header_lines = headers(fp.get("http3_headers", fp.get("headers", {})),
+                           fp.get("http3_header_order", fp.get("header_order")), limit)
+    return {
+        "settings": fp["http3_settings"],
+        "pseudo_headers_order": order,
+        "quic_transport_parameters": fp["quic_transport_parameters"],
+        "headers": dict(line.split(": ", 1) for line in header_lines),
+    }
+
+
 def render_signature(profile, target, limit):
-    """Use observed HTTP/2 fields; do not invent uncaptured TLS details."""
+    """Use observed HTTP/2 and HTTP/3 fields; preserve captured TLS details."""
     fp = profile["fingerprint"]
     pseudo_names = {"m": ":method", "a": ":authority", "s": ":scheme", "p": ":path"}
     order = fp["http2_pseudo_headers_order"]
@@ -219,10 +329,16 @@ def render_signature(profile, target, limit):
         "options": {"tls_permute_extensions": fp.get("tls_permute_extensions", False)},
         "http2": {"frames": frames},
     }
-    # Complete captures may accompany the profile. Preserve them verbatim;
+    # Full captures take precedence over expectations derived from options.
     # TLS lengths, record versions and session IDs cannot be recovered from
-    # option lists. HTTP/3 tests likewise need a normalized captured signature.
+    # option lists.
     captured = profile.get("signature", {})
+    if "tls_client_hello" not in captured:
+        signature["tls_client_hello"] = render_tls_signature(fp)
+    if "http3" not in captured:
+        http3 = render_http3_signature(fp, limit)
+        if http3 is not None:
+            signature["http3"] = http3
     for key in ("tls_client_hello", "http3"):
         if key in captured:
             signature[key] = captured[key]
@@ -300,12 +416,52 @@ def remove_fingerprints(args, yaml):
           f"{', '.join(targets)}")
 
 
+def select_csv_profiles(path, profiles):
+    """Resolve CSV profile/target pairs before writing any generated files."""
+    by_name = {}
+    for profile in profiles:
+        by_name.setdefault(profile["name"], []).append(profile)
+    selected = []
+    targets = set()
+    first_row = True
+    with path.open(encoding="utf-8-sig", newline="") as stream:
+        reader = csv.reader(stream, strict=True)
+        for row in reader:
+            if not row or (len(row) == 1 and not row[0].strip()):
+                continue
+            row = [value.strip() for value in row]
+            if first_row and row == ["profile", "target"]:
+                first_row = False
+                continue
+            first_row = False
+            location = f"{path}:{reader.line_num}"
+            if len(row) != 2 or not all(row):
+                raise ValueError(f"{location}: expected a nonempty profile,target pair")
+            name, target = row
+            matches = by_name.get(name, [])
+            if not matches:
+                raise ValueError(f"{location}: unknown profile: {name}")
+            if len(matches) != 1:
+                raise ValueError(f"{location}: ambiguous profile name: {name}")
+            if not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_.-]*", target):
+                raise ValueError(f"{location}: invalid target name: {target!r}")
+            if target in targets:
+                raise ValueError(f"{location}: duplicate target: {target}")
+            targets.add(target)
+            selected.append((matches[0], target))
+    if not selected:
+        raise ValueError(f"{path}: no profile,target pairs found")
+    return selected
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("profile_file", nargs="?", type=Path, default=ROOT / "sample.json")
     parser.add_argument("--profile", action="append", help="select a profile name (repeatable)")
     parser.add_argument("--list", action="store_true", help="list available profile names without writing files")
     parser.add_argument("--target", help="override target name; requires exactly one profile")
+    parser.add_argument("--csv", type=Path, metavar="FILE",
+                        help="generate profile,target pairs from CSV (optional header)")
     parser.add_argument("--remove", action="append", metavar="TARGET",
                         help="remove a target and its generated artifacts (repeatable; no JSON input needed)")
     parser.add_argument("--curl-chrome-dir", type=Path, default=ROOT.parent / "curl-chrome")
@@ -315,7 +471,12 @@ def main():
     parser.add_argument("--targets-file", type=Path, default=ROOT / "tests/targets.yaml",
                         help="test registry to update (.yaml or .json)")
     parser.add_argument("--dry-run", action="store_true", help="preview generation or removal without changing files")
+    if len(sys.argv) == 1:
+        parser.print_help()
+        return
     args = parser.parse_args()
+    if args.csv and (args.profile or args.target or args.list or args.remove):
+        parser.error("--csv cannot be combined with --profile, --target, --list or --remove")
     if args.remove and (args.profile or args.target or args.list):
         parser.error("--remove cannot be combined with --profile, --target or --list")
     try:
@@ -340,6 +501,8 @@ def main():
             raise ValueError("no profiles selected")
         if args.target and len(profiles) != 1:
             raise ValueError("--target requires exactly one selected profile")
+        selected = (select_csv_profiles(args.csv, profiles) if args.csv else
+                    [(profile, args.target or profile["name"]) for profile in profiles])
         try:
             import yaml
         except ImportError as exc:
@@ -348,8 +511,7 @@ def main():
         limit = int(re.search(r"#define IMPERSONATE_MAX_HEADERS\s+(\d+)", header)[1])
         presets = {}
         signatures = {}
-        for profile in profiles:
-            target = args.target or profile["name"]
+        for profile, target in selected:
             if not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_.-]*", target):
                 raise ValueError(f"invalid target name: {target!r}")
             if target in presets:
@@ -381,9 +543,9 @@ def main():
         for target in presets:
             wrapper = args.wrapper_dir / f"curl_{target}"
             wrapper.write_text(
-                '#!/usr/bin/env bash\n\n# Find the directory of this script\n'
+                '#!/bin/sh\n\n# Find the directory of this script\n'
                 'dir=${0%/*}\n\n'
-                f'"$dir/curl-impersonate" --compressed --impersonate "{target}" "$@"\n'
+                f'exec "$dir/curl-impersonate" --compressed --impersonate "{target}" "$@"\n'
             )
             wrapper.chmod(wrapper.stat().st_mode | 0o111)
             (args.windows_wrapper_dir / f"curl_{target}.bat").write_text(
@@ -395,7 +557,7 @@ def main():
         print(f"Generated {len(presets)} presets in {path} and wrappers in "
               f"{args.wrapper_dir} and {args.windows_wrapper_dir}; "
               f"signatures in {args.signatures_dir}; updated {args.targets_file}")
-    except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
+    except (OSError, ValueError, KeyError, TypeError, AttributeError, csv.Error) as exc:
         parser.exit(1, f"error: {exc}\n")
 
 

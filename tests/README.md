@@ -1,5 +1,27 @@
 The tests verify that `curl-impersonate` has the same network signature as that of the supported browsers, and smoke-test WebSocket functionality.
 
+`scripts/generate_fingerprints.py` generates HTTP/2 expectations, HTTP/3 settings,
+pseudo-header order, QUIC transport parameters and headers when available, and
+TLS expectations marked `partial: true`. Partial TLS checks cover the supplied
+ciphers, extension order, groups and extension parameters without assuming
+packet lengths, record versions or session ID lengths. Supplied
+`signature.tls_client_hello` and `signature.http3` captures take precedence and
+retain their full checks. Regenerate existing profiles to add the new sections.
+
+Partial TLS expectations use th1's `ciphersuites` and ordered `extensions`
+structure, including named extension types and fields such as `sig_hash_algs`.
+Unknown fields are omitted. The `grease` flag checks presence without assuming
+GREASE positions or payloads. These partial expectations still require our local
+comparison adapter: th1's native `TLSClientHelloSignature.from_dict()` requires
+a complete capture and does not yet support `partial: true`. HTTP/3 comparisons
+also remain local; th1 currently supports TLS and HTTP/2 only.
+
+Run the generator's offline regression tests with:
+
+```sh
+cd tests && pytest test_generate_fingerprints.py -q
+```
+
 ## Running the tests
 
 The tests assume that you've built `curl-impersonate` docker image before (see [Building from source](https://github.com/lwthiker/curl-impersonate#building-from-source)).

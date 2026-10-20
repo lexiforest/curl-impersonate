@@ -40,3 +40,71 @@ signature:
       - :scheme
       - :authority
       - :path
+  tls_client_hello:
+    partial: true
+    ciphersuites:
+    - 4866
+    - 4867
+    - 4865
+    - 49196
+    - 49195
+    - 52393
+    - 49200
+    - 49199
+    - 52392
+    - 49162
+    - 49161
+    - 49172
+    - 49171
+    - 157
+    - 156
+    - 53
+    - 47
+    - 49160
+    - 49170
+    - 10
+    extensions:
+    - type: server_name
+    - type: extended_master_secret
+    - type: renegotiation_info
+    - type: supported_groups
+      supported_groups:
+      - 4588
+      - 29
+      - 23
+      - 24
+      - 25
+    - type: ec_point_formats
+    - type: application_layer_protocol_negotiation
+    - type: status_request
+    - type: signature_algorithms
+      sig_hash_algs:
+      - 1027
+      - 2052
+      - 1025
+      - 1283
+      - 2053
+      - 2053
+      - 1281
+      - 2054
+      - 1537
+      - 513
+    - type: signed_certificate_timestamp
+    - type: keyshare
+    - type: psk_key_exchange_modes
+    - type: supported_versions
+    - type: compress_certificate
+      algorithms:
+      - 1
+    grease: true
+  http3:
+    settings: 1:16383;7:100;GREASE
+    pseudo_headers_order: msap
+    quic_transport_parameters: 9:8;14:64;15:AUTO;4:16777216;5:2097152;6:2097152;7:2097152;4278716424:0x09
+    headers:
+      user-agent: Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15
+        (KHTML, like Gecko) Version/27.0 Mobile/15E148 Safari/604.1
+      accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+      accept-language: en-US,en;q=0.9
+      priority: u=3
+      accept-encoding: gzip, deflate, br

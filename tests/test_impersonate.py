@@ -281,6 +281,41 @@ def _run_curl(curl_binary, env_vars, extra_args, urls, output="/dev/null"):
     return curl.wait(timeout=60)
 
 
+def _assert_partial_tls_signature(sig, expected, allow_tls_permutation):
+    """Compare supplied th1 fields with profile GREASE/resumption rules."""
+    actual = sig.to_dict()
+    ciphers = actual["ciphersuites"]
+    if "grease" in expected:
+        assert ("GREASE" in ciphers) == expected["grease"]
+    actual["ciphersuites"] = [value for value in ciphers if value != "GREASE"]
+    for key, value in expected.items():
+        if key not in ("partial", "grease", "extensions"):
+            assert actual[key] == value, f"TLS {key}: {actual[key]!r} != {value!r}"
+
+    # Match th1's treatment of resumption and ECH-dependent padding.
+    ignored = {"GREASE", "pre_shared_key"}
+    if any(ext["type"] == "encrypted_client_hello" for ext in actual["extensions"]):
+        ignored.add("padding")
+    actual_extensions = [ext for ext in actual["extensions"] if ext["type"] not in ignored]
+    expected_extensions = [ext for ext in expected["extensions"] if ext["type"] not in ignored]
+    actual_order = [ext["type"] for ext in actual_extensions]
+    expected_order = [ext["type"] for ext in expected_extensions]
+    if allow_tls_permutation:
+        assert sorted(actual_order) == sorted(expected_order)
+    else:
+        assert actual_order == expected_order
+    by_type = {ext["type"]: ext for ext in actual_extensions}
+    for extension in expected_extensions:
+        actual_extension = by_type[extension["type"]]
+        for field, value in extension.items():
+            observed = actual_extension[field]
+            if field == "supported_groups":
+                observed = [group for group in observed if group != "GREASE"]
+            assert observed == value, (
+                f"TLS {extension['type']}.{field}: {observed!r} != {value!r}"
+            )
+
+
 @pytest.mark.parametrize(
     "curl_binary, env_vars, ld_preload, expected_signature",
     CURL_BINARIES_AND_SIGNATURES,
@@ -354,9 +389,7 @@ def test_tls_client_hello(
     for client_hello in client_hellos:
         # sig = TLSClientHelloSignature.from_bytes(client_hello)
         sig = client_hello["signature"]
-        expected_sig = TLSClientHelloSignature.from_dict(
-            browser_signatures[expected_signature]["signature"]["tls_client_hello"]
-        )
+        expected = browser_signatures[expected_signature]["signature"]["tls_client_hello"]
 
         allow_tls_permutation = (
             browser_signatures[expected_signature]["signature"]
@@ -364,8 +397,12 @@ def test_tls_client_hello(
             .get("tls_permute_extensions", False)
         )
 
-        equals, reason = expected_sig.equals(sig, allow_tls_permutation)
-        assert equals, reason
+        if expected.get("partial"):
+            _assert_partial_tls_signature(sig, expected, allow_tls_permutation)
+        else:
+            expected_sig = TLSClientHelloSignature.from_dict(expected)
+            equals, reason = expected_sig.equals(sig, allow_tls_permutation)
+            assert equals, reason
 
 
 @pytest.mark.asyncio
@@ -420,6 +457,48 @@ async def test_http2_headers(
     assert equals, msg
 
 
+def _http3_transport_parameters(text, auto_ids=()):
+    """Normalize option hex literals and explicitly variable QUIC values."""
+    result = {}
+    for item in text.split(";"):
+        key, separator, value = item.partition(":")
+        if value.startswith("0x"):
+            value = value[2:]
+        if key in auto_ids and value:
+            value = "AUTO"
+        result[key] = value if separator else None
+    return result
+
+
+def _assert_http3_signature(response, expected):
+    actual = response["http3"]
+    if "perk_text_normalized" in expected:
+        assert actual["perk_text_normalized"] == expected["perk_text_normalized"]
+    else:
+        settings, order, transport = actual["perk_text_normalized"].split("|")
+        assert settings == expected["settings"]
+        assert order.replace(",", "") == expected["pseudo_headers_order"]
+        parameters = _http3_transport_parameters(expected["quic_transport_parameters"])
+        auto_ids = {key for key, value in parameters.items() if value == "AUTO"}
+        assert _http3_transport_parameters(transport, auto_ids) == parameters
+
+    for name, value in expected["headers"].items():
+        assert actual["headers"].get(name) == value
+
+    # Option-only profiles do not contain a complete QUIC TLS capture.
+    if "ja3_text" in expected:
+        assert response["tls"]["ja3"]["text"] == expected["ja3_text"]
+    if "signature_algorithms" in expected:
+        signature_algorithms = next(
+            extension
+            for extension in response["tls"]["extensions"]
+            if extension["name"] == "signature_algorithms"
+        )
+        assert signature_algorithms["data"]["algorithms"] == expected[
+            "signature_algorithms"
+        ]
+
+
 @pytest.mark.parametrize(
     "curl_binary, env_vars, ld_preload, profile", HTTP3_CLIENTS
 )
@@ -460,23 +539,7 @@ def test_http3_fingerprint(
             response = json.load(f)
 
     assert "http3" in response, response.get("info", response)
-    assert response["http3"]["perk_text_normalized"] == expected[
-        "perk_text_normalized"
-    ]
-
-    actual_headers = response["http3"]["headers"]
-    for name, value in expected["headers"].items():
-        assert actual_headers.get(name) == value
-
-    assert response["tls"]["ja3"]["text"] == expected["ja3_text"]
-    signature_algorithms = next(
-        extension
-        for extension in response["tls"]["extensions"]
-        if extension["name"] == "signature_algorithms"
-    )
-    assert signature_algorithms["data"]["algorithms"] == expected[
-        "signature_algorithms"
-    ]
+    _assert_http3_signature(response, expected)
 
 
 @pytest.mark.parametrize("proxy_scheme", ["socks5", "socks5h"])
