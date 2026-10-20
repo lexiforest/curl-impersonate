@@ -86,7 +86,7 @@ after HTTP/3 is negotiated; fallback requests use the regular default headers.
 Application headers supplied with ``-H`` or ``CURLOPT_HTTPHEADER`` still override
 the defaults.
 
-Version 2.4.0 fixes an issue where these separate HTTP/3 defaults were ignored.
+Version 2.3.0 fixes an issue where these separate HTTP/3 defaults were ignored.
 This affected ``chrome152``, ``chrome152_macos``, and ``safari270_ios``, whose
 HTTP/3 headers differ from their regular defaults.
 

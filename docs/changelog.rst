@@ -1,10 +1,10 @@
 Changelog
 *********
 
-2.4.0
+2.3.0
 =====
 
-curl-impersonate 2.4.0 is based on curl 8.23.0. Downloads for published releases
+curl-impersonate 2.3.0 is based on curl 8.23.0. Downloads for published releases
 are available on the
 `releases page <https://github.com/lexiforest/curl-impersonate/releases>`_.
 

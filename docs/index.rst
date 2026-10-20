@@ -26,7 +26,7 @@ curl-impersonate (lexiforest's fork)
    This documentation covers `lexiforest's fork <https://github.com/lexiforest/curl-impersonate>`_
    of curl-impersonate.
 
-This documentation covers curl-impersonate 2.4.0, based on curl 8.23.0.
+This documentation covers curl-impersonate 2.3.0, based on curl 8.23.0.
 See :doc:`changelog` for recent changes and the
 `releases page <https://github.com/lexiforest/curl-impersonate/releases>`_ for
 published releases and downloads.
