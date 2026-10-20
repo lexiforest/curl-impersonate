@@ -108,14 +108,25 @@ def test_tls_mismatch_is_rejected(profile, tls_capture, field):
         )
 
 
-def test_http3_normalization_and_mismatch(profile):
+@pytest.mark.parametrize("suffix", ["", "|20,8"])
+def test_http3_normalization_and_mismatch(profile, suffix):
     expected = generator.render_http3_signature(profile["fingerprint"], 32)
     actual = {"http3": {
-        "perk_text_normalized": "1:65536;7:100;GREASE|m,a,s,p|4:15728640;15:abcd;12584:4f524947;GREASE",
+        "perk_text_normalized": "1:65536;7:100;GREASE|m,a,s,p|4:15728640;15:abcd;12584:4f524947;GREASE" + suffix,
         "headers": {"user-agent": "example-h3"},
     }}
     _assert_http3_signature(actual, expected)
     actual["http3"]["perk_text_normalized"] = actual["http3"]["perk_text_normalized"].replace("4:15728640", "4:1")
+    with pytest.raises(AssertionError):
+        _assert_http3_signature(actual, expected)
+
+
+def test_http3_full_capture_checks_trailing_fields():
+    fingerprint = "1:65536|m,a,s,p|15:AUTO|20,8"
+    expected = {"perk_text_normalized": fingerprint, "headers": {}}
+    actual = {"http3": {"perk_text_normalized": fingerprint, "headers": {}}}
+    _assert_http3_signature(actual, expected)
+    actual["http3"]["perk_text_normalized"] = fingerprint.replace("|20,8", "|8,8")
     with pytest.raises(AssertionError):
         _assert_http3_signature(actual, expected)
 

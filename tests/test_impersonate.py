@@ -475,7 +475,10 @@ def _assert_http3_signature(response, expected):
     if "perk_text_normalized" in expected:
         assert actual["perk_text_normalized"] == expected["perk_text_normalized"]
     else:
-        settings, order, transport = actual["perk_text_normalized"].split("|")
+        # The endpoint may append fields absent from option-derived expectations.
+        parts = actual["perk_text_normalized"].split("|", 3)
+        assert len(parts) >= 3, "HTTP/3 fingerprint must contain settings, order and transport parameters"
+        settings, order, transport = parts[:3]
         assert settings == expected["settings"]
         assert order.replace(",", "") == expected["pseudo_headers_order"]
         parameters = _http3_transport_parameters(expected["quic_transport_parameters"])
