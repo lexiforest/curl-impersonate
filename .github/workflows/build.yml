@@ -119,6 +119,30 @@ jobs:
             host: armv7a-linux-androideabi
             host_label: armv7-linux-android
             make: make
+          - os: ubuntu-latest
+            platform: mingw-w64
+            arch: x86_64
+            host: x86_64-windows-mingw-w64
+            host_label: x86_64-windows-mingw-w64
+            make: make
+          - os: ubuntu-latest
+            platform: mingw-w64
+            arch: i686
+            host: i686-windows-mingw-w64
+            host_label: i686-windows-mingw-w64
+            make: make
+          - os: ubuntu-latest
+            platform: mingw-w64
+            arch: aarch64
+            host: aarch64-windows-mingw-w64
+            host_label: aarch64-windows-mingw-w64
+            make: make
+          - os: ubuntu-latest
+            platform: mingw-w64
+            arch: armv7
+            host: armv7-windows-mingw-w64
+            host_label: armv7-windows-mingw-w64
+            make: make
           - os: macos-14
             platform: ios
             arch: arm64
@@ -197,6 +221,11 @@ jobs:
           echo "CFLAGS=-fPIC" >> $GITHUB_ENV
           echo "CXXFLAGS=-fPIC" >> $GITHUB_ENV
 
+      - name: Set MinGW-w64 toolchain env
+        if: matrix.platform == 'mingw-w64'
+        run: |
+          echo "MINGW_ROOT=/opt/llvm-mingw" >> $GITHUB_ENV
+
       - name: Set iOS toolchain env
         if: matrix.platform == 'ios'
         run: |
@@ -226,8 +255,16 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install build-essential pkg-config cmake ninja-build curl qemu-user libc6-i386-cross
+          sudo apt-get install build-essential pkg-config cmake ninja-build curl xz-utils qemu-user libc6-i386-cross
           sudo apt-get install gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf gcc-riscv64-linux-gnu gcc-14-loongarch64-linux-gnu
+          if [[ "${{ matrix.platform }}" == "mingw-w64" ]]; then
+            llvm_mingw="llvm-mingw-20261020-ucrt-ubuntu-22.04-x86_64.tar.xz"
+            llvm_mingw_checksum="55064b60b991a1e1e8090b8c2f84e82b22cfe5903d12c159d65064cf5e8ae335"
+            curl -fsSLO "https://github.com/mstorsjo/llvm-mingw/releases/download/20261020/$llvm_mingw"
+            printf "%s  %s\n" $llvm_mingw_checksum $llvm_mingw | sha256sum -c -
+            sudo mkdir -p /opt/llvm-mingw
+            sudo tar -xJf $llvm_mingw --strip-components=1 -C /opt/llvm-mingw
+          fi
 
       - name: Install macOS dependencies
         if: runner.os == 'macOS'
@@ -264,8 +301,13 @@ jobs:
           if [[ "${{ matrix.platform }}" == "linux" ]]; then
             ${{ matrix.make }} prepare-libidn2 BUILD_DIR=build
           fi
-          ${{ matrix.make }} configure BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$cmake_args"
-          ${{ matrix.make }} build BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$cmake_args"
+          if [[ "${{ matrix.platform }}" == "mingw-w64" ]]; then
+            ./scripts/mingw.sh configure --toolchain=clang --arch="${{ matrix.arch }}"
+            ./scripts/mingw.sh build --toolchain=clang --arch="${{ matrix.arch }}"
+          else
+            ${{ matrix.make }} configure BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$cmake_args"
+            ${{ matrix.make }} build BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$cmake_args"
+          fi
           if [[ "${{ matrix.platform }}" == "linux" || "${{ matrix.platform }}" == "macos" ]]; then
             curl_runner=""
             if [[ "${{ matrix.platform }}" == "linux" ]]; then
@@ -295,6 +337,8 @@ jobs:
           fi
           if [[ "${{ runner.os }}" == "Linux" && "${{ endsWith(matrix.host, 'musl') }}" == "true" ]]; then
             ${{ matrix.make }} install BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$cmake_args"
+          elif [[ "${{ matrix.platform }}" == "mingw-w64" ]]; then
+            ./scripts/mingw.sh install-strip --toolchain=clang --arch="${{ matrix.arch }}"
           else
             ${{ matrix.make }} install-strip BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$cmake_args"
           fi
@@ -312,77 +356,79 @@ jobs:
             license_files="$license_files LICENSE_LIBIDN2_GPL2 LICENSE_LIBIDN2_GPL3 LICENSE_LIBIDN2_LGPL3 LICENSE_LIBIDN2_UNICODE"
           fi
 
-          if [[ "${{ matrix.platform }}" != "android" ]]; then
-            cp "$deps_lib_dir/libcares.a" "$install_lib_dir/"
-          fi
-          cp "$deps_lib_dir/libz.a" "$install_lib_dir/"
-          cp "$deps_lib_dir/libzstd.a" "$install_lib_dir/"
-          cp "$deps_lib_dir/libbrotlidec.a" "$install_lib_dir/"
-          cp "$deps_lib_dir/libbrotlicommon.a" "$install_lib_dir/"
-          cp "$deps_lib_dir/libbrotlienc.a" "$install_lib_dir/"
-          cp "$deps_lib_dir/libnghttp2.a" "$install_lib_dir/"
-          cp "$deps_lib_dir/libnghttp3.a" "$install_lib_dir/"
-          cp "$deps_lib_dir/libngtcp2.a" "$install_lib_dir/"
-          cp "$deps_lib_dir/libngtcp2_crypto_boringssl.a" "$install_lib_dir/"
-          cp "$deps_lib_dir/libssl.a" "$install_lib_dir/"
-          cp "$deps_lib_dir/libcrypto.a" "$install_lib_dir/"
-          if [[ -f "$deps_lib_dir/libidn2.a" ]]; then
-            cp "$deps_lib_dir/libidn2.a" "$install_lib_dir/"
-          fi
+          if [[ "${{ matrix.platform }}" != "mingw-w64" ]]; then
+            if [[ "${{ matrix.platform }}" != "android" ]]; then
+              cp "$deps_lib_dir/libcares.a" "$install_lib_dir/"
+            fi
+            cp "$deps_lib_dir/libz.a" "$install_lib_dir/"
+            cp "$deps_lib_dir/libzstd.a" "$install_lib_dir/"
+            cp "$deps_lib_dir/libbrotlidec.a" "$install_lib_dir/"
+            cp "$deps_lib_dir/libbrotlicommon.a" "$install_lib_dir/"
+            cp "$deps_lib_dir/libbrotlienc.a" "$install_lib_dir/"
+            cp "$deps_lib_dir/libnghttp2.a" "$install_lib_dir/"
+            cp "$deps_lib_dir/libnghttp3.a" "$install_lib_dir/"
+            cp "$deps_lib_dir/libngtcp2.a" "$install_lib_dir/"
+            cp "$deps_lib_dir/libngtcp2_crypto_boringssl.a" "$install_lib_dir/"
+            cp "$deps_lib_dir/libssl.a" "$install_lib_dir/"
+            cp "$deps_lib_dir/libcrypto.a" "$install_lib_dir/"
+            if [[ -f "$deps_lib_dir/libidn2.a" ]]; then
+              cp "$deps_lib_dir/libidn2.a" "$install_lib_dir/"
+            fi
 
-          cd "$install_lib_dir"
-          mv libcurl-impersonate.a libcurl-impersonate.orig.a
-          lib_list="libcurl-impersonate.orig.a libz.a libzstd.a libbrotlidec.a libbrotlicommon.a libbrotlienc.a libnghttp2.a libnghttp3.a libngtcp2.a libngtcp2_crypto_boringssl.a libssl.a libcrypto.a"
-          if [[ "${{ matrix.platform }}" != "android" ]]; then
-            lib_list="$lib_list libcares.a"
-          fi
-          if [[ -f libidn2.a ]]; then
-            lib_list="$lib_list libidn2.a"
-          fi
-          if [[ "${{ matrix.platform }}" == "macos" ]]; then
-            cmake \
-              "-DINPUT_PC=${{ github.workspace }}/build/deps/build/curl/libcurl.pc" \
-              "-DDEPENDENCY_PREFIX=${{ github.workspace }}/build/deps/install" \
-              "-DLIBRARY_DIR=$install_lib_dir" \
-              "-DARCHIVES=${lib_list// /;}" \
-              -P "${{ github.workspace }}/cmake/ReleasePkgConfig.cmake"
-          fi
-          if [[ "${{ runner.os }}" == "macOS" || "${{ matrix.platform }}" == "ios" ]]; then
-            libtool -static -o libcurl-impersonate.a $lib_list
-          elif [[ "${{ matrix.platform }}" == "linux" ]]; then
-            # Zig omits its implicit C++ runtime for relocatable links. Ask it
-            # for the target-specific runtime archives, then merge only the
-            # members needed by BoringSSL into the release archive.
-            cxx_link="$($CXX -### -shared -o libcurl-impersonate.runtime-probe.so libcurl-impersonate.orig.a 2>&1)"
-            libcxx="$(printf '%s\n' "$cxx_link" | grep -oE '/[^[:space:]]+/libc\+\+\.a' | head -n 1)"
-            libcxxabi="$(printf '%s\n' "$cxx_link" | grep -oE '/[^[:space:]]+/libc\+\+abi\.a' | head -n 1)"
-            libunwind="$(printf '%s\n' "$cxx_link" | grep -oE '/[^[:space:]]+/libunwind\.a' | head -n 1)"
-            if [[ ! -f "$libcxx" || ! -f "$libcxxabi" || ! -f "$libunwind" ]]; then
-              echo "Unable to locate Zig's target-specific C++ runtime archives" >&2
-              echo "$cxx_link" >&2
-              exit 1
+            cd "$install_lib_dir"
+            mv libcurl-impersonate.a libcurl-impersonate.orig.a
+            lib_list="libcurl-impersonate.orig.a libz.a libzstd.a libbrotlidec.a libbrotlicommon.a libbrotlienc.a libnghttp2.a libnghttp3.a libngtcp2.a libngtcp2_crypto_boringssl.a libssl.a libcrypto.a"
+            if [[ "${{ matrix.platform }}" != "android" ]]; then
+              lib_list="$lib_list libcares.a"
             fi
-            $CC -r -o libcurl-impersonate.full.o \
-              -Wl,--whole-archive $lib_list -Wl,--no-whole-archive \
-              -Wl,--start-group "$libcxx" "$libcxxabi" "$libunwind" -Wl,--end-group
-            $AR rcs libcurl-impersonate.a libcurl-impersonate.full.o
-            rm -f libcurl-impersonate.full.o
-          else
-            $CC -r -o libcurl-impersonate.full.o -Wl,--whole-archive $lib_list -Wl,--no-whole-archive
-            ar rcs libcurl-impersonate.a libcurl-impersonate.full.o
-            rm -f libcurl-impersonate.full.o
-          fi
-          if [[ "${{ matrix.platform }}" == "linux" ]]; then
-            unresolved_cxx="$(nm -u libcurl-impersonate.a | grep -E '[[:space:]]U (_Z|__cxa|__gxx|_Unwind)' || true)"
-            if [[ -n "$unresolved_cxx" ]]; then
-              echo "Unresolved C++ runtime symbols in libcurl-impersonate.a:" >&2
-              echo "$unresolved_cxx" >&2
-              exit 1
+            if [[ -f libidn2.a ]]; then
+              lib_list="$lib_list libidn2.a"
             fi
+            if [[ "${{ matrix.platform }}" == "macos" ]]; then
+              cmake \
+                "-DINPUT_PC=${{ github.workspace }}/build/deps/build/curl/libcurl.pc" \
+                "-DDEPENDENCY_PREFIX=${{ github.workspace }}/build/deps/install" \
+                "-DLIBRARY_DIR=$install_lib_dir" \
+                "-DARCHIVES=${lib_list// /;}" \
+                -P "${{ github.workspace }}/cmake/ReleasePkgConfig.cmake"
+            fi
+            if [[ "${{ runner.os }}" == "macOS" || "${{ matrix.platform }}" == "ios" ]]; then
+              libtool -static -o libcurl-impersonate.a $lib_list
+            elif [[ "${{ matrix.platform }}" == "linux" ]]; then
+              # Zig omits its implicit C++ runtime for relocatable links. Ask it
+              # for the target-specific runtime archives, then merge only the
+              # members needed by BoringSSL into the release archive.
+              cxx_link="$($CXX -### -shared -o libcurl-impersonate.runtime-probe.so libcurl-impersonate.orig.a 2>&1)"
+              libcxx="$(printf '%s\n' "$cxx_link" | grep -oE '/[^[:space:]]+/libc\+\+\.a' | head -n 1)"
+              libcxxabi="$(printf '%s\n' "$cxx_link" | grep -oE '/[^[:space:]]+/libc\+\+abi\.a' | head -n 1)"
+              libunwind="$(printf '%s\n' "$cxx_link" | grep -oE '/[^[:space:]]+/libunwind\.a' | head -n 1)"
+              if [[ ! -f "$libcxx" || ! -f "$libcxxabi" || ! -f "$libunwind" ]]; then
+                echo "Unable to locate Zig's target-specific C++ runtime archives" >&2
+                echo "$cxx_link" >&2
+                exit 1
+              fi
+              $CC -r -o libcurl-impersonate.full.o \
+                -Wl,--whole-archive $lib_list -Wl,--no-whole-archive \
+                -Wl,--start-group "$libcxx" "$libcxxabi" "$libunwind" -Wl,--end-group
+              $AR rcs libcurl-impersonate.a libcurl-impersonate.full.o
+              rm -f libcurl-impersonate.full.o
+            else
+              $CC -r -o libcurl-impersonate.full.o -Wl,--whole-archive $lib_list -Wl,--no-whole-archive
+              ar rcs libcurl-impersonate.a libcurl-impersonate.full.o
+              rm -f libcurl-impersonate.full.o
+            fi
+            if [[ "${{ matrix.platform }}" == "linux" ]]; then
+              unresolved_cxx="$(nm -u libcurl-impersonate.a | grep -E '[[:space:]]U (_Z|__cxa|__gxx|_Unwind)' || true)"
+              if [[ -n "$unresolved_cxx" ]]; then
+                echo "Unresolved C++ runtime symbols in libcurl-impersonate.a:" >&2
+                echo "$unresolved_cxx" >&2
+                exit 1
+              fi
+            fi
+            rm -f libcares.a libz.a libzstd.a libbrotlidec.a libbrotlicommon.a libbrotlienc.a libnghttp2.a libnghttp3.a libngtcp2.a libngtcp2_crypto_boringssl.a libssl.a libcrypto.a libidn2.a
+            rm -f libcurl-impersonate.orig.a
+            ls -lah .
           fi
-          rm -f libcares.a libz.a libzstd.a libbrotlidec.a libbrotlicommon.a libbrotlienc.a libnghttp2.a libnghttp3.a libngtcp2.a libngtcp2_crypto_boringssl.a libssl.a libcrypto.a libidn2.a
-          rm -f libcurl-impersonate.orig.a
-          ls -lah .
           if [[ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]]; then
             release_file_lib="${{ runner.temp }}/libcurl-impersonate-${{ github.ref_name }}.${{ matrix.host_label }}.tar.gz"
           else
