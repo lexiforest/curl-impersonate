@@ -58,14 +58,6 @@ jobs:
         shell: cmd
         run: choco install nasm make -y
 
-      - name: Install Ninja for Win-ARM64
-        shell: pwsh
-        if: matrix.runner == 'windows-11-arm'
-        run: |
-          Invoke-WebRequest https://github.com/ninja-build/ninja/releases/download/v1.13.1/ninja-winarm64.zip -OutFile ninja-winarm64.zip
-          Expand-Archive ninja-winarm64.zip -DestinationPath ninja
-          Copy-Item ninja\ninja.exe -Destination "C:\Windows\System32"
-
       # - name: Setup tmate session for debugging
       #   uses: mxschmitt/action-tmate@v3
 
