@@ -36,8 +36,8 @@ set(NGTCP2_VERSION "1.20.0")
 set(NGTCP2_URL_HASH "SHA256=871ec97ad86803cf312901b0c393b0ee70163e25a87c9b2894d1234341ce4e97")
 set(NGHTTP3_VERSION "1.15.0")
 set(NGHTTP3_URL_HASH "SHA256=c6c491a52804814098e446630e6efc459afc0d3da7952ffe6cbdc0b3f99b2b62")
-set(ZLIB_VERSION "1.3.1")
-set(ZLIB_URL_HASH "SHA256=9a93b2b7dfdac77ceba5a558a580e74667dd6fede4585b91eefb60f03b72df23")
+set(ZLIB_VERSION "1.3.2")
+set(ZLIB_URL_HASH "SHA256=bb329a0a2cd0274d05519d61c667c062e06990d72e125ee2dfa8de64f0119d16")
 set(ZSTD_VERSION "1.5.7")
 set(ZSTD_URL_HASH "SHA256=eb33e51f49a15e023950cd7825ca74a4a2b43db8354825ac24fc1b7ee09e6fa3")
 set(CARES_VERSION "1.34.9")
@@ -269,8 +269,8 @@ ExternalProject_Add(zlib
   CMAKE_ARGS
     ${_common_cmake_args}
     -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
-    -DBUILD_SHARED_LIBS=OFF
-    -DZLIB_BUILD_EXAMPLES=OFF
+    -DZLIB_BUILD_SHARED=OFF
+    -DZLIB_BUILD_TESTING=OFF
   BUILD_COMMAND ${CMAKE_COMMAND} --build <BINARY_DIR> --config Release --parallel ${SUBJOBS}
 )
 
@@ -537,10 +537,10 @@ endif()
 
 if(MSVC OR (CMAKE_C_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC"
     OR CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC"))
-  set(_curl_zlib_library "${DEPS_INSTALL_DIR}/lib/zlibstatic.lib")
+  set(_curl_zlib_library "${DEPS_INSTALL_DIR}/lib/zs.lib")
   set(_curl_zstd_library "${DEPS_INSTALL_DIR}/lib/zstd_static.lib")
 elseif(MINGW)
-  set(_curl_zlib_library "${DEPS_INSTALL_DIR}/lib/libzlibstatic.a")
+  set(_curl_zlib_library "${DEPS_INSTALL_DIR}/lib/libzs.a")
   set(_curl_zstd_library "${DEPS_INSTALL_DIR}/lib/libzstd.a")
 else()
   set(_curl_zlib_library "${DEPS_INSTALL_DIR}/lib/libz.a")
