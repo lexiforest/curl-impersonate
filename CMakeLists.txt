@@ -260,12 +260,14 @@ ExternalProject_Add(cares
 )
 
 # zlib
+_track_external_project_patch(zlib _zlib_patch_file _zlib_patch_changed)
 ExternalProject_Add(zlib
   URL "${ZLIB_URL}"
   URL_HASH "${ZLIB_URL_HASH}"
   SOURCE_DIR "${DEPS_SRC_DIR}/zlib"
   BINARY_DIR "${DEPS_BUILD_DIR}/zlib"
   INSTALL_DIR "${DEPS_INSTALL_DIR}"
+  PATCH_COMMAND ${PATCH_EXE} -p1 -i "${_zlib_patch_file}"
   CMAKE_ARGS
     ${_common_cmake_args}
     -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
