@@ -83,6 +83,13 @@ jobs:
             make: make
           - os: ubuntu-latest
             platform: linux
+            arch: arm
+            host: arm-linux-gnueabi
+            host_label: arm-linux-gnueabi
+            zigflags: -target arm-linux-gnueabi
+            make: make
+          - os: ubuntu-latest
+            platform: linux
             arch: riscv64
             host: riscv64-linux-gnu
             host_label: riscv64-linux-gnu
@@ -227,7 +234,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install build-essential pkg-config cmake ninja-build curl qemu-user libc6-i386-cross
-          sudo apt-get install gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf gcc-riscv64-linux-gnu gcc-14-loongarch64-linux-gnu
+          sudo apt-get install gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf gcc-arm-linux-gnueabi gcc-riscv64-linux-gnu gcc-14-loongarch64-linux-gnu
 
       - name: Install macOS dependencies
         if: runner.os == 'macOS'
@@ -241,6 +248,12 @@ jobs:
           set -e
           install_dir="${{ runner.temp }}/install"
           mkdir -p "$install_dir"
+
+          if [[ "${{ matrix.host }}" == "arm-linux-gnueabi" ]]; then
+            LDFLAGS="$("${{ github.workspace }}/zigshim/atomics/arm_linux_gnueabi_prepare.sh")"
+            export LDFLAGS
+            echo "LDFLAGS=$LDFLAGS" >> $GITHUB_ENV
+          fi
 
           cmake_args="-G Ninja -DCMAKE_INSTALL_PREFIX=$install_dir"
           if [[ "${{ matrix.platform }}" == "linux" ]]; then
