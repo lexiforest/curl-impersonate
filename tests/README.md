@@ -39,6 +39,22 @@ docker run --rm curl-impersonate-tests
 ```
 This simply runs `pytest` in the container. You can pass additional flags to `pytest` such as `--log-cli-level DEBUG`.
 
+### Windows fingerprint smoke test
+
+The Windows build workflow checks the Chrome 152 TLS ClientHello on x86_64,
+i686, and ARM64 against `signatures/chrome152.yaml`. It captures the TLS record
+with a loopback socket, so it needs no packet sniffer, administrator privileges,
+or external service. This smoke test covers TLS only; the full Linux suite
+continues to check HTTP/2 and HTTP/3 as well.
+
+Run it against an installed build on any supported platform:
+
+```sh
+python -m pip install -r tests/requirements.txt
+cd tests
+python -m pytest test_impersonate.py::test_tls_client_hello_smoke --install-dir <install-prefix> -v
+```
+
 ### WebSocket smoke tests
 
 Run just the WebSocket tests against an installed build on Linux or macOS:

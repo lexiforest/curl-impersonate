@@ -69,6 +69,13 @@ jobs:
         shell: bash
         run: make checkbuild CURL_BIN=packages/bin/curl-impersonate.exe
 
+      - name: Install fingerprint test dependencies
+        run: python -m pip install -r tests/requirements.txt
+
+      - name: Smoke-test Chrome 152 TLS fingerprint
+        working-directory: tests
+        run: python -m pytest test_impersonate.py::test_tls_client_hello_smoke --install-dir ../packages -v
+
       - name: Build tarballs
         shell: bash
         run: |
