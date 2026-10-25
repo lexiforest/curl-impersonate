@@ -334,6 +334,68 @@ index d99dffe126..8eb5e22250 100644
  
  distclean:
  	rm -f $(CLEANFILES)
+diff --git a/docs/SSLCERTS.md b/docs/SSLCERTS.md
+index d5110e18f0..510261f739 100644
+--- a/docs/SSLCERTS.md
++++ b/docs/SSLCERTS.md
+@@ -119,6 +119,26 @@ Any custom security rules for certificates are honored.
+ 
+ Schannel runs CRL checks on certificates unless peer verification is disabled.
+ 
++### Windows + BoringSSL (this fork)
++
++With native CA verification enabled, this fork uses Windows' certificate chain
++engine and SSL policy while BoringSSL handles TLS. Windows' Disallowed
++certificate trust list is enforced. This applies to TCP TLS, HTTPS proxies and
++HTTP/3. The Windows packaging build enables native CA verification by default
++when no explicit CA source is supplied.
++
++To combine native verification with an explicit CA file:
++
++    curl --ca-native --cacert mycerts.pem https://example.com
++
++An explicit CA can extend trust but cannot override Windows distrust or other
++certificate policy failures. Windows must build a valid path through either a
++native trust anchor or the explicit anchor accepted by BoringSSL. Hostname,
++issuer and pinned-key checks still apply.
++
++This does not enable online CRL or OCSP checks. Explicit CRL files continue to
++be checked by BoringSSL, in addition to Windows native verification.
++
+ ### Apple + OpenSSL/GnuTLS
+ 
+ When curl is built with Apple SecTrust enabled and uses an OpenSSL compatible
+@@ -145,7 +165,8 @@ the native CA on a range of operating systems. Some provide this only on specifi
+ configurations.
+ 
+ Specific support in curl exists for Windows and OpenSSL compatible TLS backends.
+-It tries to load the certificates from the Windows "CA" and "ROOT" stores for
++Except for BoringSSL in this fork, it loads certificates from the Windows
++"CA" and "ROOT" stores for
+ transfers requesting the native CA. Due to Window's delayed population of those
+ stores, this might not always find all certificates.
+ 
+diff --git a/docs/cmdline-opts/ca-native.md b/docs/cmdline-opts/ca-native.md
+index 67fdf8c3ac..373c069c6c 100644
+--- a/docs/cmdline-opts/ca-native.md
++++ b/docs/cmdline-opts/ca-native.md
+@@ -28,6 +28,16 @@ This option works with OpenSSL and its forks (BoringSSL, LibreSSL, etc) on
+ Windows (Added in 7.71.0) and on Apple OS when libcurl is built with
+ Apple SecTrust enabled. (Added in 8.17.0)
+ 
++In this fork, BoringSSL on Windows uses Windows certificate chain verification
++when native CA verification is enabled. This enforces Windows' Disallowed
++certificate trust list as well as server-authentication policy. Additional CA
++files, paths and blobs can extend trust, but cannot override Windows distrust
++or other certificate policy failures. Hostname and pinned-key checks still
++apply.
++
++This does not enable online CRL or OCSP checks. Explicit --crlfile checks
++continue to be performed by BoringSSL alongside Windows native verification.
++
+ This option works with wolfSSL on Windows, Linux (Debian, Ubuntu, Gentoo,
+ Fedora, RHEL), macOS, Android and iOS. (Added in 8.3.0)
+ 
 diff --git a/docs/libcurl/curl_easy_getinfo.md b/docs/libcurl/curl_easy_getinfo.md
 index 6fc5555b38..fcd0c3adf4 100644
 --- a/docs/libcurl/curl_easy_getinfo.md
@@ -443,6 +505,24 @@ index 0000000000..c1429c6c01
 +
 +CURLE_OK (0) means everything was OK, non-zero means an error occurred, see
 +libcurl-errors(3).
+diff --git a/docs/libcurl/opts/CURLOPT_SSL_OPTIONS.md b/docs/libcurl/opts/CURLOPT_SSL_OPTIONS.md
+index ccbb4895ef..af5ceff942 100644
+--- a/docs/libcurl/opts/CURLOPT_SSL_OPTIONS.md
++++ b/docs/libcurl/opts/CURLOPT_SSL_OPTIONS.md
+@@ -80,6 +80,13 @@ Works with wolfSSL on Windows, Linux (Debian, Fedora, Gentoo, RHEL, Ubuntu),
+ macOS, Android and iOS (added in 8.3.0); with GnuTLS (added in 8.5.0) and with
+ OpenSSL and its forks (BoringSSL, LibreSSL, etc) on Windows (Added in 7.71.0).
+ 
++In this fork, BoringSSL on Windows delegates chain verification to Windows,
++including its Disallowed certificate trust list and server-authentication
++policy. Additional CA sources can extend trust but cannot override Windows
++distrust or other certificate policy failures. This does not enable online CRL
++or OCSP checks. Explicit CURLOPT_CRLFILE(3) checks continue to be performed by
++BoringSSL alongside Windows native verification.
++
+ This works with Rustls on Windows, macOS, Android and iOS. On Linux it is
+ equivalent to using the Mozilla CA certificate bundle. When used with Rustls
+ _only_ the native CA store is consulted, not other locations set at run time or
 diff --git a/docs/libcurl/opts/Makefile.inc b/docs/libcurl/opts/Makefile.inc
 index f0dc077a94..3b8a60e62f 100644
 --- a/docs/libcurl/opts/Makefile.inc
@@ -9801,7 +9881,7 @@ index fbca4b84b8..894adb38c8 100644
    return CURLE_OK;
  }
 diff --git a/lib/vtls/openssl.c b/lib/vtls/openssl.c
-index 7bb7a8c50e..9173c49c7c 100644
+index 7bb7a8c50e..c919415f1a 100644
 --- a/lib/vtls/openssl.c
 +++ b/lib/vtls/openssl.c
 @@ -37,6 +37,7 @@
@@ -9812,7 +9892,18 @@ index 7bb7a8c50e..9173c49c7c 100644
  #include "vtls/vtls.h"
  #include "vtls/vtls_int.h"
  #include "vtls/vtls_scache.h"
-@@ -68,9 +69,25 @@
+@@ -52,6 +53,10 @@
+ #include "vdns/cf-dns.h"
+ #include "vdns/httpsrr.h"
+ #include "vtls/apple.h"
++#if defined(USE_WIN32_CRYPTO) && defined(OPENSSL_IS_BORINGSSL)
++#include <wininet.h>
++#define USE_WIN32_NATIVE_VERIFY
++#endif
+ #ifdef USE_ECH
+ #include "curlx/base64.h"
+ #endif
+@@ -68,9 +73,25 @@
  #include <openssl/rsa.h>
  #include <openssl/bio.h>
  #include <openssl/pkcs12.h>
@@ -9838,7 +9929,7 @@ index 7bb7a8c50e..9173c49c7c 100644
  #if defined(HAVE_SSL_SET1_ECH_CONFIG_LIST) && !defined(HAVE_BORINGSSL_LIKE)
  #include <openssl/ech.h>
  #endif
-@@ -165,6 +182,117 @@
+@@ -165,6 +186,117 @@
  
  #ifdef HAVE_BORINGSSL_LIKE
  typedef size_t numcert_t;
@@ -9956,7 +10047,7 @@ index 7bb7a8c50e..9173c49c7c 100644
  typedef uint32_t sslerr_t;
  #else
  typedef int numcert_t;
-@@ -2443,6 +2571,191 @@ static const char *tls_rt_type(int type)
+@@ -2443,6 +2575,191 @@ static const char *tls_rt_type(int type)
    }
  }
  
@@ -10148,7 +10239,234 @@ index 7bb7a8c50e..9173c49c7c 100644
  /*
   * Our callback from the SSL/TLS layers.
   */
-@@ -3493,11 +3806,37 @@ static CURLcode ossl_init_ech(struct ossl_ctx *octx,
+@@ -2981,6 +3298,192 @@ static CURLcode ossl_windows_load_anchors(struct Curl_cfilter *cf,
+   return result;
+ }
+ 
++#ifdef USE_WIN32_NATIVE_VERIFY
++
++static bool ossl_win_add_cert(HCERTSTORE store, X509 *cert,
++                              PCCERT_CONTEXT *context)
++{
++  unsigned char *der = NULL;
++  int len = i2d_X509(cert, &der);
++  BOOL added = FALSE;
++
++  if(len > 0)
++    added = CertAddEncodedCertificateToStore(store, X509_ASN_ENCODING,
++                                              der, (DWORD)len,
++                                              CERT_STORE_ADD_USE_EXISTING,
++                                              context);
++  else
++    SetLastError(ERROR_INVALID_DATA);
++  OPENSSL_free(der);
++  return added != FALSE;
++}
++
++/* Keep BoringSSL for the handshake, but use Windows chain policy, including
++ * the Disallowed CTL. An explicit CA may extend trust, never override a
++ * Windows distrust or other certificate policy failure. */
++static int ossl_win_verify(X509_STORE_CTX *store_ctx, void *arg)
++{
++  struct Curl_cfilter *cf = arg;
++  struct Curl_easy *data = CF_DATA_CURRENT(cf);
++  struct ssl_filter_config *config = Curl_ssl_cf_get_filter_config(cf);
++  SSL *ssl = X509_STORE_CTX_get_ex_data(store_ctx,
++                                       SSL_get_ex_data_X509_STORE_CTX_idx());
++  X509 *leaf = X509_STORE_CTX_get0_cert(store_ctx);
++  STACK_OF(X509) *certs = X509_STORE_CTX_get0_untrusted(store_ctx);
++  HCERTSTORE store = NULL;
++  PCCERT_CONTEXT server = NULL;
++  PCCERT_CONTEXT anchor = NULL;
++  PCCERT_CHAIN_CONTEXT chain = NULL;
++  CERT_CHAIN_PARA chain_para;
++  CERT_CHAIN_POLICY_PARA policy_para;
++  CERT_CHAIN_POLICY_STATUS policy_status;
++  SSL_EXTRA_CERT_CHAIN_POLICY_PARA ssl_para;
++  LPSTR usage = CURL_UNCONST(szOID_PKIX_KP_SERVER_AUTH);
++  DWORD error = 0;
++  int verify_error = X509_V_ERR_APPLICATION_VERIFICATION;
++  int explicit_trust;
++  bool have_anchor = FALSE;
++  size_t i;
++  const char *ech_name = NULL;
++  size_t ech_name_len = 0;
++
++  if(!data || !leaf || !ssl)
++    goto out;
++
++  /* BoringSSL normally checks the ECH public name through X509_verify_cert.
++   * Preserve that check even when only Windows can establish trust. The
++   * ordinary hostname check remains in Curl_ossl_check_peer_cert(). */
++  SSL_get0_ech_name_override(ssl, &ech_name, &ech_name_len);
++  if(ech_name_len &&
++     X509_check_host(leaf, ech_name, ech_name_len, 0, NULL) != 1) {
++    verify_error = X509_V_ERR_HOSTNAME_MISMATCH;
++    goto out;
++  }
++
++  /* This store contains only caller-supplied CA sources, not imported
++   * Windows anchors. A failed check here does not preclude native trust. */
++  explicit_trust = X509_verify_cert(store_ctx);
++  ERR_clear_error();
++  if(explicit_trust < 0 || (config->CRLfile && explicit_trust != 1)) {
++    /* An explicitly requested CRL check must succeed even when Windows
++     * could independently establish trust. */
++    verify_error = X509_STORE_CTX_get_error(store_ctx);
++    if(verify_error == X509_V_OK)
++      verify_error = X509_V_ERR_APPLICATION_VERIFICATION;
++    goto out;
++  }
++  store = CertOpenStore(CERT_STORE_PROV_MEMORY, 0, 0,
++                        CERT_STORE_CREATE_NEW_FLAG, NULL);
++  if(!store || !ossl_win_add_cert(store, leaf, &server))
++    goto win_error;
++
++  for(i = 0; certs && i < sk_X509_num(certs); ++i) {
++    if(!ossl_win_add_cert(store, sk_X509_value(certs, i), NULL))
++      goto win_error;
++  }
++  if(explicit_trust == 1) {
++    /* Include issuers found in CA files/paths as untrusted candidates for
++     * Windows, so its policy also checks the explicitly trusted chain. */
++    certs = X509_STORE_CTX_get0_chain(store_ctx);
++    for(i = 0; certs && i < sk_X509_num(certs); ++i) {
++      PCCERT_CONTEXT *context =
++        (i + 1 == sk_X509_num(certs)) ? &anchor : NULL;
++      if(!ossl_win_add_cert(store, sk_X509_value(certs, i), context))
++        goto win_error;
++    }
++  }
++
++  memset(&chain_para, 0, sizeof(chain_para));
++  chain_para.cbSize = sizeof(chain_para);
++  chain_para.RequestedUsage.dwType = USAGE_MATCH_TYPE_AND;
++  chain_para.RequestedUsage.Usage.cUsageIdentifier = 1;
++  chain_para.RequestedUsage.Usage.rgpszUsageIdentifier = &usage;
++  /* Windows checks explicit distrust without online CRL/OCSP checking. */
++  if(!CertGetCertificateChain(NULL, server, NULL, store, &chain_para,
++                              0, NULL, &chain))
++    goto win_error;
++
++  /* Never let supplemental anchors bypass explicit distrust. */
++  if(chain->TrustStatus.dwErrorStatus & CERT_TRUST_IS_EXPLICIT_DISTRUST) {
++    error = (DWORD)TRUST_E_EXPLICIT_DISTRUST;
++    verify_error = X509_V_ERR_CERT_REJECTED;
++    goto out;
++  }
++
++  /* Windows may choose a different path. Only extend native trust if that
++   * path actually contains the anchor accepted by BoringSSL; otherwise an
++   * unrelated, untrusted alternate chain could bypass anchor restrictions. */
++  if(anchor && chain->cChain) {
++    PCERT_SIMPLE_CHAIN simple = chain->rgpChain[0];
++    for(i = 0; i < simple->cElement; ++i) {
++      PCCERT_CONTEXT cert = simple->rgpElement[i]->pCertContext;
++      if(cert->cbCertEncoded == anchor->cbCertEncoded &&
++         !memcmp(cert->pbCertEncoded, anchor->pbCertEncoded,
++                 anchor->cbCertEncoded)) {
++        have_anchor = TRUE;
++        break;
++      }
++    }
++  }
++
++  memset(&ssl_para, 0, sizeof(ssl_para));
++  ssl_para.cbSize = sizeof(ssl_para);
++  ssl_para.dwAuthType = AUTHTYPE_SERVER;
++  ssl_para.fdwChecks = SECURITY_FLAG_IGNORE_CERT_CN_INVALID;
++  memset(&policy_para, 0, sizeof(policy_para));
++  policy_para.cbSize = sizeof(policy_para);
++  policy_para.pvExtraPolicyPara = &ssl_para;
++  if(have_anchor)
++    policy_para.dwFlags |= CERT_CHAIN_POLICY_ALLOW_UNKNOWN_CA_FLAG;
++  memset(&policy_status, 0, sizeof(policy_status));
++  policy_status.cbSize = sizeof(policy_status);
++  if(!CertVerifyCertificateChainPolicy(CERT_CHAIN_POLICY_SSL, chain,
++                                       &policy_para, &policy_status))
++    goto win_error;
++
++  error = policy_status.dwError;
++  switch(error) {
++  case 0:
++    verify_error = X509_V_OK;
++    break;
++  case (DWORD)CERT_E_REVOKED:
++    verify_error = X509_V_ERR_CERT_REVOKED;
++    break;
++  case (DWORD)CERT_E_EXPIRED:
++    verify_error = X509_V_ERR_CERT_HAS_EXPIRED;
++    break;
++  case (DWORD)CERT_E_UNTRUSTEDROOT:
++  case (DWORD)CERT_E_CHAINING:
++    verify_error = X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT_LOCALLY;
++    break;
++  case (DWORD)CERT_E_WRONG_USAGE:
++    verify_error = X509_V_ERR_INVALID_PURPOSE;
++    break;
++  }
++  goto out;
++
++win_error:
++  error = GetLastError();
++out:
++  if(data) {
++    struct ssl_easy_config *ssl_config = Curl_ssl_cf_get_easy_config(cf, data);
++    ssl_config->certverifyresult = verify_error;
++  }
++  if(data && error)
++    failf(data, "SSL: Windows certificate verification failed: 0x%08lx",
++          (unsigned long)error);
++  if(chain)
++    CertFreeCertificateChain(chain);
++  if(server)
++    CertFreeCertificateContext(server);
++  if(anchor)
++    CertFreeCertificateContext(anchor);
++  if(store)
++    CertCloseStore(store, 0);
++  X509_STORE_CTX_set_error(store_ctx, verify_error);
++  return verify_error == X509_V_OK;
++}
++#endif /* USE_WIN32_NATIVE_VERIFY */
+ #endif /* USE_WIN32_CRYPTO */
+ 
+ static CURLcode ossl_load_trust_anchors(struct Curl_cfilter *cf,
+@@ -2998,7 +3501,19 @@ static CURLcode ossl_load_trust_anchors(struct Curl_cfilter *cf,
+ 
+   octx->store_is_empty = TRUE;
+   if(conn_config->native_ca_store) {
+-#ifdef USE_WIN32_CRYPTO
++#ifdef USE_WIN32_NATIVE_VERIFY
++    infof(data, "  Native: Windows certificate chain policy");
++    have_native_check = TRUE;
++    if(conn_config->CRLfile) {
++      bool added = FALSE;
++      /* Preserve the existing BoringSSL verification of explicit CRL files
++       * using the Windows anchors. Windows policy is still checked too. */
++      result = ossl_windows_load_anchors(cf, data, store, &added);
++      if(result)
++        return result;
++      octx->store_is_empty = !added;
++    }
++#elif defined(USE_WIN32_CRYPTO)
+     bool added = FALSE;
+     result = ossl_windows_load_anchors(cf, data, store, &added);
+     if(result)
+@@ -3079,7 +3594,11 @@ static CURLcode ossl_load_trust_anchors(struct Curl_cfilter *cf,
+   }
+ 
+ #ifdef CURL_CA_FALLBACK
+-  if(octx->store_is_empty) {
++  if(octx->store_is_empty
++#ifdef USE_WIN32_NATIVE_VERIFY
++     && !conn_config->native_ca_store
++#endif
++    ) {
+     /* verifying the peer without any CA certificates does not
+        work so use OpenSSL's built-in default as fallback */
+     X509_STORE_set_default_paths(store);
+@@ -3493,11 +4012,37 @@ static CURLcode ossl_init_ech(struct ossl_ctx *octx,
  {
    struct ssl_filter_config *conn_config = Curl_ssl_cf_get_filter_config(cf);
    int trying_ech_now = 0;
@@ -10187,7 +10505,7 @@ index 7bb7a8c50e..9173c49c7c 100644
      infof(data, "ECH: will GREASE ClientHello");
  #ifdef HAVE_BORINGSSL_LIKE
      SSL_set_enable_ech_grease(octx->ssl, 1);
-@@ -3505,7 +3844,8 @@ static CURLcode ossl_init_ech(struct ossl_ctx *octx,
+@@ -3505,7 +4050,8 @@ static CURLcode ossl_init_ech(struct ossl_ctx *octx,
      SSL_set_options(octx->ssl, SSL_OP_ECH_GREASE);
  #endif
    }
@@ -10197,7 +10515,7 @@ index 7bb7a8c50e..9173c49c7c 100644
  #ifdef HAVE_BORINGSSL_LIKE
      uint8_t *ech_config;
      size_t ech_config_len = 0;
-@@ -3551,7 +3891,7 @@ static CURLcode ossl_init_ech(struct ossl_ctx *octx,
+@@ -3551,7 +4097,7 @@ static CURLcode ossl_init_ech(struct ossl_ctx *octx,
  #endif /* HAVE_BORINGSSL_LIKE */
      infof(data, "ECH: ECHConfig from command line");
    }
@@ -10206,7 +10524,7 @@ index 7bb7a8c50e..9173c49c7c 100644
      const struct Curl_https_rrinfo *rinfo =
        Curl_conn_dns_get_https(data, cf->sockindex, peer->origin);
  
-@@ -3598,11 +3938,18 @@ static CURLcode ossl_init_ech(struct ossl_ctx *octx,
+@@ -3598,11 +4144,18 @@ static CURLcode ossl_init_ech(struct ossl_ctx *octx,
      }
    }
  #endif /* HAVE_BORINGSSL_LIKE */
@@ -10227,7 +10545,7 @@ index 7bb7a8c50e..9173c49c7c 100644
  
    return CURLE_OK;
  }
-@@ -3616,6 +3963,11 @@ static CURLcode ossl_init_ssl(struct ossl_ctx *octx,
+@@ -3616,6 +4169,11 @@ static CURLcode ossl_init_ssl(struct ossl_ctx *octx,
                                void *ssl_user_data,
                                Curl_ossl_init_session_reuse_cb *sess_reuse_cb)
  {
@@ -10239,7 +10557,7 @@ index 7bb7a8c50e..9173c49c7c 100644
    /* Let's make an SSL structure */
    if(octx->ssl)
      SSL_free(octx->ssl);
-@@ -3627,6 +3979,34 @@ static CURLcode ossl_init_ssl(struct ossl_ctx *octx,
+@@ -3627,6 +4185,34 @@ static CURLcode ossl_init_ssl(struct ossl_ctx *octx,
  
    SSL_set_app_data(octx->ssl, ssl_user_data);
  
@@ -10274,7 +10592,7 @@ index 7bb7a8c50e..9173c49c7c 100644
  #ifndef OPENSSL_NO_OCSP
    if(Curl_ssl_cf_get_filter_config(cf)->verifystatus)
      SSL_set_tlsext_status_type(octx->ssl, TLSEXT_STATUSTYPE_ocsp);
-@@ -3706,6 +4086,120 @@ static CURLcode ossl_init_method(struct Curl_cfilter *cf,
+@@ -3706,6 +4292,120 @@ static CURLcode ossl_init_method(struct Curl_cfilter *cf,
    return *pmethod ? CURLE_OK : CURLE_SSL_CONNECT_ERROR;
  }
  
@@ -10395,7 +10713,7 @@ index 7bb7a8c50e..9173c49c7c 100644
  CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
                              struct Curl_cfilter *cf,
                              struct Curl_easy *data,
-@@ -3810,7 +4304,15 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
+@@ -3810,7 +4510,15 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
       workarounds. In order to keep the secure workaround, the
       SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS bit must not be set. */
  
@@ -10412,7 +10730,7 @@ index 7bb7a8c50e..9173c49c7c 100644
  
    /* mitigate CVE-2010-4180 */
    ctx_options &= ~(ctx_option_t)SSL_OP_NETSCAPE_REUSE_CIPHER_CHANGE_BUG;
-@@ -3866,10 +4368,29 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
+@@ -3866,10 +4574,29 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
    /* We do retry writes sometimes from another buffer address */
    SSL_CTX_set_mode(octx->ssl_ctx, SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
  
@@ -10442,7 +10760,7 @@ index 7bb7a8c50e..9173c49c7c 100644
      if(!SSL_CTX_set_cipher_list(octx->ssl_ctx, ciphers)) {
        failf(data, "failed setting cipher list: %s", ciphers);
        return CURLE_SSL_CIPHER;
-@@ -3910,7 +4431,8 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
+@@ -3910,7 +4637,8 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
  #endif
  
    {
@@ -10452,7 +10770,7 @@ index 7bb7a8c50e..9173c49c7c 100644
      if(curves) {
  #ifdef HAVE_BORINGSSL_LIKE
  #define OSSL_CURVE_CAST(x) (x)
-@@ -3924,10 +4446,12 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
+@@ -3924,10 +4652,12 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
      }
    }
  
@@ -10467,7 +10785,7 @@ index 7bb7a8c50e..9173c49c7c 100644
      if(signature_algorithms) {
        if(!SSL_CTX_set1_sigalgs_list(octx->ssl_ctx,
                                      OSSL_SIGALG_CAST(signature_algorithms))) {
-@@ -3939,6 +4463,104 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
+@@ -3939,11 +4669,121 @@ CURLcode Curl_ossl_ctx_init(struct ossl_ctx *octx,
    }
  #endif
  
@@ -10572,7 +10890,24 @@ index 7bb7a8c50e..9173c49c7c 100644
    /* OpenSSL always tries to verify the peer. By setting the failure mode
     * to NONE, we allow the connect to complete, regardless of the outcome.
     * We then explicitly check the result and may try alternatives like
-@@ -4148,6 +4770,40 @@ static int ossl_trace_ech_retry_configs(struct Curl_cfilter *cf,
+    * Apple's SecTrust for verification. */
+   SSL_CTX_set_verify(octx->ssl_ctx, SSL_VERIFY_NONE, NULL);
++#ifdef USE_WIN32_NATIVE_VERIFY
++  if(conn_config->native_ca_store && conn_config->verifypeer) {
++    /* Set up explicit CA sources before the verification callback can run,
++     * including for QUIC. Native trust itself stays in the Windows engine. */
++    result = Curl_ssl_setup_x509_store(cf, data, octx);
++    if(result)
++      return result;
++    octx->x509_store_setup = TRUE;
++    SSL_CTX_set_verify(octx->ssl_ctx, SSL_VERIFY_PEER, NULL);
++    SSL_CTX_set_cert_verify_callback(octx->ssl_ctx, ossl_win_verify, cf);
++  }
++#endif
+ 
+   /* Enable logging of secrets to the file specified in env SSLKEYLOGFILE. */
+ #if !defined(HAVE_KEYLOG_UPSTREAM) && defined(HAVE_KEYLOG_CALLBACK)
+@@ -4148,6 +4988,40 @@ static int ossl_trace_ech_retry_configs(struct Curl_cfilter *cf,
    return rv;
  }
  
@@ -10613,7 +10948,7 @@ index 7bb7a8c50e..9173c49c7c 100644
  #endif
  
  static CURLcode ossl_connect_step2(struct Curl_cfilter *cf,
-@@ -4274,6 +4930,13 @@ static CURLcode ossl_connect_step2(struct Curl_cfilter *cf,
+@@ -4274,6 +5148,13 @@ static CURLcode ossl_connect_step2(struct Curl_cfilter *cf,
          /* trace retry_configs if we got some */
          ossl_trace_ech_retry_configs(cf, data, octx->ssl, reason);
  
@@ -10627,7 +10962,7 @@ index 7bb7a8c50e..9173c49c7c 100644
          result = CURLE_ECH_REQUIRED;
          failf(data, "ECH: rejected, %s",
                ossl_strerror(errdetail, error_buffer, sizeof(error_buffer)));
-@@ -4281,8 +4944,10 @@ static CURLcode ossl_connect_step2(struct Curl_cfilter *cf,
+@@ -4281,8 +5162,10 @@ static CURLcode ossl_connect_step2(struct Curl_cfilter *cf,
  #endif
        else {
          result = CURLE_SSL_CONNECT_ERROR;
@@ -10640,7 +10975,7 @@ index 7bb7a8c50e..9173c49c7c 100644
        }
  
        /* detail is already set to the SSL error above */
-@@ -4295,10 +4960,20 @@ static CURLcode ossl_connect_step2(struct Curl_cfilter *cf,
+@@ -4295,10 +5178,20 @@ static CURLcode ossl_connect_step2(struct Curl_cfilter *cf,
          char extramsg[80] = "";
          int sockerr = SOCKERRNO;
  
@@ -10664,7 +10999,7 @@ index 7bb7a8c50e..9173c49c7c 100644
                connssl->peer.origin->hostname, connssl->peer.origin->port);
        }
  
-@@ -4310,6 +4985,22 @@ static CURLcode ossl_connect_step2(struct Curl_cfilter *cf,
+@@ -4310,6 +5203,22 @@ static CURLcode ossl_connect_step2(struct Curl_cfilter *cf,
      connssl->connecting_state = ssl_connect_3;
      Curl_ossl_report_handshake(data, octx);
  
@@ -10687,7 +11022,24 @@ index 7bb7a8c50e..9173c49c7c 100644
  #if defined(HAVE_SSL_SET1_ECH_CONFIG_LIST) && !defined(HAVE_BORINGSSL_LIKE)
      if(Curl_ssl_ech_enabled(cf)) {
        struct ssl_filter_config *conn_config =
-@@ -5065,6 +5756,16 @@ static CURLcode ossl_connect(struct Curl_cfilter *cf,
+@@ -4831,8 +5740,14 @@ CURLcode Curl_ossl_check_peer_cert(struct Curl_cfilter *cf,
+   infof(data, "OpenSSL verify result: %lx", (unsigned long)ossl_verify);
+ 
+   verified = (ossl_verify == X509_V_OK);
+-  if(verified)
+-    infof(data, "SSL certificate verified via OpenSSL.");
++  if(verified) {
++#ifdef USE_WIN32_NATIVE_VERIFY
++    if(conn_config->native_ca_store && conn_config->verifypeer)
++      infof(data, "SSL certificate verified via Windows chain policy.");
++    else
++#endif
++      infof(data, "SSL certificate verified via OpenSSL.");
++  }
+ 
+ #ifdef USE_APPLE_SECTRUST
+   if(!verified && conn_config->verifypeer && conn_config->native_ca_store) {
+@@ -5065,6 +5980,16 @@ static CURLcode ossl_connect(struct Curl_cfilter *cf,
  
  out:
    if(result == CURLE_AGAIN) {

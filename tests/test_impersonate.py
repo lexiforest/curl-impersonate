@@ -316,6 +316,58 @@ def _assert_partial_tls_signature(sig, expected, allow_tls_permutation):
             )
 
 
+def test_tls_client_hello_smoke(pytestconfig, browser_signatures):
+    """Check one recent profile over loopback without a packet sniffer."""
+    profile = "chrome152"
+    binary = "curl-impersonate.exe" if sys.platform == "win32" else "curl-impersonate"
+    curl_binary = pathlib.Path(pytestconfig.getoption("install_dir")) / "bin" / binary
+    expected = browser_signatures[profile]["signature"]
+
+    with socket.socket() as server:
+        server.bind(("127.0.0.1", 0))
+        server.listen(1)
+        server.settimeout(10)
+        port = server.getsockname()[1]
+        # Keep a hostname in the URL so the ClientHello includes SNI.
+        args = [
+            str(curl_binary.resolve()),
+            "--disable",
+            "--impersonate", profile,
+            "--noproxy", "*",
+            "--resolve", f"fingerprint.test:{port}:127.0.0.1",
+            "--connect-timeout", "5",
+            "--max-time", "10",
+            f"https://fingerprint.test:{port}/",
+        ]
+        with subprocess.Popen(
+            args, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE
+        ) as curl:
+            try:
+                conn, _ = server.accept()
+                with conn:
+                    conn.settimeout(5)
+                    with conn.makefile("rb") as stream:
+                        header = stream.read(5)
+                        assert len(header) == 5, "Missing TLS record header"
+                        length = int.from_bytes(header[3:5], "big")
+                        body = stream.read(length)
+                        assert len(body) == length, "Incomplete TLS ClientHello"
+            finally:
+                if curl.poll() is None:
+                    curl.kill()
+                _, stderr = curl.communicate(timeout=5)
+                logging.debug("Loopback curl stderr: %s", stderr.decode(errors="replace"))
+
+    # The server intentionally closes after ClientHello; no TLS handshake or
+    # HTTP request completes, so curl's exit code isn't a success criterion.
+    sig = TLSClientHelloSignature.from_bytes(header + body)
+    _assert_partial_tls_signature(
+        sig,
+        expected["tls_client_hello"],
+        expected.get("options", {}).get("tls_permute_extensions", False),
+    )
+
+
 @pytest.mark.parametrize(
     "curl_binary, env_vars, ld_preload, expected_signature",
     CURL_BINARIES_AND_SIGNATURES,
