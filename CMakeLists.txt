@@ -657,6 +657,8 @@ ExternalProject_Add(curl
       -DCMAKE_POSITION_INDEPENDENT_CODE=ON
       ${_curl_staged_dependency_args}
       ${_curl_use_pkgconfig_flag}
+      -DCMAKE_PROJECT_CURL_INCLUDE=${CMAKE_SOURCE_DIR}/cmake/WebCrypto.cmake
+      -DBORINGSSL_WEBCRYPTO_SOURCE_DIR=${BORINGSSL_SRC_DIR}
       -DCURL_USE_OPENSSL=ON
       -DCURL_ENABLE_SSL=ON
       -DCURL_IMPERSONATE_VERSION=${_curl_impersonate_version}
@@ -751,6 +753,10 @@ install(
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
   FILES_MATCHING
     PATTERN "*.h"
+)
+install(
+  FILES "${BORINGSSL_INCLUDE_DIR}/openssl/webcrypto.h"
+  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/curl-impersonate"
 )
 # Keep static dependencies private so they do not replace system libraries.
 install(
