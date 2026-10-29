@@ -1,0 +1,21 @@
+cmake_minimum_required(VERSION 3.20)
+project(webcrypto_consumer LANGUAGES CXX)
+
+# Use the pinned BoringSSL checkout's bundled GoogleTest, without fetching it.
+if(NOT IS_DIRECTORY "${BORINGSSL_SOURCE_DIR}/third_party/googletest")
+  message(FATAL_ERROR "Set BORINGSSL_SOURCE_DIR to the built dependency source")
+endif()
+if(NOT EXISTS "${CURL_LIBRARY}")
+  message(FATAL_ERROR "Set CURL_LIBRARY to the shared library or release archive")
+endif()
+add_subdirectory("${BORINGSSL_SOURCE_DIR}/third_party/googletest"
+  googletest EXCLUDE_FROM_ALL)
+add_executable(webcrypto_test webcrypto_test.cc)
+target_compile_features(webcrypto_test PRIVATE cxx_std_17)
+target_include_directories(webcrypto_test PRIVATE "${SDK_INCLUDE_DIR}")
+if(CURL_LIBRARY MATCHES "\\.a$")
+  target_compile_definitions(webcrypto_test PRIVATE BSSL_WEBCRYPTO_STATIC)
+endif()
+target_link_libraries(webcrypto_test PRIVATE "${CURL_LIBRARY}" GTest::gtest_main)
+enable_testing()
+add_test(NAME webcrypto_consumer COMMAND webcrypto_test)
