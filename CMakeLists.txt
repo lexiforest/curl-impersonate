@@ -748,6 +748,25 @@ else()
       PATTERN "libcurl-impersonate*.dylib*"
   )
 endif()
+# cmake --install --strip only strips install(TARGETS) artifacts; these come
+# from the curl sub-build via install(PROGRAMS)/install(DIRECTORY).
+if(CMAKE_STRIP AND NOT WIN32 AND NOT APPLE)
+  install(CODE "
+    if(CMAKE_INSTALL_DO_STRIP)
+      file(GLOB _strip_files
+        \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}/curl-impersonate\"
+        \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/libcurl-impersonate*.so*\")
+      foreach(_file IN LISTS _strip_files)
+        if(NOT IS_SYMLINK \"\${_file}\")
+          execute_process(COMMAND \"${CMAKE_STRIP}\" \"\${_file}\" RESULT_VARIABLE _strip_result)
+          if(NOT _strip_result EQUAL 0)
+            message(WARNING \"Failed to strip \${_file}\")
+          endif()
+        endif()
+      endforeach()
+    endif()
+  ")
+endif()
 install(
   DIRECTORY "${DEPS_SRC_DIR}/curl/include/curl"
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
