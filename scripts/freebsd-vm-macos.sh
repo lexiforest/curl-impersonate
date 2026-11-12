@@ -174,7 +174,6 @@ growpart:
   mode: auto
 package_update: true
 packages:
-  - pkgconf
   - cmake
   - ninja
   - curl
