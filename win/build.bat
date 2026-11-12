@@ -9,6 +9,12 @@ if "%~1"=="" (
   set "VCVARS_BAT=%~1"
 )
 
+if "%~1"=="vcvars32" (
+  set "CMAKE_EXTRA_ARGS=-DCMAKE_C_COMPILER_TARGET=i686-pc-windows-msvc -DCMAKE_CXX_COMPILER_TARGET=i686-pc-windows-msvc"
+) else if "%~1"=="vcvarsamd64_x86" (
+  set "CMAKE_EXTRA_ARGS=-DCMAKE_C_COMPILER_TARGET=i686-pc-windows-msvc -DCMAKE_CXX_COMPILER_TARGET=i686-pc-windows-msvc"
+)
+
 set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
 
 for /f "usebackq tokens=*" %%i in (`"%VSWHERE%" -latest -products * -requiresAny -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -requires Microsoft.VisualStudio.Component.VC.Tools.ARM64 -property installationPath`) do (
@@ -36,7 +42,7 @@ cmake -S . -B "%BUILD_DIR%" -GNinja ^
   -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded ^
   -DCMAKE_C_COMPILER=clang-cl.exe ^
   -DCMAKE_CXX_COMPILER=clang-cl.exe ^
-  -DCMAKE_LINKER=link.exe || exit /b 1
+  -DCMAKE_LINKER=link.exe %CMAKE_EXTRA_ARGS% || exit /b 1
 
 cmake --build "%BUILD_DIR%" --config %CONFIGURATION% --target install-all || exit /b 1
 
