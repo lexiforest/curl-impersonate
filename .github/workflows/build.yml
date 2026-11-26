@@ -259,6 +259,9 @@ jobs:
           if [[ "${{ matrix.platform }}" == "linux" ]]; then
             cmake_args="$cmake_args -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=${{ matrix.arch }}"
             cmake_args="$cmake_args -DCURL_CA_PATH=/etc/ssl/certs -DCURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt"
+            if command -v "${{ matrix.host }}-strip" >/dev/null; then
+              cmake_args="$cmake_args -DCMAKE_STRIP=$(command -v "${{ matrix.host }}-strip")"
+            fi
           elif [[ "${{ matrix.platform }}" == "android" ]]; then
             case "${{ matrix.arch }}" in
               aarch64) android_abi="arm64-v8a" ;;
