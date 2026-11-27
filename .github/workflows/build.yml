@@ -81,9 +81,23 @@ jobs:
           - os: ubuntu-latest
             platform: linux
             arch: arm
+            host: arm-linux-musleabihf
+            host_label: arm-linux-musleabihf
+            zigflags: -target arm-linux-musleabihf -fPIC
+            make: make
+          - os: ubuntu-latest
+            platform: linux
+            arch: arm
             host: arm-linux-gnueabi
             host_label: arm-linux-gnueabi
             zigflags: -target arm-linux-gnueabi
+          - os: ubuntu-latest
+            platform: linux
+            arch: arm
+            host: arm-linux-musleabi
+            host_label: arm-linux-musleabi
+            zigflags: -target arm-linux-musleabi -fPIC
+            make: make
           - os: ubuntu-latest
             platform: linux
             arch: riscv64
