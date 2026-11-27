@@ -379,7 +379,7 @@ jobs:
   build-apple-native:
     needs: apple-changes
     if: needs.apple-changes.outputs.changed == 'true'
-    name: (${{ matrix.host_label }}) Build curl-impersonate
+    name: (arm64-macos) Build curl-impersonate
     # Fork pull requests use a fresh Mac without NoMac's persistent disk.
     runs-on: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && 'nomac' || 'nomac-cache' }}
     concurrency: *build-concurrency
@@ -486,7 +486,8 @@ jobs:
 
   build-apple-release:
     if: startsWith(github.ref, 'refs/tags/')
-    name: (${{ matrix.host_label }}) Build curl-impersonate
+    # Skipped jobs are named before their matrix is expanded.
+    name: Build Apple release artifacts
     runs-on: nomac
     concurrency: *build-concurrency
     strategy:

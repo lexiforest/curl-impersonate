@@ -17,6 +17,9 @@ Full signature captures supplied in the JSON take precedence; packet lengths
 and record versions are not inferred from curl options.
 Use --remove TARGET (repeatable) to remove presets and their generated
 wrappers, target-named signatures and test registry entries without JSON input.
+Chrome, Edge, Firefox and Tor presets use HTTP/1 header spelling; HTTP/2
+and HTTP/3 signatures stay lowercase. Other clients and unknown header
+names retain their input spelling in presets.
 Patch export is left to the caller.
 CSV files contain profile,target pairs with an optional profile,target header.
 """
@@ -115,18 +118,44 @@ def c_string(value):
     return result + '"'
 
 
-def headers(values, order, limit):
+# H2 captures lose the spelling needed by the shared HTTP/1 preset defaults.
+# Use explicit names instead of title-casing acronyms or custom headers.
+HTTP1_HEADER_NAMES = {name.lower(): name for name in (
+    "Accept", "Accept-Encoding", "Accept-Language", "Authorization",
+    "Cache-Control", "Connection", "Content-Length", "Content-Type", "Cookie",
+    "DNT", "Host", "Origin", "Pragma", "Priority", "Referer", "Sec-Fetch-Dest",
+    "Sec-Fetch-Mode", "Sec-Fetch-Site", "Sec-Fetch-Storage-Access",
+    "Sec-Fetch-User", "Sec-GPC", "TE", "Upgrade-Insecure-Requests", "User-Agent",
+)}
+
+
+def headers(values, order, limit, name_overrides=None):
+    name_overrides = name_overrides or {}
     values = {key.lower(): value for key, value in values.items()}
     names = list(dict.fromkeys(
         [key.strip().lower() for key in (order or "").split(",") if key.strip()]
         + list(values)
     ))
     # An empty cookie in the capture is a placeholder, not a default header.
-    result = [f"{key}: {values[key]}" for key in names
+    result = [f"{name_overrides.get(key, key)}: {values[key]}" for key in names
               if key in values and not (key == "cookie" and values[key] == "")]
     if len(result) > limit:
         raise ValueError(f"too many headers ({len(result)} > {limit})")
     return result
+
+
+def preset_headers(fp, limit):
+    """Restore known browser H1 names without changing protocol signatures."""
+    values = fp.get("headers", {})
+    names = {name.lower(): name for name in values}
+    client = fp.get("client", "").lower()
+    if client in ("chrome", "edge", "firefox", "tor"):
+        for key in names:
+            if client in ("chrome", "edge") and key.startswith("sec-ch-"):
+                names[key] = key
+            elif key in HTTP1_HEADER_NAMES:
+                names[key] = HTTP1_HEADER_NAMES[key]
+    return headers(values, fp.get("header_order"), limit, name_overrides=names)
 
 
 def render_preset(profile, target, limit):
@@ -201,7 +230,7 @@ def render_preset(profile, target, limit):
         if value is None:
             value = fp.get(f"http2_priority_{suffix}")
         emit(key, value if value is not None else 0)
-    emit("http_headers", headers(fp.get("headers", {}), fp.get("header_order"), limit))
+    emit("http_headers", preset_headers(fp, limit))
     if "http3_headers" in fp:
         emit("http3_headers", headers(fp["http3_headers"], fp.get("http3_header_order"), limit))
     lines.append("  }")

@@ -284,3 +284,52 @@ def test_csv_batch_cli(tmp_path, profile):
     result = subprocess.run(command, capture_output=True, text=True)
     assert result.returncode == 1 and "unknown profile" in result.stderr
     assert snapshot() == before
+
+
+@pytest.mark.parametrize("client", ["chrome", "edge", "firefox", "tor"])
+def test_preset_header_case_keeps_protocol_signatures_lowercase(profile, client):
+    fp = profile["fingerprint"]
+    fp.update(client=client, http_version="v2", tls_version="1.2")
+    fp["headers"] = {
+        "user-agent": "Example UA", "accept": "text/html", "sec-fetch-site": "none",
+        "te": "trailers", "sec-gpc": "1", "X-Custom-ID": "Keep Case", "cookie": "",
+    }
+    fp["header_order"] = "ACCEPT,user-agent,accept,sec-fetch-site,te,sec-gpc"
+    preset = generator.render_preset(profile, "custom_alias", 32)
+    assert '"Accept: text/html"' in preset
+    assert '"User-Agent: Example UA"' in preset
+    assert '"Sec-Fetch-Site: none"' in preset
+    assert '"TE: trailers"' in preset
+    assert '"Sec-GPC: 1"' in preset
+    assert '"X-Custom-ID: Keep Case"' in preset
+    assert preset.count('"Accept: text/html"') == 1
+    assert preset.index('"Accept:') < preset.index('"User-Agent:')
+    assert '"Cookie: "' not in preset
+    signature = generator.render_signature(profile, "custom_alias", 32)["signature"]
+    assert signature["http2"]["frames"][-1]["headers"] == [
+        "accept: text/html", "user-agent: Example UA", "sec-fetch-site: none",
+        "te: trailers", "sec-gpc: 1", "x-custom-id: Keep Case",
+    ]
+    assert signature["http3"]["headers"] == {"user-agent": "example-h3"}
+    assert '.http3_headers = {\n      "user-agent: example-h3",' in preset
+
+
+@pytest.mark.parametrize("client", ["chrome", "edge"])
+def test_chromium_preset_keeps_client_hints_lowercase(profile, client):
+    fp = profile["fingerprint"]
+    fp.update(client=client, headers={
+        "Sec-CH-UA": "Brands", "SEC-CH-UA-MOBILE": "?0",
+        "sec-ch-ua-platform": "Windows", "upgrade-insecure-requests": "1",
+    })
+    assert generator.preset_headers(fp, 32) == [
+        "sec-ch-ua: Brands", "sec-ch-ua-mobile: ?0",
+        "sec-ch-ua-platform: Windows", "Upgrade-Insecure-Requests: 1",
+    ]
+
+
+@pytest.mark.parametrize("client", ["safari", "okhttp", "example"])
+def test_other_clients_preserve_input_header_spelling(profile, client):
+    fp = profile["fingerprint"]
+    fp.update(client=client, headers={"user-agent": "UA", "Accept": "*/*"},
+              header_order="accept,USER-AGENT")
+    assert generator.preset_headers(fp, 32) == ["Accept: */*", "user-agent: UA"]
