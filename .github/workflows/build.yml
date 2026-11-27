@@ -35,6 +35,9 @@ jobs:
   build:
     name: (${{ matrix.host_label }}) Build curl-impersonate
     runs-on: ${{ matrix.os }}
+    concurrency: &build-concurrency
+      group: build-unix-${{ github.ref }}-${{ matrix.host_label }}
+      cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
     strategy:
       fail-fast: false
       matrix:
@@ -45,133 +48,84 @@ jobs:
             host: x86_64-linux-gnu
             host_label: x86_64-linux-gnu
             zigflags: -target x86_64-linux-gnu.2.17.0
-            make: make
           - os: ubuntu-latest
             platform: linux
             arch: x86_64
             host: x86_64-linux-musl
             host_label: x86_64-linux-musl
             zigflags: -target x86_64-linux-musl -fPIC
-            make: make
           - os: ubuntu-latest
             platform: linux
             arch: i386
             host: i386-linux-gnu
             host_label: i386-linux-gnu
             zigflags: -target x86-linux-gnu.2.17.0
-            make: make
           - os: ubuntu-latest
             platform: linux
             arch: aarch64
             host: aarch64-linux-gnu
             host_label: aarch64-linux-gnu
             zigflags: -target aarch64-linux-gnu.2.17.0
-            make: make
           - os: ubuntu-latest
             platform: linux
             arch: aarch64
             host: aarch64-linux-musl
             host_label: aarch64-linux-musl
             zigflags: -target aarch64-linux-musl -fPIC -mno-outline-atomics
-            make: make
           - os: ubuntu-latest
             platform: linux
             arch: arm
             host: arm-linux-gnueabihf
             host_label: arm-linux-gnueabihf
             zigflags: -target arm-linux-gnueabihf.2.17.0 -mcpu=arm1176jzf_s
-            make: make
           - os: ubuntu-latest
             platform: linux
             arch: arm
             host: arm-linux-gnueabi
             host_label: arm-linux-gnueabi
             zigflags: -target arm-linux-gnueabi
-            make: make
           - os: ubuntu-latest
             platform: linux
             arch: riscv64
             host: riscv64-linux-gnu
             host_label: riscv64-linux-gnu
             zigflags: -target riscv64-linux-gnu.2.27.0
-            make: make
           - os: ubuntu-latest
             platform: linux
             arch: riscv64
             host: riscv64-linux-musl
             host_label: riscv64-linux-musl
             zigflags: -target riscv64-linux-musl -fPIC
-            make: make
           - os: ubuntu-latest
             platform: linux
             arch: loongarch64
             host: loongarch64-linux-gnu
             host_label: loongarch64-linux-gnu
             zigflags: -target loongarch64-linux-gnu.2.36.0 -fPIC
-            make: make
           - os: ubuntu-latest
             platform: android
             arch: aarch64
             host: aarch64-linux-android
             host_label: aarch64-linux-android
-            make: make
           - os: ubuntu-latest
             platform: android
             arch: x86_64
             host: x86_64-linux-android
             host_label: x86_64-linux-android
-            make: make
           - os: ubuntu-latest
             platform: android
             arch: x86
             host: i686-linux-android
             host_label: x86-linux-android
-            make: make
           - os: ubuntu-latest
             platform: android
             arch: armv7
             host: armv7a-linux-androideabi
             host_label: armv7-linux-android
-            make: make
-          - os: macos-26
-            platform: ios
-            arch: arm64
-            host: arm64-apple-ios
-            host_label: arm64-apple-ios
-            ios_sdk: iphoneos
-            ios_min_version: "13.0"
-            make: gmake
-          - os: macos-26
-            platform: ios
-            arch: arm64
-            host: arm64-apple-ios
-            host_label: arm64-apple-ios-simulator
-            ios_sdk: iphonesimulator
-            ios_min_version: "13.0"
-            make: gmake
-          - os: macos-26-intel
-            platform: ios
-            arch: x86_64
-            host: x86_64-apple-ios
-            host_label: x86_64-apple-ios-simulator
-            ios_sdk: iphonesimulator
-            ios_min_version: "13.0"
-            make: gmake
-          - os: macos-26-intel
-            platform: macos
-            arch: x86_64
-            host: x86_64-macos
-            host_label: x86_64-macos
-            make: gmake
-          - os: macos-26
-            platform: macos
-            arch: arm64
-            host: arm64-macos
-            host_label: arm64-macos
-            make: gmake
     steps:
-      - name: Check out the repo
-        uses: actions/checkout@v2
+      - &checkout
+        name: Check out the repo
+        uses: actions/checkout@v4
 
       - name: Set up zig
         if: matrix.platform == 'linux'
@@ -211,31 +165,6 @@ jobs:
           echo "CFLAGS=-fPIC" >> $GITHUB_ENV
           echo "CXXFLAGS=-fPIC" >> $GITHUB_ENV
 
-      - name: Set iOS toolchain env
-        if: matrix.platform == 'ios'
-        run: |
-          SDKROOT="$(xcrun --sdk ${{ matrix.ios_sdk }} --show-sdk-path)"
-          CC="$(xcrun --sdk ${{ matrix.ios_sdk }} --find clang)"
-          CXX="$(xcrun --sdk ${{ matrix.ios_sdk }} --find clang++)"
-          AR="$(xcrun --sdk ${{ matrix.ios_sdk }} --find ar)"
-          RANLIB="$(xcrun --sdk ${{ matrix.ios_sdk }} --find ranlib)"
-          STRIP="$(xcrun --sdk ${{ matrix.ios_sdk }} --find strip)"
-          if [[ "${{ matrix.ios_sdk }}" == "iphoneos" ]]; then
-            min_flag="-miphoneos-version-min=${{ matrix.ios_min_version }}"
-          else
-            min_flag="-mios-simulator-version-min=${{ matrix.ios_min_version }}"
-          fi
-          echo "SDKROOT=$SDKROOT" >> $GITHUB_ENV
-          echo "IOS_MIN_VERSION=${{ matrix.ios_min_version }}" >> $GITHUB_ENV
-          echo "CC=$CC" >> $GITHUB_ENV
-          echo "CXX=$CXX" >> $GITHUB_ENV
-          echo "AR=$AR" >> $GITHUB_ENV
-          echo "RANLIB=$RANLIB" >> $GITHUB_ENV
-          echo "STRIP=$STRIP" >> $GITHUB_ENV
-          echo "CFLAGS=-isysroot $SDKROOT -arch ${{ matrix.arch }} $min_flag -fPIC" >> $GITHUB_ENV
-          echo "CXXFLAGS=-isysroot $SDKROOT -arch ${{ matrix.arch }} $min_flag -fPIC" >> $GITHUB_ENV
-          echo "LDFLAGS=-isysroot $SDKROOT -arch ${{ matrix.arch }} $min_flag" >> $GITHUB_ENV
-
       - name: Install Ubuntu dependencies
         if: runner.os == 'Linux'
         run: |
@@ -243,14 +172,8 @@ jobs:
           sudo apt-get install build-essential pkg-config cmake ninja-build curl qemu-user libc6-i386-cross
           sudo apt-get install gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf gcc-arm-linux-gnueabi gcc-riscv64-linux-gnu gcc-14-loongarch64-linux-gnu
 
-      - name: Install macOS dependencies
-        if: runner.os == 'macOS'
-        run: |
-          brew install pkg-config make cmake ninja
-          # Dependencies for the tests
-          brew install tcpdump curl nghttp2
-
-      - name: Build
+      - &build-target
+        name: Build
         run: |
           set -e
           install_dir="${{ runner.temp }}/install"
@@ -276,17 +199,13 @@ jobs:
             esac
             cmake_args="$cmake_args -DCMAKE_SYSTEM_NAME=Android"
             cmake_args="$cmake_args -DCMAKE_ANDROID_NDK=${ANDROID_NDK_HOME} -DCMAKE_ANDROID_ARCH_ABI=$android_abi -DCMAKE_SYSTEM_VERSION=${API}"
-          elif [[ "${{ matrix.platform }}" == "ios" ]]; then
-            cmake_args="$cmake_args -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_SYSTEM_PROCESSOR=${{ matrix.arch }} -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch }}"
-            cmake_args="$cmake_args -DCMAKE_OSX_SYSROOT=${SDKROOT} -DCMAKE_OSX_DEPLOYMENT_TARGET=${IOS_MIN_VERSION}"
           fi
 
           if [[ "${{ matrix.platform }}" == "linux" ]]; then
-            ${{ matrix.make }} prepare-libidn2 BUILD_DIR=build
+            make prepare-libidn2 BUILD_DIR=build
           fi
-          ${{ matrix.make }} configure BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$cmake_args"
-          ${{ matrix.make }} build BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$cmake_args"
-          if [[ "${{ matrix.platform }}" == "linux" || "${{ matrix.platform }}" == "macos" ]]; then
+          make build BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$cmake_args"
+          if [[ "${{ matrix.platform }}" == "linux" || "${{ matrix.host_label }}" == "arm64-macos" ]]; then
             curl_runner=""
             if [[ "${{ matrix.platform }}" == "linux" ]]; then
               case "${{ matrix.arch }}" in
@@ -302,7 +221,7 @@ jobs:
                 curl_runner="$curl_runner -L /usr/${{ matrix.host }}"
               fi
             fi
-            ${{ matrix.make }} checkbuild BUILD_DIR=build CURL_RUNNER="$curl_runner" CMAKE_CONFIGURE_ARGS="$cmake_args"
+            make checkbuild BUILD_DIR=build CURL_RUNNER="$curl_runner" CMAKE_CONFIGURE_ARGS="$cmake_args"
           elif [[ "${{ matrix.platform }}" == "ios" ]]; then
             if [[ ! -f build/deps/build/curl/src/curl-impersonate.app/curl-impersonate ]]; then
               echo "Missing iOS curl-impersonate artifact: build/deps/build/curl/src/curl-impersonate.app/curl-impersonate" >&2
@@ -313,13 +232,17 @@ jobs:
           else
             echo "Skipping checkbuild for non-native target: ${{ matrix.host_label }}"
           fi
-          if [[ "${{ runner.os }}" == "Linux" && "${{ endsWith(matrix.host, 'musl') }}" == "true" ]]; then
-            ${{ matrix.make }} install BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$cmake_args"
+          if [[ "${{ runner.os }}" == "macOS" ]]; then
+            cmake --install build --strip
+            lipo -verify_arch "${{ matrix.arch }}" "$install_dir/bin/curl-impersonate"
+          elif [[ "${{ runner.os }}" == "Linux" && "${{ endsWith(matrix.host, 'musl') }}" == "true" ]]; then
+            make install BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$cmake_args"
           else
-            ${{ matrix.make }} install-strip BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$cmake_args"
+            make install-strip BUILD_DIR=build CMAKE_CONFIGURE_ARGS="$cmake_args"
           fi
 
-      - name: Create tar release files
+      - &package-target
+        name: Create tar release files
         run: |
           set -e
           install_dir="${{ runner.temp }}/install"
@@ -418,6 +341,117 @@ jobs:
             tar -c -z -f ${{ runner.temp }}/curl-impersonate.${{ matrix.host_label }}.tar.gz curl-impersonate curl_* -C "$license_dir" $license_files
           fi
 
+      - &upload-target
+        name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifacts.${{ matrix.host_label }}
+          compression-level: 0
+          path: |
+            ${{ runner.temp }}/libcurl-impersonate*.tar.gz
+            ${{ runner.temp }}/curl-impersonate*.tar.gz
+
+  apple-changes:
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.diff.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check for Apple build changes
+        id: diff
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          base="$BEFORE"
+          if [[ "$GITHUB_EVENT_NAME" == pull_request ]]; then
+            # The first parent of GitHub's test merge commit is the PR base.
+            base=HEAD^1
+          fi
+          if ! git diff --quiet "$base" HEAD -- CMakeLists.txt Makefile cmake patches src include bin \
+              LICENSE browsers.json scripts/generate_fingerprints.py tests/pkgconfig \
+              .github/workflows/{build,release}.yml .github/apple-toolchain.cmake; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  build-apple-native:
+    needs: apple-changes
+    if: needs.apple-changes.outputs.changed == 'true'
+    name: (${{ matrix.host_label }}) Build curl-impersonate
+    # Fork pull requests use a fresh Mac without NoMac's persistent disk.
+    runs-on: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && 'nomac' || 'nomac-cache' }}
+    concurrency: *build-concurrency
+    strategy:
+      matrix:
+        include:
+          - &native-macos
+            platform: macos
+            sdk: macosx
+            arch: arm64
+            host: arm64-macos
+            host_label: arm64-macos
+    steps: &apple-steps
+      - *checkout
+
+      - name: Prepare Apple build tools
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: '1'
+          HOMEBREW_NO_INSTALL_CLEANUP: '1'
+        run: |
+          missing=()
+          for tool in cmake ninja pkg-config ccache; do
+            command -v "$tool" >/dev/null || missing+=("$tool")
+          done
+          if (( ${#missing[@]} )); then brew install "${missing[@]}"; fi
+          sdk=${{ matrix.sdk }}
+          sdkroot=$(xcrun --sdk "$sdk" --show-sdk-path)
+          sdk_build=$(xcrun --sdk "$sdk" --show-sdk-build-version)
+          xcode_build=$(xcodebuild -version | awk '/Build version/ {print $3}')
+          {
+            echo "APPLE_ARCH=${{ matrix.arch }}"
+            echo "APPLE_SDK=$sdk"
+            if [[ "$sdk" != macosx ]]; then
+              # Xcode 27 libc++ warns about the iOS 13 target. BoringSSL uses -Werror.
+              echo "CXXFLAGS=-Wno-error=cpp"
+              echo "APPLE_MIN_VERSION=13.0"
+            else
+              echo "APPLE_MIN_VERSION=$MACOSX_DEPLOYMENT_TARGET"
+            fi
+            echo "SDKROOT=$sdkroot"
+            echo "CMAKE_TOOLCHAIN_FILE=$GITHUB_WORKSPACE/.github/apple-toolchain.cmake"
+            # Each ExternalProject also runs a parallel build.
+            echo "JOBS=2"
+            echo "CMAKE_C_COMPILER_LAUNCHER=ccache"
+            echo "CMAKE_CXX_COMPILER_LAUNCHER=ccache"
+            echo "CCACHE_DIR=$RUNNER_TEMP/ccache"
+            echo "CCACHE_BASEDIR=$GITHUB_WORKSPACE"
+            echo "CCACHE_COMPILERCHECK=content"
+            echo "CCACHE_MAXSIZE=400M"
+            echo "APPLE_TOOLCHAIN=$xcode_build-$sdk_build"
+          } >> "$GITHUB_ENV"
+
+      - name: Cache verified upstream archives
+        uses: actions/cache@v4
+        with:
+          path: |
+            build/*-prefix/src/*.tar.gz
+            build/*-prefix/src/*.tar.bz2
+            build/*-prefix/src/*.zip
+          key: apple-downloads-v1-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: apple-downloads-v1-
+
+      - name: Cache Apple compiler objects
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/ccache
+          key: apple-ccache-${{ matrix.host_label }}-${{ env.APPLE_TOOLCHAIN }}-${{ hashFiles('CMakeLists.txt', 'cmake/**', 'patches/**', 'include/**', 'src/**', '.github/apple-toolchain.cmake', '.github/workflows/build.yml') }}
+          restore-keys: apple-ccache-${{ matrix.host_label }}-${{ env.APPLE_TOOLCHAIN }}-
+
+      - *build-target
+      - *package-target
+
       - name: Verify macOS release pkg-config
         if: matrix.platform == 'macos'
         run: |
@@ -428,7 +462,9 @@ jobs:
             -DRELEASE_DIR="$release_dir" \
             -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch }}
           cmake --build "$RUNNER_TEMP/pkgconfig-consumer"
-          ctest --test-dir "$RUNNER_TEMP/pkgconfig-consumer" --output-on-failure
+          if [[ "${{ matrix.arch }}" == "$(uname -m)" ]]; then
+            ctest --test-dir "$RUNNER_TEMP/pkgconfig-consumer" --output-on-failure
+          fi
 
       - name: Create iOS XCFramework slice
         if: matrix.platform == 'ios'
@@ -439,13 +475,7 @@ jobs:
           cp ${{ runner.temp }}/install/lib/libcurl-impersonate.a "$slice_dir/lib/"
           cp "${{ github.workspace }}/build/licenses/"LICENSE* "$slice_dir/"
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: artifacts.${{ matrix.host_label }}
-          path: |
-            ${{ runner.temp }}/libcurl-impersonate*.tar.gz
-            ${{ runner.temp }}/curl-impersonate*.tar.gz
+      - *upload-target
 
       - name: Upload iOS slice artifact
         if: matrix.platform == 'ios'
@@ -453,6 +483,38 @@ jobs:
         with:
           name: ios-slice.${{ matrix.host_label }}
           path: ${{ runner.temp }}/ios-slice
+
+  build-apple-release:
+    if: startsWith(github.ref, 'refs/tags/')
+    name: (${{ matrix.host_label }}) Build curl-impersonate
+    runs-on: nomac
+    concurrency: *build-concurrency
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - *native-macos
+          - platform: ios
+            arch: arm64
+            host: arm64-apple-ios
+            host_label: arm64-apple-ios
+            sdk: iphoneos
+          - platform: ios
+            arch: arm64
+            host: arm64-apple-ios
+            host_label: arm64-apple-ios-simulator
+            sdk: iphonesimulator
+          - platform: ios
+            arch: x86_64
+            host: x86_64-apple-ios
+            host_label: x86_64-apple-ios-simulator
+            sdk: iphonesimulator
+          - platform: macos
+            sdk: macosx
+            arch: x86_64
+            host: x86_64-macos
+            host_label: x86_64-macos
+    steps: *apple-steps
 
   build-bsd:
     name: (${{ matrix.host_label }}) Build curl-impersonate
@@ -492,7 +554,7 @@ jobs:
 
       - name: Check out the repo
         if: ${{ !matrix.release_only || startsWith(github.ref, 'refs/tags/') }}
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Start FreeBSD VM
         uses: vmactions/freebsd-vm@v1
@@ -581,8 +643,9 @@ jobs:
 
   ios-xcframework:
     name: (iOS) Create XCFramework
-    runs-on: macos-26
-    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: nomac
+    needs: build-apple-release
     steps:
       - name: Download device slice
         uses: actions/download-artifact@v4
@@ -631,4 +694,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: artifacts.ios-xcframework
+          compression-level: 0
           path: ${{ runner.temp }}/libcurl-impersonate*.ios-xcframework.tar.gz
